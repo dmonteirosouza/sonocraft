@@ -9,6 +9,7 @@ Foco inicial: Mac enviando áudio para Windows na mesma rede, via IP.
 
 - Nome, identificadores de plugins e pasta de configurações próprios.
 - Proteção contra informação de tempo ausente no processamento de áudio.
+- Buffer interno do receptor AOO cresce para o bloco efetivamente recebido, evitando sobreposição de canais e acesso fora da memória reservada.
 - Buffer remoto dimensionado para o bloco efetivamente recebido, inclusive quando o tamanho muda antes de estabilizar.
 - Convite de conexão não confirma antecipadamente que o participante respondeu.
 - Desconexão manual cancela a recuperação automática pendente.

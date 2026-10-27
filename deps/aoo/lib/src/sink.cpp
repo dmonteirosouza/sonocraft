@@ -408,8 +408,14 @@ int32_t aoo_sink_process(aoo_sink *sink, aoo_sample **data,
 #define AOO_MAXNUMEVENTS 256
 
 int32_t aoo::sink::process(aoo_sample **data, int32_t nsampframes, uint64_t t){
-    // we need to respect the nframes passed in here, which may be smaller than
-    // the blocksize (the host may be splitting the processing, etc)
+    // Hosts may change their callback size before the sink is reconfigured.
+    // Keep channel strides large enough for the actual callback, without
+    // changing the configured timing/block size or overlapping channel storage.
+    const auto stride = std::max(blocksize_, nsampframes);
+    const auto required = static_cast<size_t>(stride) * nchannels_;
+    if (buffer_.size() < required) {
+        buffer_.resize(required);
+    }
     std::fill(buffer_.begin(), buffer_.end(), 0);
 
     bool didsomething = false;
@@ -449,7 +455,7 @@ int32_t aoo::sink::process(aoo_sample **data, int32_t nsampframes, uint64_t t){
     // the mutex is uncontended most of the time, but LATER we might replace
     // this with a lockless and/or waitfree solution
     for (auto& src : sources_){
-        if (src.process(*this, buffer_.data(), blocksize_, nsampframes)){
+        if (src.process(*this, buffer_.data(), stride, nsampframes)){
             didsomething = true;
         }
     }
@@ -466,7 +472,7 @@ int32_t aoo::sink::process(aoo_sample **data, int32_t nsampframes, uint64_t t){
     #endif
         // copy buffers
         for (int i = 0; i < nchannels_; ++i){
-            auto buf = &buffer_[i * blocksize_];
+            auto buf = &buffer_[i * stride];
             std::copy(buf, buf + nsampframes, data[i]);
         }
         return 1;

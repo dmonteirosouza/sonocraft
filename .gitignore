@@ -7,3 +7,5 @@ mobile/Builds
 
 # SonoCraft packaged releases
 /dist/
+
+/diagnostics/

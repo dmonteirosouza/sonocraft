@@ -11,6 +11,7 @@ public:
 
 int main()
 {
+    std::cout << "Starting audio regression" << std::endl;
     juce::ScopedJuceInitialiser_GUI juceRuntime;
     // Audio processors contain large DSP buffers. Windows console programs
     // have a smaller default stack than macOS, so mirror the application's
@@ -19,6 +20,7 @@ int main()
     auto receiverOwner = std::make_unique<SonobusAudioProcessor>();
     auto& sender = *senderOwner;
     auto& receiver = *receiverOwner;
+    std::cout << "Audio processors initialized" << std::endl;
     EmptyPlayHead emptyPlayHead;
     sender.setPlayHead(nullptr);
     receiver.setPlayHead(&emptyPlayHead);
@@ -76,6 +78,8 @@ int main()
             input.setSample(0, sample, value);
             input.setSample(1, sample, value);
         }
+        if (block == 0 || block == 300 || block == 700)
+            std::cout << "Processing block " << block << ", samples=" << samples << std::endl;
         sender.processBlock(input, midi);
         receiver.processBlock(output, midi);
         for (int channel = 0; channel < output.getNumChannels(); ++channel)
@@ -104,6 +108,6 @@ int main()
                       << ", channels=" << receiver.getRemotePeerRecvChannelCount(0) << "\n";
         return 1;
     }
-    std::cout << "PASS: missing host position, changing audio blocks, finite output, pending invitation status, local UDP audio\n";
+    std::cout << "PASS: missing host position, changing audio blocks, finite output, pending invitation status, local UDP audio" << std::endl;
     return 0;
 }

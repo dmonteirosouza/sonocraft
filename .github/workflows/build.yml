@@ -43,6 +43,15 @@ jobs:
         run: cmake --build build --target SonoBus_Standalone SonoCraftAudioRegression --config Release --parallel 3
       - name: Test local UDP audio
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Collect failed test diagnostics
+        if: failure()
+        run: python scripts/collect-ci-diagnostics.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: diagnostics-${{ matrix.package }}
+          path: diagnostics/
+          retention-days: 7
       - name: Package application and licenses
         run: python scripts/package-sonocraft.py --platform ${{ matrix.package }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
