@@ -23,7 +23,7 @@ O painel Soundboard agora oferece uma segunda saída, exclusiva para os pads:
 
 O áudio de retorno do Teams continua saindo pelos fones selecionados no Teams. A saída adicional do SonoCraft recebe exclusivamente o Soundboard, sem microfone, participantes recebidos, metrônomo ou reprodução do transporte. Ela fica desligada ao iniciar o aplicativo até que o dispositivo seja selecionado e ativado.
 
-A organização das mesas foi mantida no seletor e no menu existentes. Os sons aparecem em pads em grade, com progresso de reprodução e acesso às opções pelo botão de três pontos.
+A organização das mesas foi mantida no seletor e no menu existentes. Os sons aparecem em pads em grade, com o card inteiro na cor escolhida, progresso de reprodução e acesso às opções pelo botão de três pontos. Para adicionar um som, use o card com o sinal de mais. No menu de cada pad, **Reutilizar em outra mesa** inclui o mesmo arquivo na mesa escolhida, preservando nome, cor e volume, com ajustes independentes. Mesas que já contêm esse arquivo ficam desabilitadas no menu.
 
 ## Silenciamento de participantes
 

@@ -61,23 +61,27 @@ void SonoPlaybackProgressButton::paintButton(Graphics& graphics,
     if (padStyle) {
         using namespace SonoCraftTheme;
         auto box = getLocalBounds().toFloat().reduced(1);
-        graphics.setColour(isPlaying ? selection() : panel());
+        auto background = juce::Colour(buttonColour | 0xff000000);
+        if (shouldDrawButtonAsHighlighted) background = background.brighter(0.08f);
+        if (shouldDrawButtonAsDown) background = background.darker(0.12f);
+        auto linear = [](float value) { return value <= 0.04045f ? value / 12.92f : std::pow((value+0.055f)/1.055f, 2.4f); };
+        const float luminance = 0.2126f*linear(background.getFloatRed()) + 0.7152f*linear(background.getFloatGreen()) + 0.0722f*linear(background.getFloatBlue());
+        const auto ink = luminance > 0.179f ? juce::Colour(0xff101820) : juce::Colours::white;
+        graphics.setColour(background);
         graphics.fillRoundedRectangle(box, 10);
-        graphics.setColour(isPlaying ? accent() : border());
+        graphics.setColour(ink.withAlpha(isPlaying ? 0.9f : 0.2f));
         graphics.drawRoundedRectangle(box, 10, isPlaying ? 2.0f : 1.0f);
-        graphics.setColour(juce::Colour(buttonColour | 0xff000000));
-        graphics.fillRoundedRectangle(box.withHeight(5).reduced(8, 0), 2);
-        graphics.setColour(SonoCraftTheme::text());
+        graphics.setColour(ink);
         graphics.setFont(juce::Font(14.0f, juce::Font::bold));
         graphics.drawFittedText(getButtonText().isEmpty() ? "Novo som" : getButtonText(), getLocalBounds().reduced(12).withTrimmedTop(12).withTrimmedBottom(24), juce::Justification::centredLeft, 2);
         graphics.setFont(11.0f);
-        graphics.setColour(isPlaying ? accent() : secondary());
+        graphics.setColour(ink.withAlpha(0.85f));
         graphics.drawText(isPlaying ? "Tocando" : "Reproduzir", getLocalBounds().reduced(12).removeFromBottom(18), juce::Justification::centredLeft);
-        graphics.setColour(accent());
+        graphics.setColour(ink.withAlpha(0.8f));
         graphics.fillRoundedRectangle(12, float(getHeight()-5), float(juce::jmax(0.0, playbackPosition) * (getWidth()-24)), 3, 1);
         editBounds = getLocalBounds().removeFromRight(28).removeFromTop(28);
         if (showEditArea) {
-            graphics.setColour(secondary());
+            graphics.setColour(ink);
             for (int i = 0; i < 3; ++i) graphics.fillEllipse(float(editBounds.getCentreX()), 10.0f + i*4, 2, 2);
         }
         return;

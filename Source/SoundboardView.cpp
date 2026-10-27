@@ -20,7 +20,6 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
     createControlPanel();
     createBasePanels();
 
-    newPadButton.setButtonText("Novo som");
     refreshOutputs.setButtonText("Atualizar");
     headphonesEnabled.setButtonText("Ouvir somente pads nos fones");
     headphonesHint.setText(juce::String::fromUTF8("Saída independente. O microfone nunca vai para os fones."), dontSendNotification);
@@ -33,10 +32,6 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
     headphonesVolume.setTextBoxStyle(Slider::TextBoxRight, false, 48, 24);
     headphonesVolume.setTitle("Volume dos pads nos fones");
     headphonesVolume.onValueChange = [this] { audioProcessor.getPadMonitor().setVolume(float(headphonesVolume.getValue())); };
-    newPadButton.onClick = [this] {
-        if (!processor->getSelectedSoundboardIndex()) { processor->addSoundboard("Meus sons", true); updateSoundboardSelector(); }
-        clickedAddSoundSample();
-    };
     refreshOutputs.onClick = [this] { refreshHeadphoneOutputs(); };
     headphonesEnabled.onClick = [this] {
         auto& monitor = audioProcessor.getPadMonitor();
@@ -61,7 +56,7 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
             headphonesEnabled.setToggleState(false, dontSendNotification);
         }
     };
-    for (auto* control : std::initializer_list<Component*> { &newPadButton,
+    for (auto* control : std::initializer_list<Component*> {
             &headphonesEnabled, &headphonesDevice, &headphonesVolume, &headphonesHint, &refreshOutputs }) addAndMakeVisible(control);
     refreshHeadphoneOutputs();
     updateSoundboardSelector();
@@ -425,8 +420,8 @@ void SoundboardView::rebuildButtons()
         // for reorder dragging
         playbackButton->addMouseListener(this, false);
         
-        playbackButton->onSecondaryClick = [this, &sample, buttonAddress](const ModifierKeys& mods) {
-            clickedEditSoundSample(*buttonAddress, sample);
+        playbackButton->onSecondaryClick = [this, &sample, buttonAddress](const ModifierKeys&) {
+            showPadActions(*buttonAddress, sample);
         };
 
         updateButton(playbackButton.get(), sample);
@@ -832,6 +827,33 @@ void SoundboardView::clickedAddSoundSample()
     }
 }
 
+void SoundboardView::showPadActions(Component& button, SoundSample& sample)
+{
+    PopupMenu menu, destinations;
+    menu.addItem(1, "Editar som...");
+    const auto current = processor->getSelectedSoundboardIndex().value_or(-1);
+    for (int i = 0; i < int(processor->getNumberOfSoundboards()); ++i) {
+        if (i == current) continue;
+        bool exists = false;
+        for (const auto& other : processor->getSoundboard(i).getSamples())
+            exists |= other.getFileURL() == sample.getFileURL();
+        destinations.addItem(100+i, processor->getSoundboard(i).getName(), !exists);
+    }
+    if (destinations.getNumItems() == 0) destinations.addItem(2, "Nenhuma outra mesa disponivel", false);
+    menu.addSubMenu("Reutilizar em outra mesa", destinations, !sample.getFileURL().isEmpty());
+    Component::SafePointer<SoundboardView> safeThis(this);
+    Component::SafePointer<Component> safeButton(&button);
+    const auto snapshot = sample;
+    menu.showMenuAsync(PopupMenu::Options().withTargetComponent(&button),
+        [safeThis, safeButton, snapshot, current, source = &sample](int result) {
+            if (!safeThis) return;
+            if (result == 1 && safeButton && safeThis->processor->getSelectedSoundboardIndex() == current)
+                safeThis->clickedEditSoundSample(*safeButton, *source);
+            else if (result >= 100)
+                safeThis->processor->addExistingSample(snapshot, result-100);
+        });
+}
+
 void SoundboardView::clickedEditSoundSample(Component& button, SoundSample& sample)
 {
     auto submitcallback = [this, &sample, &button](SampleEditView& editView) {
@@ -965,8 +987,6 @@ void SoundboardView::resized()
     auto groups = bounds.removeFromTop(32);
     mBoardSelectComboBox->setBounds(groups);
     bounds.removeFromTop(8);
-    auto actions = bounds.removeFromTop(32);
-    newPadButton.setBounds(actions.removeFromLeft(110)); actions.removeFromLeft(8);
     auto monitor = bounds.removeFromBottom(136);
     headphonesEnabled.setBounds(monitor.removeFromTop(28));
     auto devices = monitor.removeFromTop(30);

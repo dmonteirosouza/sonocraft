@@ -45,24 +45,22 @@ public:
         TextButton::internalClickCallback(mods);
 
         if (!ignoreNextClick) {
-            if (mods.isLeftButtonDown()) {
-                if (clickIsEdit) {
-                    if (onSecondaryClick) onSecondaryClick(mods);
-                } else {
-                    if (onPrimaryClick) onPrimaryClick(mods);
-                }
-            }
-            else if (mods.isRightButtonDown()) {
+            // Keyboard/accessibility activation has no mouse-button flags.
+            // Mouse-up may also arrive after the button flag has been cleared.
+            if (clickIsEdit || mods.isPopupMenu()) {
                 if (onSecondaryClick) onSecondaryClick(mods);
+            } else {
+                if (onPrimaryClick) onPrimaryClick(mods);
             }
         }
+        clickIsEdit = false;
 
         ignoreNextClick = false;
     }
 
     void mouseDown (const MouseEvent& e) override
     {
-        clickIsEdit = false;
+        clickIsEdit = e.mods.isPopupMenu();
 
         if (showEditArea && editBounds.contains(e.getPosition())) {
             clickIsEdit = true;

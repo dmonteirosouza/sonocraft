@@ -105,6 +105,8 @@ public:
      *
      * @return Returns true if sample successfully moved, otherwise false
      */
+    bool addExistingSample(const SoundSample& sample, int targetBoard);
+
     bool moveSoundSample(int fromSampleIndex, int toSampleIndex, std::optional<int> index = std::nullopt );
 
     /**

@@ -273,6 +273,35 @@ int main()
     (*player)->unload();
     if (padEnergy <= 0.001) { std::cerr << "FAIL: no Soundboard in meeting output\n"; return 1; }
     std::cout << "PASS: real Soundboard pad reaches meeting output" << std::endl;
+    const auto reuseDir = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("pad-reuse-test", "", false);
+    if (reuseDir.createDirectory().failed()) return 1;
+    {
+        SoundboardProcessor boards(roster->getSoundboardProcessor(), reuseDir);
+        boards.addSoundboard("A original", true);
+        auto* source = boards.addSoundSample("Abertura", padFile.getFile().getFullPathName());
+        source->setGain(0.4f);
+        source->setButtonColour(0x3366cc);
+        boards.editSoundSample(*source);
+        boards.addSoundboard("B destino", true);
+        if (!boards.addExistingSample(*source, 1) || boards.addExistingSample(*source, 1)
+            || boards.addExistingSample(*source, -1) || boards.addExistingSample(*source, 99)) {
+            std::cerr << "FAIL: reuse destination/duplicate validation\n"; return 1;
+        }
+        auto& reused = boards.getSoundboard(1).getSamples()[0];
+        if (reused.getFileURL() != source->getFileURL() || reused.getButtonColour() != source->getButtonColour()
+            || std::abs(reused.getGain() - 0.4f) > 0.001f) return 1;
+        reused.setGain(0.7f); boards.editSoundSample(reused);
+        if (std::abs(source->getGain() - 0.4f) > 0.001f) return 1;
+    }
+    {
+        SoundboardProcessor restored(roster->getSoundboardProcessor(), reuseDir);
+        if (restored.getNumberOfSoundboards() != 2 || restored.getSoundboard(1).getSamples().size() != 1
+            || restored.getSoundboard(1).getSamples()[0].getName() != "Abertura") {
+            std::cerr << "FAIL: reused pad did not survive reload\n"; return 1;
+        }
+    }
+    reuseDir.deleteRecursively();
+    std::cout << "PASS: reuse pad in another board, independent settings and persistence" << std::endl;
     roster->releaseResources();
     roster.reset(); // A caller may still retain the playback manager.
     player.reset(); // Its file reader must already be detached from the disk thread.

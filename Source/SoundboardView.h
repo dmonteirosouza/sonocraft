@@ -108,7 +108,7 @@ private:
      * The outer soundboard panel box.
      */
     FlexBox mainBox;
-    TextButton newPadButton, refreshOutputs;
+    TextButton refreshOutputs;
     ToggleButton headphonesEnabled;
     ComboBox headphonesDevice;
     Slider headphonesVolume;
@@ -308,6 +308,7 @@ private:
      * @param sample The sample that must be edited.
      */
     void clickedEditSoundSample(Component & button, SoundSample& sample);
+    void showPadActions(Component& button, SoundSample& sample);
 
     /**
      * Apply all playback options from the passed in fromsample to all the others in the current soundboard

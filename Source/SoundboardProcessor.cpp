@@ -137,6 +137,19 @@ SoundSample* SoundboardProcessor::addSoundSample(String name, String absolutePat
     return &sampleList[sampleList.size() - 1];
 }
 
+bool SoundboardProcessor::addExistingSample(const SoundSample& source, int targetBoard)
+{
+    if (targetBoard < 0 || targetBoard >= int(soundboards.size()) || source.getFileURL().isEmpty()) return false;
+    auto& samples = soundboards[targetBoard].getSamples();
+    for (const auto& sample : samples) if (sample.getFileURL() == source.getFileURL()) return false;
+    auto copy = source;
+    copy.setHotkeyCode(-1);
+    copy.setLastPlaybackPosition(0);
+    samples.push_back(std::move(copy));
+    saveToDisk();
+    return true;
+}
+
 bool SoundboardProcessor::moveSoundSample(int fromSampleIndex, int toSampleIndex, std::optional<int> index)
 {
     if (!index.has_value() && !selectedSoundboardIndex.has_value()) {
