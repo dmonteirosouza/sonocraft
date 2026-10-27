@@ -67,6 +67,7 @@ int main()
     double receivedEnergy = 0.0;
     const int blockSizes[] = {128, 1024, 64, 256, 512, 128};
     const auto startedAt = juce::Time::getMillisecondCounterHiRes();
+    auto nextCallbackAt = startedAt;
     for (int block = 0; block < 1000; ++block)
     {
         const auto samples = block < 300 || block >= 700 ? 256 : blockSizes[(block / 70) % 6];
@@ -95,7 +96,12 @@ int main()
                 }
                 receivedEnergy += value * value;
             }
-        juce::Thread::sleep(juce::jmax(1, juce::roundToInt(samples * 1000.0 / 48000.0)));
+        // Model an audio device clock, rather than adding a relative sleep to
+        // processing time. macOS CI can coalesce nanosleep by tens of ms, which
+        // otherwise simulates a device running far below its declared rate.
+        nextCallbackAt += samples * 1000.0 / 48000.0;
+        while (juce::Time::getMillisecondCounterHiRes() < nextCallbackAt)
+            juce::Thread::yield();
     }
     std::cout << "Audio loop completed; releasing resources" << std::endl;
     sender.releaseResources();
