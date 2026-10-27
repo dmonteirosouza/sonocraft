@@ -1,3 +1,23 @@
+# SonoCraft
+
+Versão em desenvolvimento baseada no [SonoBus](https://github.com/sonosaurus/sonobus), com foco inicial em conexão e áudio entre Mac e Windows na rede local.
+
+**Prévia experimental:** os testes automáticos locais não substituem a validação com dois computadores. Grupo/senha, estabilidade prolongada e abertura da interface ainda precisam ser confirmados. Consulte [as mudanças e limitações](SONOCRAFT.md).
+
+## Downloads
+
+Os pacotes aprovados pela compilação e pelos testes ficam em **Actions → Build SonoCraft → Artifacts**. As versões marcadas também aparecem em **Releases**, como prévias. Mac: `.app` em ZIP, para Apple Silicon e Intel. Windows: `.exe` portátil em ZIP, x64, usando WASAPI; ASIO exige SDK e compilação próprios.
+
+Os pacotes não têm assinatura comercial nem notarização. As Releases incluem licenças e o código-fonte correspondente fica no mesmo tag.
+
+## Desenvolvimento
+
+Veja [SONOCRAFT.md](SONOCRAFT.md) para compilar, testar e realizar o primeiro ensaio Mac → Windows. O fluxo do GitHub compila em macOS e Windows, testa o motor real por UDP local e publica os pacotes somente se todos os sistemas passarem. Não instala ou executa áudio em dispositivos físicos durante esses testes.
+
+---
+
+## Documentação e créditos do projeto original
+
 
 # SonoBus
 

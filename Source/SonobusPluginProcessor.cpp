@@ -739,11 +739,11 @@ mState (*this, &mUndoManager, "SonoBusAoO",
     
     // use this to match our main app support dir
     PropertiesFile::Options options;
-    options.applicationName     = "SonoBus";
+    options.applicationName     = "SonoCraft";
     options.filenameSuffix      = ".xml";
-    options.osxLibrarySubFolder = "Application Support/SonoBus";
+    options.osxLibrarySubFolder = "Application Support/SonoCraft";
    #if JUCE_LINUX
-    options.folderName          = "~/.config/sonobus";
+    options.folderName          = "~/.config/sonocraft";
    #else
     options.folderName          = "";
    #endif
@@ -766,7 +766,7 @@ mState (*this, &mUndoManager, "SonoBusAoO",
     // LEAVE EMPTY by default
 #else
     auto parentDir = File::getSpecialLocation (File::userMusicDirectory);
-    parentDir = parentDir.getChildFile("SonoBus");
+    parentDir = parentDir.getChildFile("SonoCraft");
     mDefaultRecordDir = URL(parentDir);
     mLastBrowseDir = mDefaultRecordDir.getLocalFile().getFullPathName();
 #endif
@@ -865,9 +865,9 @@ void SonobusAudioProcessor::moveOldMisplacedFiles()
     PropertiesFile::Options dummyoptions;
     dummyoptions.applicationName     = "dummy";
     dummyoptions.filenameSuffix      = ".xml";
-    dummyoptions.osxLibrarySubFolder = "Application Support/SonoBus";
+    dummyoptions.osxLibrarySubFolder = "Application Support/SonoCraft";
    #if JUCE_LINUX
-    dummyoptions.folderName          = "~/.config/sonobus";
+    dummyoptions.folderName          = "~/.config/sonocraft";
    #else
     dummyoptions.folderName          = "";
    #endif
@@ -1159,6 +1159,9 @@ bool SonobusAudioProcessor::disconnectFromServer()
 {
     if (!mAooClient) return false;
  
+    mReconnectTimer.stopTimer();
+    mPendingReconnect = false;
+    mRecoveringFromServerLoss = false;
     mAooClient->disconnect();
     
     // disconnect from everything else!
@@ -4422,7 +4425,7 @@ int SonobusAudioProcessor::connectRemotePeerRaw(void * sockaddr, const String & 
     
     if (ret) {
         DBG("Successfully invited remote peer at " << endpoint->ipaddr << ":" << endpoint->port << " - ourId " << remote->ourId);
-        remote->connected = true;
+        // An invitation is queued locally; only a peer event confirms connection.
         remote->invitedPeer = reciprocate;
         //remote->recvActive = reciprocate;
         if (!mMainSendMute.get()) {
@@ -4457,7 +4460,7 @@ int SonobusAudioProcessor::connectRemotePeer(const String & host, int port, cons
     
     if (ret) {
         DBG("Successfully invited remote peer at " <<  host << ":" << port << " - ourId " << remote->ourId);
-        remote->connected = true;
+        // An invitation is queued locally; only a peer event confirms connection.
         remote->invitedPeer = reciprocate;
         //remote->recvActive = reciprocate;
         if (!mMainSendMute.get()) {
@@ -7418,7 +7421,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     }
 
     bool hostPlaying = rposInfo && rposInfo->getIsPlaying();
-    auto hostBpm = rposInfo->getBpm();
+    auto hostBpm = rposInfo ? rposInfo->getBpm() : Optional<double>{};
     if (hostBpm && *hostBpm > 0.0) {
         useBpm = *hostBpm;
     }
@@ -7818,10 +7821,10 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
             }
 
             // just in case, should be exceedingly rare this is necessary
-            if (remote->workBuffer.getNumSamples() < currSamplesPerBlock
+            if (remote->workBuffer.getNumSamples() < numSamples
                 || remote->recvChannels > remote->workBuffer.getNumChannels()
                 || mainBusOutputChannels > remote->workBuffer.getNumChannels()) {
-                remote->workBuffer.setSize(jmax(2, jmax(mainBusOutputChannels, remote->recvChannels)), currSamplesPerBlock, false, false, true);
+                remote->workBuffer.setSize(jmax(2, jmax(mainBusOutputChannels, remote->recvChannels)), jmax(currSamplesPerBlock, numSamples), false, false, true);
             }
 
             remote->workBuffer.clear(0, numSamples);
@@ -7841,10 +7844,10 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
                 const ScopedReadLock sl (remote->sinkLock); // not contended, should be able to get rid of
 
                 // just in case, should be exceedingly rare this is necessary
-                if (remote->workBuffer.getNumSamples() < currSamplesPerBlock
+                if (remote->workBuffer.getNumSamples() < numSamples
                     || remote->recvChannels > remote->workBuffer.getNumChannels()
                     || mainBusOutputChannels > remote->workBuffer.getNumChannels()) {
-                    remote->workBuffer.setSize(jmax(2, jmax(mainBusOutputChannels, remote->recvChannels)), currSamplesPerBlock, false, false, true);
+                    remote->workBuffer.setSize(jmax(2, jmax(mainBusOutputChannels, remote->recvChannels)), jmax(currSamplesPerBlock, numSamples), false, false, true);
                 }
 
                 remote->workBuffer.clear(0, numSamples);
@@ -8856,7 +8859,10 @@ bool SonobusAudioProcessor::reconnectToMostRecent()
             DBG("Reconnecting to server and group: " << info.groupName);
             mPendingReconnectInfo = info;
             mPendingReconnect = true;
-            connectToServer(info.serverHost, info.serverPort, info.userName, info.userPassword);
+            if (!connectToServer(info.serverHost, info.serverPort, info.userName, info.userPassword)) {
+                mPendingReconnect = false;
+                return false;
+            }
             return true;
         }
     }

@@ -346,7 +346,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
         currConnectionInfo.userName = lastusername;
     }
 
-    mTitleLabel = std::make_unique<Label>("title", TRANS("SonoBus"));
+    mTitleLabel = std::make_unique<Label>("title", TRANS("SonoCraft"));
     mTitleLabel->setFont(20);
     mTitleLabel->setAccessible(false);
     mTitleLabel->setColour(Label::textColourId, Colour(0xff47b0f8));
@@ -1344,7 +1344,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
         
         
         // check for update!
-        // LatestVersionCheckerAndUpdater::getInstance()->checkForNewVersion (false);
+        // // SonoCraft releases are independent of the upstream SonoBus updater.
         
     } else  {
         setResizable(true, true);    
@@ -1960,7 +1960,7 @@ void SonobusAudioProcessorEditor::timerCallback(int timerid)
             Value * val = getShouldCheckForNewVersionValue();
             if (val && (bool)val->getValue()) {
                 DBG("Checking for new version");
-                LatestVersionCheckerAndUpdater::getInstance()->checkForNewVersion (false);
+                // SonoCraft releases are independent of the upstream SonoBus updater.
             }
         }
         stopTimer(CheckForNewVersionTimerId);
@@ -2213,7 +2213,7 @@ void SonobusAudioProcessorEditor::buttonClicked (Button* buttonThatWasClicked)
 #endif
             
             // create new timestamped filename
-            String filename = (currGroup.isEmpty() ? "SonoBusSession" : currGroup) + String("_") + Time::getCurrentTime().formatted("%Y-%m-%d_%H.%M.%S");
+            String filename = (currGroup.isEmpty() ? "SonoCraftSession" : currGroup) + String("_") + Time::getCurrentTime().formatted("%Y-%m-%d_%H.%M.%S");
 
             filename = File::createLegalFileName(filename);
 
@@ -5882,7 +5882,7 @@ bool SonobusAudioProcessorEditor::perform (const InvocationInfo& info) {
 
             break;
         case SonobusCommands::CheckForNewVersion:   
-            LatestVersionCheckerAndUpdater::getInstance()->checkForNewVersion (true); 
+            updateServerStatusLabel(TRANS("SonoCraft preview: automatic updates are not available yet."), false);
             break;
 
         case SonobusCommands::CopyGroupLink:

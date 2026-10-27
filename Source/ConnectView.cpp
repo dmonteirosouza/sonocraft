@@ -1004,7 +1004,7 @@ void ConnectView::buttonClicked (Button* buttonThatWasClicked)
             port = toks[1].trim().getIntValue();
         }
 
-        if (host.isNotEmpty() && port != 0) {
+        if (host.isNotEmpty() && port > 0 && port <= 65535) {
             if (processor.connectRemotePeer(host, port, "", "", processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainRecvMute)->getValue() == 0)) {
                 setVisible(false);
                 if (auto * callout = dynamic_cast<CallOutBox*>(directConnectCalloutBox.get())) {
@@ -1261,11 +1261,17 @@ void ConnectView::connectWithInfo(const AooServerConnectionInfo & info, bool all
     {
         processor.disconnectFromServer();
 
-        Timer::callAfterDelay(100, [this] {
-            processor.connectToServer(currConnectionInfo.serverHost, currConnectionInfo.serverPort, currConnectionInfo.userName, currConnectionInfo.userPassword);
-           // updateState();
-            listeners.call(&ConnectView::Listener::connectionsChanged, this);
+        const Component::SafePointer<ConnectView> safeThis(this);
+        const auto connectionInfo = currConnectionInfo;
+        Timer::callAfterDelay(100, [safeThis, connectionInfo] {
+            if (safeThis == nullptr)
+                return;
 
+            if (!safeThis->processor.connectToServer(connectionInfo.serverHost, connectionInfo.serverPort,
+                                                       connectionInfo.userName, connectionInfo.userPassword)) {
+                safeThis->updateServerStatusLabel(TRANS("Could not start connection. Check the server address and port."), false);
+            }
+            safeThis->listeners.call(&ConnectView::Listener::connectionsChanged, safeThis.getComponent());
         });
 
         mServerHostEditor->setColour(TextEditor::backgroundColourId, Colour(0xff050505));

@@ -518,6 +518,27 @@ Image detail::WindowingHelpers::createIconForFile (const File& file)
 
 static Image createNSWindowSnapshot (NSWindow* nsWindow)
 {
+   #if defined (MAC_OS_VERSION_15_0) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_15_0
+    // Capture our own view without the window-server API removed in macOS 15.
+    // This contains the client area, without the window frame or shadow.
+    JUCE_AUTORELEASEPOOL
+    {
+        NSView* view = [nsWindow contentView];
+        if (view == nil)
+            return {};
+
+        NSBitmapImageRep* bitmapRep = [view bitmapImageRepForCachingDisplayInRect: [view bounds]];
+        if (bitmapRep == nil)
+            return {};
+
+        [view cacheDisplayInRect: [view bounds] toBitmapImageRep: bitmapRep];
+        Image result (Image::ARGB, (int) [bitmapRep size].width, (int) [bitmapRep size].height, true);
+        selectImageForDrawing (result);
+        [bitmapRep drawAtPoint: NSMakePoint (0, 0)];
+        releaseImageAfterDrawing();
+        return result;
+    }
+   #else
     JUCE_AUTORELEASEPOOL
     {
         // CGWindowListCreateImage is replaced by functions in the ScreenCaptureKit framework, but
@@ -552,6 +573,7 @@ static Image createNSWindowSnapshot (NSWindow* nsWindow)
 
         return result;
     }
+   #endif
 }
 
 Image createSnapshotOfNativeWindow (void* nativeWindowHandle)

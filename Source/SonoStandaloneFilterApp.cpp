@@ -83,9 +83,9 @@ public:
 
         options.applicationName     = getApplicationName();
         options.filenameSuffix      = ".settings";
-        options.osxLibrarySubFolder = "Application Support/SonoBus";
+        options.osxLibrarySubFolder = "Application Support/SonoCraft";
        #if JUCE_LINUX
-        options.folderName          = "~/.config/sonobus";
+        options.folderName          = "~/.config/sonocraft";
        #else
         options.folderName          = "";
        #endif
@@ -94,7 +94,7 @@ public:
 
 #if JUCE_LINUX
         // we moved linux settings location in 1.3.19, one time change
-        File oldsettings("~/.config/SonoBus.settings");
+        File oldsettings("~/.config/SonoCraft.settings");
         if (oldsettings.exists()) {
             File newsettings = options.getDefaultFile();
             if (!newsettings.getParentDirectory().exists()) {

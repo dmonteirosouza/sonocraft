@@ -1,0 +1,73 @@
+name: Build SonoCraft
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonocraft-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Universal
+            os: macos-15
+            package: mac-universal
+          - name: Windows x64
+            os: windows-2022
+            package: windows-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install pinned CMake
+        run: python -m pip install cmake==3.31.10
+      - name: Configure macOS
+        if: runner.os == 'macOS'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DUniversalBinary=ON -DSONOCRAFT_BUILD_TESTS=ON
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DSONOCRAFT_BUILD_TESTS=ON -DSONOCRAFT_ENABLE_ASIO=OFF
+      - name: Build application and audio regression
+        run: cmake --build build --target SonoBus_Standalone SonoCraftAudioRegression --config Release --parallel 3
+      - name: Test local UDP audio
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package application and licenses
+        run: python scripts/package-sonocraft.py --platform ${{ matrix.package }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: SonoCraft-${{ matrix.package }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish preview downloads
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: SonoCraft-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish experimental release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" release-assets/*.zip --verify-tag --prerelease --title "SonoCraft $RELEASE_TAG — prévia experimental" --notes-file .github/release-notes.md

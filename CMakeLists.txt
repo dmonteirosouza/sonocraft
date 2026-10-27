@@ -17,6 +17,7 @@ endif()
 
 # If we are compiling for Mac OS we want to target OS versions down to 10.9
 option(UniversalBinary "Build universal binary for mac" ON)
+option(SONOCRAFT_ENABLE_ASIO "Enable Windows ASIO (requires an external ASIO SDK)" ON)
 
 if (APPLE)
     set (CMAKE_OSX_DEPLOYMENT_TARGET "10.10" CACHE INTERNAL "")
@@ -36,7 +37,7 @@ endif()
 # `project()` command. `project()` sets up some helpful variables that describe source/binary
 # directories, and the current project version. This is a standard CMake command.
 
-project(SonoBus VERSION 1.7.2)
+project(SonoCraft VERSION 0.1.0)
 
 set(BUILDVERSION 80)
 
@@ -155,8 +156,8 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         NEEDS_MIDI_INPUT TRUE
         NEEDS_MIDI_OUTPUT TRUE
         EDITOR_WANTS_KEYBOARD_FOCUS TRUE
-        COMPANY_NAME "Sonosaurus"
-        BUNDLE_ID "com.Sonosaurus.SonoBus"
+        COMPANY_NAME "SonoCraft"
+        BUNDLE_ID "org.sonocraft.audio"
         MICROPHONE_PERMISSION_ENABLED TRUE
         
         ICON_BIG "images/sonobus_icon_mac_1024.png"
@@ -166,7 +167,7 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         VST3_CATEGORIES "${vst3cats}"
         AAX_CATEGORY "AAX_ePlugInCategory_None"
 
-	LV2URI "https://sonobus.net/lv2/sonobus"
+	LV2URI "https://sonocraft.local/lv2/sonocraft"
 	
         # mac settings
         HARDENED_RUNTIME_ENABLED TRUE
@@ -176,10 +177,10 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         
         
         # other settings...
-        PLUGIN_MANUFACTURER_CODE Sono
+        PLUGIN_MANUFACTURER_CODE Scft
         PLUGIN_CODE ${plugincode}
         FORMATS ${formats}
-        DESCRIPTION "SonoBus - Network Audio"
+        DESCRIPTION "SonoCraft - Network Audio"
         PRODUCT_NAME "${product_name}")
 
     juce_generate_juce_header("${target_name}")
@@ -445,7 +446,7 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1
 	JUCE_USE_WINDOWS_MEDIA_FORMAT=1
         JUCE_LOAD_CURL_SYMBOLS_LAZILY=1
-        JUCE_ASIO=1
+        JUCE_ASIO=$<BOOL:${SONOCRAFT_ENABLE_ASIO}>
         JUCE_WASAPI=1
         JUCE_DIRECTSOUND=0
         JUCE_JACK=1
@@ -621,11 +622,23 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
 endfunction()
 
 # most of the targets
-sono_add_custom_plugin_target(SonoBus SonoBus "${FormatsToBuild}" FALSE  "NBus")
+sono_add_custom_plugin_target(SonoBus SonoCraft "${FormatsToBuild}" FALSE  "Scft")
 
 # Mobile targets
 #sono_add_custom_plugin_target(SonoBusMobile "AUv3 Standalone" FALSE "NBus")
 
 # add VSTi target
-sono_add_custom_plugin_target(SonoBusInst "SonoBusInstrument" "VST3" TRUE  "IBus")
+sono_add_custom_plugin_target(SonoBusInst "SonoCraftInstrument" "VST3" TRUE  "SCin")
 
+
+# Explicit opt-in target; exercises the actual audio processor over loopback UDP.
+option(SONOCRAFT_BUILD_TESTS "Build SonoCraft audio regression executable" OFF)
+if (SONOCRAFT_BUILD_TESTS)
+    enable_testing()
+    add_executable(SonoCraftAudioRegression tests/AudioRegression.cpp)
+    target_link_libraries(SonoCraftAudioRegression PRIVATE SonoBus)
+    target_include_directories(SonoCraftAudioRegression PRIVATE "$<TARGET_PROPERTY:SonoBus,INCLUDE_DIRECTORIES>")
+    target_compile_features(SonoCraftAudioRegression PRIVATE cxx_std_17)
+    add_test(NAME SonoCraftAudioRegression COMMAND SonoCraftAudioRegression)
+    set_tests_properties(SonoCraftAudioRegression PROPERTIES TIMEOUT 30)
+endif()
