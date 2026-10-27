@@ -66,6 +66,7 @@ int main()
     double phase = 0.0;
     double receivedEnergy = 0.0;
     const int blockSizes[] = {128, 1024, 64, 256, 512, 128};
+    const auto startedAt = juce::Time::getMillisecondCounterHiRes();
     for (int block = 0; block < 1000; ++block)
     {
         const auto samples = block < 300 || block >= 700 ? 256 : blockSizes[(block / 70) % 6];
@@ -78,8 +79,9 @@ int main()
             input.setSample(0, sample, value);
             input.setSample(1, sample, value);
         }
-        if (block == 0 || block == 300 || block == 700)
-            std::cout << "Processing block " << block << ", samples=" << samples << std::endl;
+        if (block % 100 == 0)
+            std::cout << "Processing block " << block << ", samples=" << samples
+                      << ", elapsed=" << (juce::Time::getMillisecondCounterHiRes() - startedAt) << " ms" << std::endl;
         sender.processBlock(input, midi);
         receiver.processBlock(output, midi);
         for (int channel = 0; channel < output.getNumChannels(); ++channel)
@@ -95,6 +97,7 @@ int main()
             }
         juce::Thread::sleep(juce::jmax(1, juce::roundToInt(samples * 1000.0 / 48000.0)));
     }
+    std::cout << "Audio loop completed; releasing resources" << std::endl;
     sender.releaseResources();
     receiver.releaseResources();
     receiver.setPlayHead(nullptr);

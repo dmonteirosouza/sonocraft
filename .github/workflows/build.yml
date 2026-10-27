@@ -42,7 +42,7 @@ jobs:
       - name: Build application and audio regression
         run: cmake --build build --target SonoBus_Standalone SonoCraftAudioRegression --config Release --parallel 3
       - name: Test local UDP audio
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: python scripts/run-ci-tests.py
       - name: Collect failed test diagnostics
         if: failure()
         run: python scripts/collect-ci-diagnostics.py
