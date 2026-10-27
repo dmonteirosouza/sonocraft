@@ -31,7 +31,7 @@ ctest --test-dir build -C Release --output-on-failure
 ```
 
 O nome interno do alvo é `SonoBus_Standalone`; o produto se chama SonoCraft.
-No Windows, use o gerador Visual Studio instalado. A compilação Windows ainda precisa ser executada e validada nesse sistema.
+No Windows, use o gerador Visual Studio instalado. A compilação e o teste de áudio UDP local foram executados com sucesso no Windows x64 e no macOS. A validação entre dois computadores e com dispositivos físicos ainda é necessária.
 
 ## Primeiro ensaio Mac → Windows
 

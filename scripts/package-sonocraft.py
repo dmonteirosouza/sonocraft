@@ -18,7 +18,7 @@ if args.platform == 'mac-universal':
     source = artefacts / 'SonoCraft.app'
     destination = stage / source.name
     shutil.copytree(source, destination, copy_function=shutil.copy)
-    subprocess.run(['lipo', '-verify_arch', 'arm64', 'x86_64', str(destination / 'Contents/MacOS/SonoCraft')], check=True)
+    subprocess.run(['lipo', str(destination / 'Contents/MacOS/SonoCraft'), '-verify_arch', 'arm64', 'x86_64'], check=True)
     subprocess.run(['codesign', '--force', '--deep', '--sign', '-', str(destination)], check=True)
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(destination)], check=True)
 else:
