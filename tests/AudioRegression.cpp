@@ -1,6 +1,7 @@
 // SonoCraft regression coverage: no audio device or remote server required.
 #include "../Source/SonobusPluginProcessor.h"
 #include "../Source/SoundboardChannelProcessor.h"
+#include "../Source/SoundboardProcessor.h"
 #include <cmath>
 #include <iostream>
 
@@ -12,6 +13,25 @@ public:
 
 int main()
 {
+    // Independent device queue: only pad samples enter, channels remain
+    // isolated, gain applies locally, and underflow always produces silence.
+    auto monitorQueue = std::make_unique<SonoCraftPadMonitorQueue>();
+    juce::AudioBuffer<float> padQueueInput(2, 4096), headphones(3, 256);
+    for (int i = 0; i < 4096; ++i) { padQueueInput.setSample(0, i, 0.25f); padQueueInput.setSample(1, i, 0.5f); }
+    headphones.clear();
+    monitorQueue->render(headphones.getArrayOfWritePointers(), 3, 256, 48000, 48000, 1);
+    if (headphones.getMagnitude(0, 256) != 0) return 1;
+    for (double rate : { 48000.0, 44100.0, 96000.0 }) {
+        monitorQueue->discard();
+        monitorQueue->push(padQueueInput, 4096, 1);
+        monitorQueue->render(headphones.getArrayOfWritePointers(), 3, 256, rate, 48000, 0.5f);
+        if (std::abs(headphones.getSample(0, 100) - 0.125f) > 0.00001f
+            || std::abs(headphones.getSample(1, 100) - 0.25f) > 0.00001f
+            || headphones.getMagnitude(2, 0, 256) != 0) {
+            std::cerr << "FAIL: independent pad monitor channel/rate/gain routing\n"; return 1;
+        }
+    }
+    monitorQueue.reset();
     std::cout << "Starting audio regression" << std::endl;
     juce::ScopedJuceInitialiser_GUI juceRuntime;
     // Audio processors contain large DSP buffers. Windows console programs

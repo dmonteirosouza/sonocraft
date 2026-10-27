@@ -108,6 +108,13 @@ private:
      * The outer soundboard panel box.
      */
     FlexBox mainBox;
+    TextButton newPadButton, refreshOutputs;
+    ToggleButton headphonesEnabled;
+    ComboBox headphonesDevice;
+    Slider headphonesVolume;
+    Label headphonesHint;
+    Array<SonoCraftPadMonitor::Device> headphoneOutputs;
+    void refreshHeadphoneOutputs();
 
     /**
      * Wrapper for soundboard UI contents.

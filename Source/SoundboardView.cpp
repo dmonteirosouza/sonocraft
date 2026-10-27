@@ -20,6 +20,50 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
     createControlPanel();
     createBasePanels();
 
+    newPadButton.setButtonText("Novo som");
+    refreshOutputs.setButtonText("Atualizar");
+    headphonesEnabled.setButtonText("Ouvir somente pads nos fones");
+    headphonesHint.setText(juce::String::fromUTF8("Saída independente. O microfone nunca vai para os fones."), dontSendNotification);
+    headphonesHint.setFont(12.0f);
+    headphonesHint.setColour(Label::textColourId, SonoCraftTheme::secondary());
+    headphonesDevice.setTextWhenNothingSelected("Selecione seu headset ou fone");
+    headphonesVolume.setRange(0, 1, 0.01);
+    headphonesVolume.setValue(audioProcessor.getPadMonitor().getVolume(), dontSendNotification);
+    headphonesVolume.setSliderStyle(Slider::LinearHorizontal);
+    headphonesVolume.setTextBoxStyle(Slider::TextBoxRight, false, 48, 24);
+    headphonesVolume.setTitle("Volume dos pads nos fones");
+    headphonesVolume.onValueChange = [this] { audioProcessor.getPadMonitor().setVolume(float(headphonesVolume.getValue())); };
+    newPadButton.onClick = [this] {
+        if (!processor->getSelectedSoundboardIndex()) { processor->addSoundboard("Meus sons", true); updateSoundboardSelector(); }
+        clickedAddSoundSample();
+    };
+    refreshOutputs.onClick = [this] { refreshHeadphoneOutputs(); };
+    headphonesEnabled.onClick = [this] {
+        auto& monitor = audioProcessor.getPadMonitor();
+        if (!headphonesEnabled.getToggleState()) { monitor.stop(); return; }
+        const int index = headphonesDevice.getSelectedId() - 1;
+        if (!isPositiveAndBelow(index, headphoneOutputs.size())) {
+            headphonesEnabled.setToggleState(false, dontSendNotification);
+            headphonesHint.setText("Selecione primeiro a saida dos fones.", dontSendNotification);
+            return;
+        }
+        auto error = monitor.start(headphoneOutputs[index]);
+        if (error.isNotEmpty()) {
+            headphonesEnabled.setToggleState(false, dontSendNotification);
+            headphonesHint.setText(error, dontSendNotification);
+        } else {
+            headphonesHint.setText(juce::String::fromUTF8("Somente pads nos fones. Voz e pads continuam na saída principal."), dontSendNotification);
+        }
+    };
+    headphonesDevice.onChange = [this] {
+        if (audioProcessor.getPadMonitor().isActive()) {
+            audioProcessor.getPadMonitor().stop();
+            headphonesEnabled.setToggleState(false, dontSendNotification);
+        }
+    };
+    for (auto* control : std::initializer_list<Component*> { &newPadButton,
+            &headphonesEnabled, &headphonesDevice, &headphonesVolume, &headphonesHint, &refreshOutputs }) addAndMakeVisible(control);
+    refreshHeadphoneOutputs();
     updateSoundboardSelector();
     rebuildButtons();
 
@@ -39,9 +83,8 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
 
     processor->onPlaybackStateChange = [this] {
         // could be called from a non-UI thread
-        MessageManager::callAsync([this]() {
-            refreshButtons();
-        });
+        Component::SafePointer<SoundboardView> safeThis(this);
+        MessageManager::callAsync([safeThis]() { if (safeThis) safeThis->refreshButtons(); });
     };
 }
 
@@ -86,7 +129,7 @@ void SoundboardView::createSoundboardTitle()
 
 void SoundboardView::createSoundboardTitleLabel()
 {
-    mTitleLabel = std::make_unique<Label>("title", TRANS("Soundboard"));
+    mTitleLabel = std::make_unique<Label>("title", "Soundpads");
     mTitleLabel->setJustificationType(Justification::centred);
     mTitleLabel->setFont(Font(TITLE_FONT_HEIGHT, Font::bold));
     mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
@@ -364,7 +407,8 @@ void SoundboardView::rebuildButtons()
     buttonContainer.removeAllChildren();
 
     auto selectedBoardIndex = mBoardSelectComboBox->getSelectedItemIndex();
-    if (selectedBoardIndex >= processor->getNumberOfSoundboards()) {
+    if (selectedBoardIndex < 0 || selectedBoardIndex >= processor->getNumberOfSoundboards()) {
+        resized();
         return;
     }
 
@@ -372,6 +416,8 @@ void SoundboardView::rebuildButtons()
 
     for (auto& sample : selectedBoard.getSamples()) {
         auto playbackButton = std::make_unique<SonoPlaybackProgressButton>(sample.getName(), sample.getName());
+        playbackButton->setPadStyle(true);
+        playbackButton->setShowEditArea(true);
         auto buttonAddress = playbackButton.get();
 
         playbackButton->setMouseListener(std::make_unique<HoldSampleButtonMouseListener>(buttonAddress, &sample, this));
@@ -535,33 +581,11 @@ void SoundboardView::mouseUp (const MouseEvent& event)
 
 int SoundboardView::getSampleIndexForPoint(Point<int> pos, bool inbetween)
 {
-    int i=0;
-    for (; i < mSoundButtons.size(); ++i) {
-        auto bounds = getLocalArea(mSoundButtons[i]->getParentComponent(), mSoundButtons[i]->getBounds());
-
-        if (inbetween) {
-            // round it from midpoints
-            auto tophalf = bounds.withTrimmedBottom(bounds.getHeight()/2);
-            auto bottomhalf = bounds.withTrimmedTop(bounds.getHeight()/2);
-            if (tophalf.contains(pos) || pos.getY() < bounds.getY()) {
-                return i;
-            }
-            else if (bottomhalf.contains(pos)) {
-                return i+1;
-            }
-        }
-        else {
-            if (bounds.contains(pos)) {
-                return i;
-            }
-            if (pos.getY() < bounds.getY()) {
-                // return one less
-                return i-1;
-            }
-        }
+    for (int i = 0; i < int(mSoundButtons.size()); ++i) {
+        auto box = getLocalArea(&buttonContainer, mSoundButtons[i]->getBounds());
+        if (box.contains(pos)) return inbetween && pos.x > box.getCentreX() ? i+1 : i;
     }
-
-    return i;
+    return int(mSoundButtons.size());
 }
 
 Rectangle<int> SoundboardView::getBoundsForSampleIndex(int sampind)
@@ -799,7 +823,9 @@ void SoundboardView::clickedAddSoundSample()
 {
     SoundSample* createdSample = processor->addSoundSample("", "");
 
+    if (!createdSample) return;
     rebuildButtons();
+    if (mSoundButtons.empty()) return;
     auto * button = mSoundButtons.back().get();
     if (button) {
         clickedEditSoundSample(*button, *createdSample);
@@ -930,15 +956,57 @@ void SoundboardView::componentVisibilityChanged (Component& component)
 
 void SoundboardView::resized()
 {
-    // Compute the inner container size manually, as all automatic layout computation seem to be rendered useless
-    // as a consequence of using viewport.
-    int buttonsHeight = std::accumulate(buttonBox.items.begin(), buttonBox.items.end(), 0,
-        [](int sum, const FlexItem& item) { return sum + item.minHeight + item.margin.top + item.margin.bottom; });
-    buttonContainer.setSize(buttonViewport.getMaximumVisibleWidth()-4, buttonsHeight);
-
-    mainBox.performLayout(getLocalBounds().reduced(2));
-    buttonBox.performLayout(buttonContainer.getLocalBounds().reduced(2,0));
+    auto bounds = getLocalBounds().reduced(12);
+    auto title = bounds.removeFromTop(34);
+    mCloseButton->setBounds(title.removeFromLeft(28));
+    mMenuButton->setBounds(title.removeFromRight(28));
+    mTitleLabel->setBounds(title);
+    bounds.removeFromTop(8);
+    auto groups = bounds.removeFromTop(32);
+    mBoardSelectComboBox->setBounds(groups);
+    bounds.removeFromTop(8);
+    auto actions = bounds.removeFromTop(32);
+    newPadButton.setBounds(actions.removeFromLeft(110)); actions.removeFromLeft(8);
+    auto monitor = bounds.removeFromBottom(136);
+    headphonesEnabled.setBounds(monitor.removeFromTop(28));
+    auto devices = monitor.removeFromTop(30);
+    refreshOutputs.setBounds(devices.removeFromRight(76)); devices.removeFromRight(6);
+    headphonesDevice.setBounds(devices);
+    headphonesVolume.setBounds(monitor.removeFromTop(32));
+    headphonesHint.setBounds(monitor);
+    auto controls = bounds.removeFromBottom(48);
+    controlsBox.performLayout(controls);
+    bounds.removeFromTop(10); bounds.removeFromBottom(8);
+    buttonViewport.setBounds(bounds);
+    const int width = jmax(100, bounds.getWidth() - buttonViewport.getScrollBarThickness() - 4);
+    const int columns = jmax(1, width / 134);
+    const int tileWidth = (width - (columns-1)*10) / columns;
+    const int count = int(mSoundButtons.size()) + (mAddSampleButton ? 1 : 0);
+    buttonContainer.setSize(width, jmax(bounds.getHeight(), ((count + columns-1)/columns)*112));
+    int i = 0;
+    for (auto& button : mSoundButtons) {
+        button->setBounds((i%columns)*(tileWidth+10), (i/columns)*112, tileWidth, 102); ++i;
+    }
+    if (mAddSampleButton) mAddSampleButton->setBounds((i%columns)*(tileWidth+10), (i/columns)*112, tileWidth, 102);
 }
+
+void SoundboardView::refreshHeadphoneOutputs()
+{
+    const auto previous = headphonesDevice.getText();
+    headphoneOutputs = audioProcessor.getPadMonitor().devices();
+    headphonesDevice.clear(dontSendNotification);
+    for (int i = 0; i < headphoneOutputs.size(); ++i) {
+        auto label = headphoneOutputs[i].name + " (" + headphoneOutputs[i].type + ")";
+        headphonesDevice.addItem(label, i+1);
+        if (label == previous) headphonesDevice.setSelectedId(i+1, dontSendNotification);
+    }
+    headphonesEnabled.setToggleState(audioProcessor.getPadMonitor().isActive(), dontSendNotification);
+    if (headphoneOutputs.isEmpty())
+        headphonesHint.setText(juce::String::fromUTF8("Nenhuma saída encontrada. Conecte os fones e clique em Atualizar."), dontSendNotification);
+    else
+        headphonesHint.setText(juce::String::fromUTF8("Selecione seus fones. Você ouvirá apenas os pads, sem sua voz."), dontSendNotification);
+}
+
 
 bool SoundboardView::processKeystroke(const KeyPress& keyPress)
 {

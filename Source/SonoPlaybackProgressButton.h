@@ -18,6 +18,7 @@ public:
     ~SonoPlaybackProgressButton() override;
 
     void setPlaybackPosition(double value);
+    void setPadStyle(bool enabled) { padStyle = enabled; repaint(); }
 
     /**
      * @param newRgb The new button background colour with an alpha of 0.
@@ -109,6 +110,7 @@ public:
     bool isPositionDragging() const { return posDragging; }
     
 private:
+    bool padStyle = false;
 
     void initStuff();
 

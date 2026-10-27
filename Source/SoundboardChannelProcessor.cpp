@@ -446,6 +446,13 @@ void SoundboardChannelProcessor::unloadAll()
     }
 }
 
+void SoundboardChannelProcessor::clearPlayback()
+{
+    mixer.removeAllInputs();
+    for (const auto& entry : activeSamples) entry.second->releaseFileResources();
+    activeSamples.clear();
+}
+
 void SoundboardChannelProcessor::unloadAllNonBackground()
 {
     for (const auto &item : activeSamples) {

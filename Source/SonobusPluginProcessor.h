@@ -4,6 +4,7 @@
 
 
 #pragma once
+#include "SonoCraftPadMonitor.h"
 
 #include "JuceHeader.h"
 
@@ -828,6 +829,7 @@ public:
     int getLastSoundboardWidth() const { return mLastSoundboardWidth; }
     void setLastSoundboardShown(bool shown) { mLastSoundboardShown = shown; }
     bool getLastSoundboardShown() const { return mLastSoundboardShown; }
+    SonoCraftPadMonitor& getPadMonitor() { return padMonitor; }
     SoundboardChannelProcessor* getSoundboardProcessor() { return soundboardChannelProcessor.get(); }
 
     void setLastPluginBounds(juce::Rectangle<int> bounds) { mPluginWindowWidth = bounds.getWidth(); mPluginWindowHeight = bounds.getHeight();}
@@ -1262,6 +1264,7 @@ private:
     bool mTransportWasPlaying = false;
 
     // soundboard
+    SonoCraftPadMonitor padMonitor;
     std::unique_ptr<SoundboardChannelProcessor> soundboardChannelProcessor;
 
     // metronome

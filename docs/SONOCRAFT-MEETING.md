@@ -12,7 +12,18 @@ O modo reunião muda a saída principal do SonoCraft para uma mistura de sua voz
 
 **Silenciar** no canal de entrada corta a voz também da mistura da reunião. **Monitorar** fica desativado nesse modo porque a voz já faz parte da saída. O controle **Enviar ao grupo** do Soundboard continua controlando apenas o envio aos participantes do SonoCraft; os pads em reprodução entram na mistura local da reunião independentemente dele.
 
-Esta prévia usa a saída principal configurada no SonoCraft. Ela não abre uma segunda saída independente para monitorar localmente os pads e a voz nos fones. O áudio de retorno da reunião deve sair pelos fones selecionados no próprio aplicativo da reunião.
+## Ouvir os pads nos fones sem ouvir sua voz
+
+O painel Soundboard agora oferece uma segunda saída, exclusiva para os pads:
+
+1. Mantenha a saída principal do SonoCraft no cabo virtual usado como microfone da reunião.
+2. Abra o **Soundboard** e selecione o headset físico em **Selecione seu headset ou fone**. Essa saída deve ser o fone, não o VB-CABLE.
+3. Marque **Ouvir somente pads nos fones** e ajuste o volume logo abaixo. Esse volume não altera o volume enviado à reunião.
+4. No Windows, deixe desativada a opção **Escutar este dispositivo** do CABLE Output; ela reproduziria também a voz presente na mistura principal.
+
+O áudio de retorno do Teams continua saindo pelos fones selecionados no Teams. A saída adicional do SonoCraft recebe exclusivamente o Soundboard, sem microfone, participantes recebidos, metrônomo ou reprodução do transporte. Ela fica desligada ao iniciar o aplicativo até que o dispositivo seja selecionado e ativado.
+
+A organização das mesas foi mantida no seletor e no menu existentes. Os sons aparecem em pads em grade, com progresso de reprodução e acesso às opções pelo botão de três pontos.
 
 ## Silenciamento de participantes
 
@@ -20,4 +31,4 @@ Esta prévia usa a saída principal configurada no SonoCraft. Ela não abre uma 
 
 ## Verificação
 
-O teste de regressão verifica áudio real por UDP local, silenciamento e retomada do participante, voz local no modo reunião, exclusão do retorno dos participantes e reprodução de um arquivo WAV pelo Soundboard. A validação em um aplicativo de reunião real e entre macOS e Windows deve ser feita antes da publicação.
+O teste de regressão verifica áudio real por UDP local, silenciamento e retomada do participante, voz local no modo reunião, exclusão do retorno dos participantes reprodução de um arquivo WAV pelo Soundboard e processamento da fila exclusiva dos pads com ganho, silêncio e taxas de 44,1/48/96 kHz. A validação em um aplicativo de reunião real e entre macOS e Windows deve ser feita antes da publicação.

@@ -10,6 +10,7 @@
 #include "JuceHeader.h"
 #include "ChannelGroup.h"
 #include "Soundboard.h"
+#include "SonoCraftPadMonitor.h"
 
 class SoundboardChannelProcessor;
 class SamplePlaybackManager;
@@ -211,6 +212,7 @@ public:
      * @return true whether an audio block was processed, false otherwise.
      */
     bool processAudioBlock(int numSamples);
+    void capturePadMonitor(SonoCraftPadMonitor& monitor, int samples) { monitor.capture(buffer, samples, channelGroup.params.gain); }
     void sendAudioBlock(AudioBuffer<float>& sendWorkBuffer, int numSamples, int sendPanChannels, int startChannel);
 
     void releaseResources();
@@ -219,6 +221,7 @@ public:
      * Stops all playing samples from playing.
      */
     void unloadAll();
+    void clearPlayback();
 
     /**
      * Stops all playing samples from playing that aren't background mode

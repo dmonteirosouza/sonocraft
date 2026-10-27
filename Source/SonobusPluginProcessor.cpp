@@ -861,6 +861,7 @@ SonobusAudioProcessor::~SonobusAudioProcessor()
     mTransportSource.setSource(nullptr);
     mTransportSource.removeChangeListener(this);
 
+    padMonitor.stop();
     cleanupAoo();
 }
 
@@ -7105,6 +7106,7 @@ void SonobusAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     int fileplaychans = mCurrentAudioFileSource ? mCurrentAudioFileSource->getAudioFormatReader()->numChannels : 2;
     int soundboardchans = soundboardChannelProcessor->getFileSourceNumberOfChannels();
 
+    padMonitor.setSourceRate(sampleRate);
     soundboardChannelProcessor->prepareToPlay(sampleRate, meterRmsWindow, currSamplesPerBlock);
 
     for (int cgi=0; cgi < mInputChannelGroupCount && cgi < MAX_CHANGROUPS ; ++cgi) {
@@ -7764,6 +7766,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     }
 
     bool hassoundboarddata = soundboardChannelProcessor->processAudioBlock(numSamples);
+    soundboardChannelProcessor->capturePadMonitor(padMonitor, numSamples);
     if (hassoundboarddata && sendsoundboardaudio) {
         int startChannel = sendfileaudio ? filestartch + fileChannels : filestartch;
         soundboardChannelProcessor->sendAudioBlock(sendWorkBuffer, numSamples, sendPanChannels, startChannel);

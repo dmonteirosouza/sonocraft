@@ -3,6 +3,7 @@
 
 
 #include "SonoPlaybackProgressButton.h"
+#include "SonoCraftTheme.h"
 
 #include <utility>
 
@@ -57,6 +58,30 @@ void SonoPlaybackProgressButton::paintButton(Graphics& graphics,
                                              bool shouldDrawButtonAsHighlighted,
                                              bool shouldDrawButtonAsDown)
 {
+    if (padStyle) {
+        using namespace SonoCraftTheme;
+        auto box = getLocalBounds().toFloat().reduced(1);
+        graphics.setColour(isPlaying ? selection() : panel());
+        graphics.fillRoundedRectangle(box, 10);
+        graphics.setColour(isPlaying ? accent() : border());
+        graphics.drawRoundedRectangle(box, 10, isPlaying ? 2.0f : 1.0f);
+        graphics.setColour(juce::Colour(buttonColour | 0xff000000));
+        graphics.fillRoundedRectangle(box.withHeight(5).reduced(8, 0), 2);
+        graphics.setColour(SonoCraftTheme::text());
+        graphics.setFont(juce::Font(14.0f, juce::Font::bold));
+        graphics.drawFittedText(getButtonText().isEmpty() ? "Novo som" : getButtonText(), getLocalBounds().reduced(12).withTrimmedTop(12).withTrimmedBottom(24), juce::Justification::centredLeft, 2);
+        graphics.setFont(11.0f);
+        graphics.setColour(isPlaying ? accent() : secondary());
+        graphics.drawText(isPlaying ? "Tocando" : "Reproduzir", getLocalBounds().reduced(12).removeFromBottom(18), juce::Justification::centredLeft);
+        graphics.setColour(accent());
+        graphics.fillRoundedRectangle(12, float(getHeight()-5), float(juce::jmax(0.0, playbackPosition) * (getWidth()-24)), 3, 1);
+        editBounds = getLocalBounds().removeFromRight(28).removeFromTop(28);
+        if (showEditArea) {
+            graphics.setColour(secondary());
+            for (int i = 0; i < 3; ++i) graphics.fillEllipse(float(editBounds.getCentreX()), 10.0f + i*4, 2, 2);
+        }
+        return;
+    }
     auto& lf = getLookAndFeel();
 
     lf.drawButtonBackground(

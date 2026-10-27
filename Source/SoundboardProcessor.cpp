@@ -37,6 +37,7 @@ Soundboard& SoundboardProcessor::addSoundboard(const String& name, const bool se
 
 void SoundboardProcessor::renameSoundboard(int index, String newName)
 {
+    if (index < 0 || index >= int(soundboards.size())) return;
     auto& toRename = soundboards[index];
     toRename.setName(std::move(newName));
 
@@ -46,6 +47,8 @@ void SoundboardProcessor::renameSoundboard(int index, String newName)
 
 void SoundboardProcessor::deleteSoundboard(int index)
 {
+    if (index < 0 || index >= int(soundboards.size())) return;
+    channelProcessor->clearPlayback();
     // When a sample from this soundboard was playing, stop playback
     auto& activeSamples = channelProcessor->getActiveSamples();
     std::vector<juce::URL> urls;
@@ -85,7 +88,7 @@ void SoundboardProcessor::selectSoundboard(int index)
         selectedSoundboardIndex = {};
     }
     else {
-        selectedSoundboardIndex = jmax(0, jmin(index, static_cast<int>(getNumberOfSoundboards())));
+        selectedSoundboardIndex = jlimit(0, static_cast<int>(getNumberOfSoundboards()) - 1, index);
     }
 
     saveToDisk();
@@ -151,7 +154,7 @@ bool SoundboardProcessor::moveSoundSample(int fromSampleIndex, int toSampleIndex
     }
 
     // stop all playback, just in case
-    stopAllPlayback();
+    channelProcessor->clearPlayback();
     
     auto sampcopy = sampleList[fromSampleIndex];
     auto destiter = std::next(sampleList.begin(), toSampleIndex);
@@ -231,6 +234,7 @@ bool SoundboardProcessor::deleteSoundSample(SoundSample& sampleToDelete, std::op
 
             auto url = sample.getFileURL();
             
+            channelProcessor->clearPlayback();
             sampleList.erase(iter);
 
 #if JUCE_ANDROID

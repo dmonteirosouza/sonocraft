@@ -4565,7 +4565,7 @@ void SonobusAudioProcessorEditor::resized()
         }
     }
 
-    int soundboardwidth = processor.getLastSoundboardWidth();
+    int soundboardwidth = jlimit(380, 720, processor.getLastSoundboardWidth());
     mSoundboardView->setBounds(getLocalBounds().removeFromRight(soundboardwidth));
 
     if (mSoundboardView->isVisible() || mAboutToShowSoundboard) {

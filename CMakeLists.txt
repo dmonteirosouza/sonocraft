@@ -315,6 +315,7 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         Source/SoundboardProcessor.cpp
         Source/SoundboardProcessor.h
         Source/SoundboardView.cpp
+        Source/SonoCraftPadMonitor.h
         Source/SoundboardView.h
         Source/SoundSampleButtonColourPicker.cpp
         Source/SoundSampleButtonColourPicker.h
