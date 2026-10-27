@@ -74,7 +74,7 @@
       <path
          id="path1125"
          d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
-         style="fill-rule:evenodd;fill:#cccccc;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1;fill-opacity:1"
+         style="fill-rule:evenodd;fill:#354f60;stroke:#354f60;stroke-width:1pt;stroke-opacity:1;fill-opacity:1"
          transform="scale(-0.2) translate(-3.0,0)" />
     </marker>
     <marker
@@ -88,7 +88,7 @@
       <path
          id="path983"
          d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
-         style="fill-rule:evenodd;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1;fill:#cccccc;fill-opacity:1"
+         style="fill-rule:evenodd;stroke:#354f60;stroke-width:1pt;stroke-opacity:1;fill:#354f60;fill-opacity:1"
          transform="scale(0.2) rotate(180) translate(6,0)" />
     </marker>
     <marker
@@ -102,7 +102,7 @@
       <path
          id="path2862"
          d="M 5.77,0 -2.88,5 V -5 Z"
-         style="fill:#cccccc;fill-opacity:1;fill-rule:evenodd;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1"
+         style="fill:#354f60;fill-opacity:1;fill-rule:evenodd;stroke:#354f60;stroke-width:1pt;stroke-opacity:1"
          transform="scale(-0.4)" />
     </marker>
   </defs>
@@ -114,15 +114,15 @@
      x="0"
      y="0" />
   <g
-     style="fill:#cccccc;fill-opacity:1"
+     style="fill:#354f60;fill-opacity:1"
      transform="matrix(0.06875,0,0,0.06875,-2.6,-2.6)"
      id="g6825">
     <path
-       style="fill:#cccccc;fill-opacity:1"
+       style="fill:#354f60;fill-opacity:1"
        id="path4251"
        d="M 191,112 V 400 H 144 V 112 h 47 m 16,-16 h -79 v 320 h 79 z" />
     <path
-       style="fill:#cccccc;fill-opacity:1"
+       style="fill:#354f60;fill-opacity:1"
        id="path4253"
        d="M 368,112 V 400 H 321 V 112 h 47 m 16,-16 h -79 v 320 h 79 z" />
   </g>

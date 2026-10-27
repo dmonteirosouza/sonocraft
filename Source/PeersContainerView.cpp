@@ -9,7 +9,7 @@ using namespace SonoAudio;
 
 PeerViewInfo::PeerViewInfo() : smallLnf(12), medLnf(14), sonoSliderLNF(12), panSliderLNF(12)
 {
-    bgColor = Colour::fromFloatRGBA(0.112f, 0.112f, 0.112f, 1.0f);
+    bgColor = Colour(0xffffffff);
     borderColor = Colour::fromFloatRGBA(0.5f, 0.5f, 0.5f, 0.3f);
 
     sonoSliderLNF.textJustification = Justification::centredLeft;
@@ -169,7 +169,7 @@ void PeerViewInfo::resized()
 
 PendingPeerViewInfo::PendingPeerViewInfo()
 {
-    bgColor = Colour::fromFloatRGBA(0.112f, 0.112f, 0.112f, 1.0f);
+    bgColor = Colour(0xffffffff);
     borderColor = Colour::fromFloatRGBA(0.5f, 0.5f, 0.5f, 0.3f);
 
     //Random rcol;
@@ -205,17 +205,17 @@ PeersContainerView::PeersContainerView(SonobusAudioProcessor& proc)
  : Component("pcv"),  processor(proc)
 {
     mutedTextColor = Colour::fromFloatRGBA(0.8, 0.5, 0.2, 1.0);
-    regularTextColor = Colour(0xa0eeeeee);; //Colour(0xc0eeeeee);
-    dimTextColor = Colour(0xa0aaaaaa); //Colour(0xc0aaaaaa);
+    regularTextColor = Colour(0xff344e60);; //Colour(0xc0eeeeee);
+    dimTextColor = Colour(0xff667b8b); //Colour(0xc0aaaaaa);
     //soloColor = Colour::fromFloatRGBA(0.2, 0.5, 0.8, 1.0);
-    mutedColor = Colour::fromFloatRGBA(0.6, 0.3, 0.1, 1.0);
+    mutedColor = Colour(0xffffe4c9);
     soloColor = Colour::fromFloatRGBA(1.0, 1.0, 0.6, 1.0);
     mutedBySoloColor = Colour::fromFloatRGBA(0.25, 0.125, 0.0, 1.0);
     
     droppedTextColor = Colour(0xc0ee8888);
 
     outlineColor = Colour::fromFloatRGBA(0.25, 0.25, 0.25, 1.0);
-    bgColor = Colours::black;
+    bgColor = Colour(0xffedf3f6);
 
     peerModeFull = processor.getPeerDisplayMode() == SonobusAudioProcessor::PeerDisplayModeFull;
 
@@ -243,8 +243,8 @@ void PeersContainerView::configLevelSlider(Slider * slider)
     //slider->setTextValueSuffix(" dB");
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0x90eeeeee));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xf0eeeeee));
+    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
+    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
 
     
     slider->setTextBoxStyle(Slider::TextBoxAbove, true, 80, 12);
@@ -273,8 +273,8 @@ void PeersContainerView::configKnobSlider(Slider * slider)
     //slider->setPopupDisplayEnabled(true, false, this);
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0x90eeeeee));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xf0eeeeee));
+    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
+    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
 
     //slider->setLookAndFeel(&sonoSliderLNF);
     
@@ -414,6 +414,17 @@ void PeersContainerView::paint(Graphics & g)
 PeerViewInfo * PeersContainerView::createPeerViewInfo()
 {
     PeerViewInfo * pvf = new PeerViewInfo();
+
+    pvf->removeConnectionButton = std::make_unique<TextButton>(TRANS("Remove peer"));
+    pvf->removeConnectionButton->setTitle(TRANS("Remove connection"));
+    pvf->removeConnectionButton->setTooltip(TRANS("Remove this connection from your list. You can connect again at any time."));
+    pvf->removeConnectionButton->addListener(this);
+    pvf->removeConnectionButton->setColour(TextButton::textColourOffId, Colour(0xffb43d4b));
+    pvf->connectionSummary = std::make_unique<Label>();
+    pvf->connectionSummary->setFont(Font(12.0f));
+    pvf->connectionSummary->setColour(Label::textColourId, Colour(0xff526474));
+    pvf->addAndMakeVisible(pvf->removeConnectionButton.get());
+    pvf->addAndMakeVisible(pvf->connectionSummary.get());
 
     pvf->addrLabel = std::make_unique<TextEditor>("addr");
     pvf->addrLabel->setJustification(Justification::centred);
@@ -680,8 +691,8 @@ PeerViewInfo * PeersContainerView::createPeerViewInfo()
     pvf->recvOptionsContainer = std::make_unique<Component>();
     pvf->recvOptionsContainer->setFocusContainerType(FocusContainerType::focusContainer);
 
-    Colour statsbgcol = Colour::fromFloatRGBA(0.07, 0.07, 0.07, 1.0); // 0.08
-    Colour statsbordcol = Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.0); // 0.5 alpha 0.25
+    Colour statsbgcol(0xffedf3f6);
+    Colour statsbordcol(0xffd9e3ea);
     pvf->sendStatsBg = std::make_unique<DrawableRectangle>();
     pvf->sendStatsBg->setCornerSize(Point<float>(6,6));
     pvf->sendStatsBg->setFill (statsbgcol);
@@ -1286,6 +1297,11 @@ void PeersContainerView::updateLayout()
 
         pvf->mainbox.items.clear();
         pvf->mainnarrowbox.items.clear();
+        pvf->connectionBar.items.clear();
+        pvf->connectionBar.flexDirection = FlexBox::Direction::row;
+        pvf->connectionBar.items.add(FlexItem(90, 28, *pvf->connectionSummary).withFlex(1));
+        pvf->connectionBar.items.add(FlexItem(84, 28, *pvf->removeConnectionButton).withMargin(2));
+
 
         pvf->isNarrow = isNarrow;
 
@@ -1297,6 +1313,7 @@ void PeersContainerView::updateLayout()
 
         if (isNarrow) {
             pvf->mainnarrowbox.flexDirection = FlexBox::Direction::column;
+            pvf->mainnarrowbox.items.add(FlexItem(180, 32, pvf->connectionBar).withFlex(0));
             pvf->mainnarrowbox.items.add(FlexItem(2, 3));
             //pvf->mainnarrowbox.items.add(FlexItem(100, minitemheight, pvf->mainsendbox).withMargin(0).withFlex(0));
             pvf->mainnarrowbox.items.add(FlexItem(changroupminbounds.getWidth(), changroupminbounds.getHeight(), *pvf->channelGroups).withMargin(0).withFlex(0));
@@ -1320,6 +1337,7 @@ void PeersContainerView::updateLayout()
             //pvf->mainbox.items.add(FlexItem(meterwidth, 50, *pvf->recvMeter).withMargin(3).withFlex(0));
         } else {
             pvf->mainnarrowbox.flexDirection = FlexBox::Direction::column;
+            pvf->mainnarrowbox.items.add(FlexItem(180, 32, pvf->connectionBar).withFlex(0));
             //pvf->mainnarrowbox.items.add(FlexItem(2, 3));
 
             //pvf->mainnarrowbox.items.add(FlexItem(100, minitemheight, pvf->mainsendbox).withMargin(0).withFlex(0));
@@ -1645,6 +1663,12 @@ void PeersContainerView::updatePeerViews(int specific)
         pvf->channelGroups->setPeerMode(true, i);
 
         bool connected = processor.getRemotePeerConnected(i);
+        pvf->connectionId = processor.getRemotePeerConnectionId(i);
+        String peerHost;
+        int peerPort = 0;
+        processor.getRemotePeerAddressInfo(i, peerHost, peerPort);
+        pvf->connectionSummary->setText((connected ? TRANS("Connected") : TRANS("Connecting..."))
+                                       + "  ·  " + peerHost + ":" + String(peerPort), dontSendNotification);
         auto fullmode = pvf->fullMode;
 
         String hostname;
@@ -2115,8 +2139,12 @@ void PeersContainerView::buttonClicked (Button* buttonThatWasClicked)
             processor.setChangingDefaultRecvAudioCodecSetsExisting(buttonThatWasClicked->getToggleState());
             return;
         }
+        else if (pvf->removeConnectionButton.get() == buttonThatWasClicked) {
+            processor.removeRemotePeerByConnectionId(pvf->connectionId);
+            return;
+        }
         else if (pvf->optionsRemoveButton.get() == buttonThatWasClicked) {
-            processor.removeRemotePeer(i);
+            processor.removeRemotePeerByConnectionId(pvf->connectionId);
             showSendOptions(di, false);
             return;
         }
@@ -2324,7 +2352,7 @@ void PeersContainerView::clearClipIndicators()
 
 void PeersContainerView::showPopupMenu(Component * source, int dindex)
 {
-    if (dindex >= mPeerViews.size()) return;
+    if (!isPositiveAndBelow(dindex, mPeerViews.size())) return;
 
     int index = mPeerUpdateOrdering[dindex];
 
@@ -2359,17 +2387,30 @@ void PeersContainerView::showPopupMenu(Component * source, int dindex)
     
     Rectangle<int> bounds =  dw->getLocalArea(nullptr, source->getScreenBounds());
     
-    GenericItemChooser::launchPopupChooser(items, bounds, dw, this, index+1);
+    const auto connectionId = processor.getRemotePeerConnectionId(index);
+    const Component::SafePointer<PeersContainerView> safeThis(this);
+    GenericItemChooser::launchPopupChooser(items, bounds, dw,
+        [safeThis, connectionId](GenericItemChooser* chooser, int choice) {
+            if (safeThis == nullptr) return;
+            if (choice == 1) {
+                safeThis->processor.removeRemotePeerByConnectionId(connectionId);
+                return;
+            }
+            const auto currentIndex = safeThis->processor.findRemotePeerConnectionId(connectionId);
+            if (currentIndex < 0) return;
+            chooser->setTag(currentIndex + 1);
+            safeThis->genericItemChooserSelected(chooser, choice);
+        });
 }
 
 void PeersContainerView::genericItemChooserSelected(GenericItemChooser *comp, int index)
 {
     // popup menu
     int dvindex = comp->getTag() - 1;
-    if (dvindex >= mPeerViews.size()) return;
+    if (!isPositiveAndBelow(dvindex, processor.getNumberRemotePeers())) return;
     //PeerViewInfo * pvf = mPeerViews.getUnchecked(vindex);
 
-    int vindex = mPeerUpdateOrdering[dvindex];
+    int vindex = dvindex;
 
 
     bool isGroupPeer = processor.getRemotePeerUserName(vindex).isNotEmpty();

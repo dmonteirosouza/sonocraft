@@ -73,7 +73,7 @@
        inkscape:stockid="EmptyTriangleInS">
       <path
          transform="scale(-0.2) translate(-3.0,0)"
-         style="fill-rule:evenodd;fill:#cccccc;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1;fill-opacity:1"
+         style="fill-rule:evenodd;fill:#354f60;stroke:#354f60;stroke-width:1pt;stroke-opacity:1;fill-opacity:1"
          d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
          id="path1125" />
     </marker>
@@ -87,7 +87,7 @@
        inkscape:stockid="Arrow1Send">
       <path
          transform="scale(0.2) rotate(180) translate(6,0)"
-         style="fill-rule:evenodd;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1;fill:#cccccc;fill-opacity:1"
+         style="fill-rule:evenodd;stroke:#354f60;stroke-width:1pt;stroke-opacity:1;fill:#354f60;fill-opacity:1"
          d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
          id="path983" />
     </marker>
@@ -101,7 +101,7 @@
        inkscape:stockid="TriangleInM">
       <path
          transform="scale(-0.4)"
-         style="fill:#cccccc;fill-opacity:1;fill-rule:evenodd;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1"
+         style="fill:#354f60;fill-opacity:1;fill-rule:evenodd;stroke:#354f60;stroke-width:1pt;stroke-opacity:1"
          d="M 5.77,0 -2.88,5 V -5 Z"
          id="path2862" />
     </marker>
@@ -114,7 +114,7 @@
      id="rect9748"
      style="fill:#000000;fill-opacity:0;stroke:none;stroke-width:0.214092;stroke-linecap:round;stroke-opacity:1" />
   <path
-     style="fill:#cccccc;fill-opacity:1;stroke-width:0.084375"
+     style="fill:#354f60;fill-opacity:1;stroke-width:0.084375"
      d="M 5.55,3.9384375 23.251875,15 5.55,26.061562 V 3.9384375 M 4.2,1.5 v 27 L 25.8,15 Z"
      id="path4930" />
 </svg>

@@ -1,8 +1,14 @@
 # SonoCraft
 
+<img src="images/sonocraft_icon_256.png" width="88" alt="Ícone SonoCraft">
+
 Versão em desenvolvimento baseada no [SonoBus](https://github.com/sonosaurus/sonobus), com foco inicial em conexão e áudio entre Mac e Windows na rede local.
 
 **Prévia experimental:** os testes automáticos locais não substituem a validação com dois computadores. Grupo/senha, estabilidade prolongada e abertura da interface ainda precisam ser confirmados. Consulte [as mudanças e limitações](SONOCRAFT.md).
+
+## Novidades da versão 0.2
+
+Tema claro e minimalista, ícone próprio e botão **Remover** em cada conexão. A remoção continua apontando para o participante selecionado mesmo quando a ordem da lista muda. Veja [detalhes e limites](SONOCRAFT.md).
 
 ## Downloads
 

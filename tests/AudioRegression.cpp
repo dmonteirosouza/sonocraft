@@ -117,6 +117,32 @@ int main()
                       << ", channels=" << receiver.getRemotePeerRecvChannelCount(0) << "\n";
         return 1;
     }
+    // Exercise removal with a roster that cannot receive asynchronous replies.
+    auto roster = std::make_unique<SonobusAudioProcessor>();
+    roster->setRateAndBufferSizeDetails(48000.0, 128);
+    roster->prepareToPlay(48000.0, 128);
+    juce::DatagramSocket secondSilentEndpoint;
+    if (!secondSilentEndpoint.bindToPort(0)
+        || !roster->connectRemotePeer("127.0.0.1", silentEndpoint.getBoundPort())
+        || !roster->connectRemotePeer("127.0.0.1", secondSilentEndpoint.getBoundPort()))
+        return 1;
+    const auto removedId = roster->getRemotePeerConnectionId(0);
+    const auto retainedId = roster->getRemotePeerConnectionId(1);
+    if (removedId.isEmpty() || retainedId.isEmpty() || removedId == retainedId
+        || roster->removeRemotePeer(-1)
+        || !roster->removeRemotePeerByConnectionId(removedId)
+        || roster->findRemotePeerConnectionId(retainedId) != 0
+        || roster->removeRemotePeerByConnectionId(removedId)
+        || roster->getNumberRemotePeers() != 1
+        || !roster->removeRemotePeerByConnectionId(retainedId)
+        || roster->getNumberRemotePeers() != 0)
+    {
+        std::cerr << "FAIL: connection removal selected a stale or wrong peer\n";
+        return 1;
+    }
+    roster->releaseResources();
+    std::cout << "PASS: stable removal after list reorder and stale action rejection" << std::endl;
+
     std::cout << "PASS: missing host position, changing audio blocks, finite output, pending invitation status, local UDP audio" << std::endl;
     return 0;
 }

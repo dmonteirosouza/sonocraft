@@ -260,7 +260,7 @@ countries: br
 "Send Quality:" = "Qualidade de Envio:"
 "Recv Jitter Buffer:" = "Recv Jitter Buffer:"
 "Reset Dropped" = "Reinicialização Descartada"
-"Remove" = "Retirar"
+"Remove" = "Remover"
 "Removes user from your own connections, does not affect the whole group" = "Remove o usuário de suas próprias conexões, não afeta todo o grupo"
 "Other end muted us" = "O outro lado nos silenciou"
 "SEND DISABLED" = "ENVIAR DESATIVADO"
@@ -679,3 +679,8 @@ countries: br
 "Toggles whether sound samples can be played using default numeric hotkeys." = "Alterna se amostras de som podem ser reproduzidas usando teclas de atalho numéricas padrão."
 "Soundboard volume" = "Volume da mesa de som"
 "Send Soundboard Playback to All" = "Enviar reprodução do Soundboard para todos"
+"Connected" = "Conectado"
+"Remove connection" = "Remover conexão"
+"Remove this connection from your list. You can connect again at any time." = "Remove esta conexão da sua lista. Você pode conectar novamente a qualquer momento."
+
+"Remove peer" = "Remover"

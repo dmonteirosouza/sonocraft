@@ -37,6 +37,10 @@ public:
     SonoLookAndFeel rmeterLnf;
     SonoLookAndFeel smeterLnf;
 
+    String connectionId;
+    std::unique_ptr<TextButton> removeConnectionButton;
+    std::unique_ptr<Label> connectionSummary;
+    FlexBox connectionBar;
     std::unique_ptr<TextEditor> addrLabel;
     std::unique_ptr<Label> staticAddrLabel;
     std::unique_ptr<ToggleButton> sendMutedButton;

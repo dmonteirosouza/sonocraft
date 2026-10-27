@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>SonoCraft — connected sound</title>
+  <rect x="80" y="80" width="864" height="864" rx="200" fill="#f7fafc" stroke="#d9e3ea" stroke-width="12"/>
+  <path d="M256 600 C342 600 334 376 420 376 S498 648 584 648 S662 424 748 424" fill="none" stroke="#167d8d" stroke-width="72" stroke-linecap="round"/>
+  <circle cx="256" cy="600" r="44" fill="#203344"/>
+  <circle cx="748" cy="424" r="44" fill="#203344"/>
+</svg>

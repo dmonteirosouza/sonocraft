@@ -681,3 +681,6 @@ countries: pt
 "Toggles whether sound samples can be played using default numeric hotkeys." = "Alterna se as amostras de som podem ser reproduzidas utilizando teclas de atalho numéricas predefinidas."
 "Soundboard volume" = "Volume da placa de som"
 "Send Soundboard Playback to All" = "Enviar Reprodução do Soundboard a Todos"
+"Remove peer" = "Remover"
+"Remove connection" = "Remover conexão"
+"Connected" = "Conectado"

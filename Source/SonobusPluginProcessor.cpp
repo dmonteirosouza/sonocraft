@@ -267,6 +267,7 @@ struct SonobusAudioProcessor::RemotePeer {
         echosource.reset(aoo::isource::create(ourId + ECHO_ID_OFFSET));
     }
 
+    const String connectionId = Uuid().toString();
     EndpointState * endpoint = 0;
     int32_t ourId = AOO_ID_NONE;
     int32_t remoteSinkId = AOO_ID_NONE;
@@ -4661,37 +4662,48 @@ bool SonobusAudioProcessor::removeAllRemotePeers()
 
 bool SonobusAudioProcessor::removeRemotePeer(int index, bool sendblock)
 {
-    RemotePeer * remote = 0;
-    bool ret = false;
+    std::unique_ptr<RemotePeer> removed;
     {
-        const ScopedReadLock sl (mCoreLock);
+        const ScopedWriteLock lock(mCoreLock);
+        if (!isPositiveAndBelow(index, mRemotePeers.size()))
+            return false;
 
-        if (index < mRemotePeers.size()) {            
-            remote = mRemotePeers.getUnchecked(index);
-
-            commitCacheForPeer(remote);
-            
-            if (remote->connected) {
-                disconnectRemotePeer(index);
-            }
-                        
-            if (sendblock) {
-                sendBlockedInfoMessage(remote->endpoint, true);
-            }
-            
-            adjustRemoteSendMatrix(index, true);
-            
-            std::unique_ptr<RemotePeer> removed(remote);
-
-            {
-                const ScopedWriteLock slw (mCoreLock);
-                mRemotePeers.remove(index, false); // not deleting in scoped write lock
-            }
-
-        }
+        auto* remote = mRemotePeers[index];
+        commitCacheForPeer(remote);
+        if (remote->connected)
+            disconnectRemotePeer(index);
+        if (sendblock)
+            sendBlockedInfoMessage(remote->endpoint, true);
+        adjustRemoteSendMatrix(index, true);
+        removed.reset(mRemotePeers.removeAndReturn(index));
     }
-    
-    return ret;
+    clientListeners.call(&ClientListener::aooClientPeerChangedState, this, "removed");
+    return true;
+}
+
+
+String SonobusAudioProcessor::getRemotePeerConnectionId(int index) const
+{
+    const ScopedReadLock lock(mCoreLock);
+    return isPositiveAndBelow(index, mRemotePeers.size()) ? mRemotePeers[index]->connectionId : String{};
+}
+
+int SonobusAudioProcessor::findRemotePeerConnectionId(const String& connectionId) const
+{
+    const ScopedReadLock lock(mCoreLock);
+    for (int i = 0; i < mRemotePeers.size(); ++i)
+        if (mRemotePeers[i]->connectionId == connectionId)
+            return i;
+    return -1;
+}
+
+bool SonobusAudioProcessor::removeRemotePeerByConnectionId(const String& connectionId)
+{
+    // Resolve and remove under the same lock: a reordered or reconnected row
+    // must never redirect a delayed menu action to a different connection.
+    const ScopedWriteLock lock(mCoreLock);
+    const auto index = findRemotePeerConnectionId(connectionId);
+    return index >= 0 && removeRemotePeer(index);
 }
 
 

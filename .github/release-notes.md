@@ -1,4 +1,12 @@
-Prévia experimental do SonoCraft, derivada do SonoBus.
+Prévia SonoCraft 0.2: tema claro e minimalista, novo ícone e gerenciamento mais acessível das conexões.
+
+Novidades:
+- **Remover** diretamente no cabeçalho de cada participante.
+- Identificação estável da conexão para impedir que uma ação antiga remova outro cliente depois de reordenar a lista.
+- Correção do menu de participantes e atualização da lista após a remoção.
+- Endereço IP:porta visível e contraste ajustado para o tema claro.
+
+A remoção é manual e afeta somente suas conexões. A reconexão ainda não substitui automaticamente uma entrada antiga.
 
 Downloads:
 - **SonoCraft-mac-universal.zip**: aplicativo macOS, Apple Silicon e Intel, com assinatura local ad hoc; sem notarização.

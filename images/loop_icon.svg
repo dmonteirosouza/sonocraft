@@ -74,7 +74,7 @@
       <path
          id="path1125"
          d="M 5.77,0.0 L -2.88,5.0 L -2.88,-5.0 L 5.77,0.0 z "
-         style="fill-rule:evenodd;fill:#cccccc;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1;fill-opacity:1"
+         style="fill-rule:evenodd;fill:#354f60;stroke:#354f60;stroke-width:1pt;stroke-opacity:1;fill-opacity:1"
          transform="scale(-0.2) translate(-3.0,0)" />
     </marker>
     <marker
@@ -88,7 +88,7 @@
       <path
          id="path983"
          d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
-         style="fill-rule:evenodd;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1;fill:#cccccc;fill-opacity:1"
+         style="fill-rule:evenodd;stroke:#354f60;stroke-width:1pt;stroke-opacity:1;fill:#354f60;fill-opacity:1"
          transform="scale(0.2) rotate(180) translate(6,0)" />
     </marker>
     <marker
@@ -102,7 +102,7 @@
       <path
          id="path2862"
          d="M 5.77,0 -2.88,5 V -5 Z"
-         style="fill:#cccccc;fill-opacity:1;fill-rule:evenodd;stroke:#cccccc;stroke-width:1pt;stroke-opacity:1"
+         style="fill:#354f60;fill-opacity:1;fill-rule:evenodd;stroke:#354f60;stroke-width:1pt;stroke-opacity:1"
          transform="scale(-0.4)" />
     </marker>
   </defs>
@@ -114,24 +114,24 @@
      x="0"
      y="0" />
   <g
-     style="fill:none;fill-opacity:1;stroke:#cccccc;stroke-opacity:1;stroke-width:22.28571505;stroke-miterlimit:4;stroke-dasharray:none"
+     style="fill:none;fill-opacity:1;stroke:#354f60;stroke-opacity:1;stroke-width:22.28571505;stroke-miterlimit:4;stroke-dasharray:none"
      transform="matrix(0.06730769,0,0,0.06730769,-2.2307686,-2.2307686)"
      id="g2975">
     <polyline
        id="polyline2221"
-       style="fill:none;fill-opacity:1;stroke:#cccccc;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       style="fill:none;fill-opacity:1;stroke:#354f60;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
        points="320 120 368 168 320 216" />
     <path
        id="path2223"
-       style="fill:none;fill-opacity:1;stroke:#cccccc;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       style="fill:none;fill-opacity:1;stroke:#354f60;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
        d="M 352,168 H 144 a 80.24,80.24 0 0 0 -80,80 v 16" />
     <polyline
        id="polyline2225"
-       style="fill:none;fill-opacity:1;stroke:#cccccc;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       style="fill:none;fill-opacity:1;stroke:#354f60;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
        points="192 392 144 344 192 296" />
     <path
        id="path2227"
-       style="fill:none;fill-opacity:1;stroke:#cccccc;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       style="fill:none;fill-opacity:1;stroke:#354f60;stroke-width:22.28571505;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
        d="m 160,344 h 208 a 80.24,80.24 0 0 0 80,-80 v -16" />
   </g>
 </svg>

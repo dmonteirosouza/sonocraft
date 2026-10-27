@@ -1,9 +1,20 @@
-# SonoCraft 0.1.0 — prévia de desenvolvimento
+# SonoCraft 0.2.0 — prévia de desenvolvimento
 
 Derivado de SonoBus 1.7.2, commit 35f1062dab196b9838a4bb529c4bf6592b7f5987.
 Mantém os avisos de autoria e a licença GPLv3 com a exceção de distribuição em lojas.
 
 Foco inicial: Mac enviando áudio para Windows na mesma rede, via IP.
+
+## Novidades da versão 0.2
+
+- Botão **Remover** visível no cabeçalho de cada participante, inclusive na visualização mínima.
+- A remoção usa a identidade da conexão exibida, em vez da posição da linha. Uma ação antiga não passa a remover outro cliente quando a lista muda.
+- Menu de participante corrigido para não aplicar duas vezes a ordenação da lista.
+- Atualização imediata da lista após remover; rejeição de índices inválidos e resultado de remoção correto.
+- Interface clara, com superfícies neutras, texto escuro, destaque discreto em azul-petróleo e endereço IP:porta visível por participante.
+- Novo ícone vetorial próprio, usado no aplicativo, no cabeçalho e nos pacotes Mac/Windows.
+
+Nesta versão, a remoção é **manual e local**. Não expulsa alguém do grupo inteiro nem bloqueia seu IP. A substituição automática de clientes reconectados ainda não faz parte desta versão.
 
 ## Mudanças
 

@@ -81,13 +81,13 @@ GenericItemChooser::GenericItemChooser(const Array<GenericItemChooserItem> & ite
     // give it a border
 
     table.setColour (ListBox::outlineColourId, Colour::fromFloatRGBA(0.0, 0.0, 0.0, 0.0));
-    table.setColour (ListBox::backgroundColourId, Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0f));
+    table.setColour (ListBox::backgroundColourId, Colour(0xfff7fafc));
     table.setColour (ListBox::textColourId, Colours::whitesmoke.withAlpha(0.8f));
     
-    setColour (nameTextColourId, Colour::fromFloatRGBA(1.0f, 1.0f, 1.0f, 0.8f));
-    setColour (currentNameTextColourId, Colour::fromFloatRGBA(0.4f, 0.8f, 1.0f, 0.9f));
-    setColour (selectedColourId, Colour (0xff3d70c8).withAlpha(0.5f));
-    setColour (separatorColourId, Colour::fromFloatRGBA(1.0f, 1.0f, 1.0f, 0.5f));
+    setColour (nameTextColourId, Colour(0xff203344));
+    setColour (currentNameTextColourId, Colour(0xff167d8d));
+    setColour (selectedColourId, Colour(0xffdceff0));
+    setColour (separatorColourId, Colour(0xffd9e3ea));
     setColour (disabledColourId, Colour::fromFloatRGBA(0.7f, 0.7f, 0.7f, 0.7f));
 
     

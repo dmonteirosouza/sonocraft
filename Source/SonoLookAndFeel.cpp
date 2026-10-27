@@ -52,101 +52,67 @@ SonoLookAndFeel::SonoLookAndFeel(bool useUniversalFont) : mUseUniversalFont(useU
 
     //fontScale = 1.2; // 1.125;
 
-    setColourScheme(getDarkColourScheme());
+    // SonoCraft: quiet light surfaces, high-contrast type and one accent.
+    setColourScheme(getLightColourScheme());
+    const Colour canvas(0xfff4f7fa), surface(0xffffffff), ink(0xff203344);
+    const Colour muted(0xff5d7080), border(0xffd9e3ea), accent(0xff167d8d);
+    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::windowBackground, canvas);
+    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::widgetBackground, surface);
+    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::outline, border);
+    setColour(ResizableWindow::backgroundColourId, canvas);
+    setColour(Label::textColourId, ink);
+    setColour(Label::textWhenEditingColourId, ink);
+    setColour(TextButton::buttonColourId, Colour(0xffe9f0f4));
+    setColour(TextButton::buttonOnColourId, Colour(0xffc7e8e9));
+    setColour(TextButton::textColourOffId, ink);
+    setColour(TextButton::textColourOnId, Colour(0xff075361));
+    setColour(SonoTextButton::outlineColourId, border);
+    setColour(ToggleButton::textColourId, ink);
+    setColour(ToggleButton::tickColourId, accent);
+    setColour(ToggleButton::tickDisabledColourId, border);
+    setColour(ComboBox::backgroundColourId, surface);
+    setColour(ComboBox::textColourId, ink);
+    setColour(ComboBox::outlineColourId, border);
+    setColour(ComboBox::arrowColourId, muted);
+    setColour(TextEditor::backgroundColourId, surface);
+    setColour(TextEditor::textColourId, ink);
+    setColour(TextEditor::highlightColourId, Colour(0xffc7e8e9));
+    setColour(TextEditor::highlightedTextColourId, ink);
+    setColour(TextEditor::outlineColourId, border);
+    setColour(TextEditor::focusedOutlineColourId, accent);
+    setColour(Slider::backgroundColourId, border);
+    setColour(Slider::rotarySliderOutlineColourId, border);
+    setColour(Slider::trackColourId, accent);
+    setColour(Slider::thumbColourId, accent);
+    setColour(Slider::rotarySliderFillColourId, accent);
+    setColour(Slider::textBoxTextColourId, ink);
+    setColour(Slider::textBoxBackgroundColourId, surface);
+    setColour(Slider::textBoxOutlineColourId, border);
+    setColour(Slider::textBoxHighlightColourId, Colour(0xffc7e8e9));
+    setColour(ScrollBar::thumbColourId, Colour(0xffb6c8d3));
+    setColour(ListBox::backgroundColourId, surface);
+    setColour(ListBox::textColourId, ink);
+    setColour(ListBox::outlineColourId, border);
+    setColour(GroupComponent::textColourId, muted);
+    setColour(GroupComponent::outlineColourId, border);
+    setColour(BubbleComponent::backgroundColourId, surface);
+    setColour(BubbleComponent::outlineColourId, border);
+    setColour(TooltipWindow::backgroundColourId, Colour(0xffedf4f6));
+    setColour(TooltipWindow::textColourId, ink);
+    setColour(TooltipWindow::outlineColourId, border);
+    setColour(PopupMenu::backgroundColourId, surface);
+    setColour(PopupMenu::textColourId, ink);
+    setColour(PopupMenu::highlightedBackgroundColourId, Colour(0xffdceff0));
+    setColour(PopupMenu::highlightedTextColourId, ink);
+    setColour(SidePanel::backgroundColour, canvas);
+    setColour(DrawableButton::textColourId, ink);
+    setColour(DrawableButton::textColourOnId, ink);
+    setColour(DrawableButton::backgroundOnColourId, Colour(0xffc7e8e9));
+    setColour(SonoDrawableButton::overOverlayColourId, accent.withAlpha(0.08f));
+    setColour(SonoDrawableButton::downOverlayColourId, accent.withAlpha(0.16f));
+    setColour(DirectoryContentsDisplayComponent::highlightColourId, Colour(0xffdceff0));
+    setColour(DirectoryContentsDisplayComponent::textColourId, ink);
 
-    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::windowBackground, Colour::fromFloatRGBA(0.0, 0.0, 0.0, 1.0));
-    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::widgetBackground, Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0));
-    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::outline, Colour::fromFloatRGBA(0.3, 0.3, 0.3, 0.5));
-
-    setColour (Label::textColourId, Colour (0xffcccccc));
-    setColour (Label::textWhenEditingColourId, Colour (0xffe9e9e9));
-    
-    setColour(ResizableWindow::backgroundColourId, Colour(0xff111111));
-    
-    //setColour (TextButton::buttonColourId, Colour (0xff363636));
-    setColour (TextButton::buttonColourId, Colour::fromFloatRGBA(0.15, 0.15, 0.15, 0.7)); // old one
-    //setColour (TextButton::buttonColourId, Colour::fromFloatRGBA(0.15, 0.15, 0.15, 0.0));
-    //setColour (TextButton::buttonOnColourId, Colour (0xff3d70c8));
-    setColour (TextButton::buttonOnColourId, Colour::fromFloatRGBA(0.5, 0.4, 0.6, 0.8));
-    setColour (TextButton::textColourOnId, Colour (0xddcccccc));
-    setColour (TextButton::textColourOffId, Colour (0xdde9e9e9));
-
-    setColour (ToggleButton::textColourId, Colour (0xddcccccc));
-
-    
-    setColour (SonoTextButton::outlineColourId, Colour::fromFloatRGBA(0.3, 0.3, 0.3, 0.5));
-
-    setColour (ScrollBar::ColourIds::thumbColourId, Colour::fromFloatRGBA(0.4, 0.4, 0.4, 0.6));
-    
-    //setColour (ComboBox::backgroundColourId, Colour (0xff161616));
-    setColour (ComboBox::backgroundColourId, Colour::fromFloatRGBA(0.15, 0.15, 0.15, 0.7));
-    setColour (ComboBox::textColourId, Colour (0xffe9e9e9));
-    setColour (ComboBox::outlineColourId, Colour::fromFloatRGBA(0.3, 0.3, 0.3, 0.5));
-
-    setColour (TextEditor::backgroundColourId, Colour (0xff050505));
-    setColour (TextEditor::textColourId, Colour (0xffe9e9e9));
-    setColour (TextEditor::highlightColourId, Colour (0xff5959f9));
-    setColour (TextEditor::outlineColourId, Colour::fromFloatRGBA(0.3, 0.3, 0.3, 0.5));
-    setColour (TextEditor::focusedOutlineColourId, Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.7));
-
-    setColour (Slider::backgroundColourId, Colour::fromFloatRGBA(0.2, 0.2, 0.2, 1.0));
-    setColour (Slider::rotarySliderOutlineColourId, Colour::fromFloatRGBA(0.2, 0.2, 0.2, 1.0));
-    setColour (Slider::textBoxTextColourId, Colour(0xddcccccc));
-    setColour (Slider::textBoxBackgroundColourId, Colour::fromFloatRGBA(0.05, 0.05, 0.05, 1.0));
-    setColour (Slider::textBoxHighlightColourId, Colour (0xaa555555));
-    setColour (Slider::textBoxOutlineColourId, Colour::fromFloatRGBA(0.3, 0.3, 0.3, 0.5));
-    
-    setColour (Slider::trackColourId, Colour::fromFloatRGBA(0.1, 0.4, 0.6, 0.8));
-    setColour (Slider::thumbColourId, Colour::fromFloatRGBA(0.5, 0.4, 0.6, 0.9));
-    //setColour (Slider::thumbColourId, Colour::fromFloatRGBA(0.2, 0.5, 0.7, 1.0));
-    setColour (Slider::rotarySliderFillColourId, Colour::fromFloatRGBA(0.5, 0.4, 0.6, 0.9));
-    
-    setColour (TabbedButtonBar::tabOutlineColourId, Colour::fromFloatRGBA(0.3, 0.3, 0.3, 0.5));
-
-
-    
-    setColour (ListBox::backgroundColourId, Colour::fromFloatRGBA(0.15, 0.15, 0.15, 0.7));
-    setColour (ListBox::outlineColourId, Colour::fromFloatRGBA(0.3, 0.3, 0.3, 0.5));
-
-    setColour (BubbleComponent::backgroundColourId, Colour::fromFloatRGBA(0.25, 0.25, 0.25, 1.0));
-    setColour (BubbleComponent::outlineColourId, Colour::fromFloatRGBA(0.4, 0.4, 0.4, 0.5));
-    //setColour (TooltipWindow::textColourId, Colour(0xeecccccc));
-    setColour (TooltipWindow::textColourId, Colour(0xee222222));
-    setColour (TooltipWindow::backgroundColourId, Colour(0xeeffff99));
-
-    setColour (PopupMenu::backgroundColourId, Colour::fromFloatRGBA(0.2, 0.2, 0.2, 1.0));
-    setColour (PopupMenu::highlightedBackgroundColourId, Colour::fromFloatRGBA(0.35, 0.35, 0.4, 1.0));
-
-    setColour (SidePanel::backgroundColour, Colour::fromFloatRGBA(0.17, 0.17, 0.17, 1.0));
-
-
-    
-    //setColour (SonoDrawableButton::overOverlayColourId, Colour::fromFloatRGBA(0.8, 0.8, 0.8, 0.08));
-    //setColour (SonoDrawableButton::downOverlayColourId, Colour::fromFloatRGBA(0.8, 0.8, 0.8, 0.3));
-    setColour (SonoDrawableButton::overOverlayColourId, Colour::fromFloatRGBA(0.8, 0.8, 0.8, 0.08));
-    setColour (SonoDrawableButton::downOverlayColourId, Colour::fromFloatRGBA(0.8, 0.8, 0.8, 0.3));
-    
-    setColour (DrawableButton::textColourId, Colour (0xffb9b9b9));
-    setColour (DrawableButton::textColourOnId, Colour (0xffe9e9e9));
-
-    //setColour (DrawableButton::backgroundColourId, Colour (0xffb9b9b9));
-    setColour (DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0.5, 0.4, 0.6, 0.8));
-
-    //setColour (ConfigurationRowView::backgroundColourId, Colour::fromFloatRGBA(0.05, 0.05, 0.05, 1.0));
-    //setColour (ConfigurationRowView::selectedBackgroundColourId, Colour::fromFloatRGBA(0.15, 0.15, 0.15, 1.0));
-
-    setColour(ToggleButton::tickColourId, Colour::fromFloatRGBA(0.4, 0.8, 1.0, 1.0));
-    
-    setColour (DirectoryContentsDisplayComponent::highlightColourId, Colour::fromFloatRGBA(0.1, 0.4, 0.6, 0.9));
-    setColour (DirectoryContentsDisplayComponent::textColourId, Colour (0xffe9e9e9));
-    // setColour (Label::textColourId, Colour (0xffe9e9e9));
-
-    //myFont = Typeface::createSystemTypefaceFor (BinaryData::DejaVuSans_ttf, BinaryData::DejaVuSans_ttfSize);
-    //setDefaultSansSerifTypefaceName("Gill Sans");
-    //setDefaultSansSerifTypefaceName("Arial Unicode MS");
-    //setDefaultSansSerifTypefaceName(myFont.getTypefaceName());
-
-    //myFont = Typeface::createSystemTypefaceFor (BinaryData::GillSans_ttc, BinaryData::GillSans_ttcSize);
     myFont = Font(16 * fontScale);
     
     setupDefaultMeterColours();
@@ -1300,7 +1266,7 @@ void SonoLookAndFeel::drawLinearSlider (Graphics& g, int x, int y, int width, in
 void SonoLookAndFeel::drawDrawableButton (Graphics& g, DrawableButton& button,
                                          bool isMouseOverButton, bool isButtonDown)
 {
-    const auto cornerSize = 6.0f;
+    const auto cornerSize = 8.0f;
     bool toggleState = button.getToggleState();
     
     ;

@@ -335,6 +335,9 @@ public:
     bool removeRemotePeer(int index, bool sendblock=false);
 
     bool removeAllRemotePeers();
+    String getRemotePeerConnectionId(int index) const;
+    int findRemotePeerConnectionId(const String& connectionId) const;
+    bool removeRemotePeerByConnectionId(const String& connectionId);
     
     int getNumberRemotePeers() const;
 

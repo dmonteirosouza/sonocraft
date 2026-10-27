@@ -62,11 +62,11 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     mTitleLabel = std::make_unique<Label>("title", TRANS("Chat"));
     mTitleLabel->setJustificationType(Justification::centred);
     mTitleLabel->setFont(Font(18, Font::bold));
-    mTitleLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mTitleLabel->setColour(Label::textColourId, Colour(0xff203344));
 
     mChatTabs = std::make_unique<SonobusChatTabbedButtonBar>(TabbedButtonBar::Orientation::TabsAtBottom, *this);
     mChatTabs->setMinimumTabScaleFactor(0.2f);
-    //mChatTabs->setColour(TabbedButtonBar::frontTextColourId, Colour::fromFloatRGBA(0.4, 0.8, 1.0, 1.0));
+    mChatTabs->setColour(TabbedButtonBar::frontTextColourId, Colours::white);
     mChatTabs->setColour(TabbedButtonBar::frontOutlineColourId, Colour::fromFloatRGBA(0.5, 0.9, 1.0, 0.7));
     
     mChatTextEditor = std::make_unique<TextEditor>();
@@ -80,7 +80,7 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     mChatSendTextEditor = std::make_unique<FocusTextEditor>();
     mChatSendTextEditor->setMultiLine(true);
     mChatSendTextEditor->setScrollbarsShown(true);
-    mChatSendTextEditor->setTextToShowWhenEmpty(TRANS("Enter message here..."), Colour(0x88bbbbbb));
+    mChatSendTextEditor->setTextToShowWhenEmpty(TRANS("Enter message here..."), Colour(0xff607684));
     mChatSendTextEditor->setTitle(TRANS("Message Text"));
     mChatSendTextEditor->onReturnKey = [this]() {
         commitChatMessage();
@@ -138,7 +138,7 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     //mChatSendButton->setButtonText(TRANS("Send"));
     //mChatSendButton->onClick = [this]() { commitChatMessage(); };
 
-    mChatTabs->addTab(TRANS("ALL"), Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0), 0);
+    mChatTabs->addTab(TRANS("ALL"), Colour(0xffedf3f6), 0);
     
     addAndMakeVisible(mChatTabs.get());
     addAndMakeVisible(mChatTextEditor.get());
@@ -207,7 +207,7 @@ ChatView::~ChatView()
 
 void ChatView::paint (Graphics& g)
 {
-    g.fillAll (Colour(0xff272727));
+    g.fillAll (Colour(0xffedf3f6));
 }
 
 void ChatView::resized()
@@ -319,7 +319,7 @@ void ChatView::updateTitles()
         mesg = name + TRANS(" is not connected");
         mChatSendTextEditor->clear();
     }
-    mChatSendTextEditor->setTextToShowWhenEmpty(mesg, Colour(0x88bbbbbb));
+    mChatSendTextEditor->setTextToShowWhenEmpty(mesg, Colour(0xff607684));
     mChatSendTextEditor->repaint();
     auto titletext = TRANS("Chat") + String(" : ") + name;
     mTitleLabel->setText(titletext, dontSendNotification);
@@ -748,7 +748,7 @@ void ChatView::setMesgUnreadForTab(const String & name, bool flag)
 void ChatView::appendPrivateChatTab(const String & name, bool setcurrent)
 {
     auto usecolor = getOrGenerateUserColor(name);
-    mChatTabs->addTab(name, Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0), mChatTabs->getNumTabs());
+    mChatTabs->addTab(name, Colour(0xffedf3f6), mChatTabs->getNumTabs());
     if (auto button = mChatTabs->getTabButton(mChatTabs->getNumTabs()-1)) {
         button->setColour(TabbedButtonBar::tabTextColourId, usecolor);
         button->setColour(TabbedButtonBar::frontTextColourId, usecolor);
@@ -796,13 +796,13 @@ void ChatView::processNewChatMessages(int index, int count)
     if (index < 0) return;
 
     // for now just add their text to the big texteditor showing all chats
-    const Colour selfNameColour(0xaaeeeeff);
-    const Colour selfBgColour(0x88222244);
-    const Colour otherNameColour(0xaaffffaa);
-    const Colour selfTextColour(0xffeeeeee);
-    const Colour otherTextColour(0xffffffaa);
-    const Colour sysTextColour(0xffffaaaa);
-    const Colour urlTextColour(0xff44aaff);
+    const Colour selfNameColour(0xff167d8d);
+    const Colour selfBgColour(0xffdceff0);
+    const Colour otherNameColour(0xff426171);
+    const Colour selfTextColour(0xff203344);
+    const Colour otherTextColour(0xff344e60);
+    const Colour sysTextColour(0xffa73546);
+    const Colour urlTextColour(0xff167d8d);
 
     mChatTextEditor->moveCaretToEnd();
 

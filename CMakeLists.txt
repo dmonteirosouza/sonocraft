@@ -37,9 +37,9 @@ endif()
 # `project()` command. `project()` sets up some helpful variables that describe source/binary
 # directories, and the current project version. This is a standard CMake command.
 
-project(SonoCraft VERSION 0.1.0)
+project(SonoCraft VERSION 0.2.0)
 
-set(BUILDVERSION 80)
+set(BUILDVERSION 81)
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
@@ -160,8 +160,8 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         BUNDLE_ID "org.sonocraft.audio"
         MICROPHONE_PERMISSION_ENABLED TRUE
         
-        ICON_BIG "images/sonobus_icon_mac_1024.png"
-        ICON_SMALL "images/sonobus_icon_mac_256.png"
+        ICON_BIG "images/sonocraft_icon_1024.png"
+        ICON_SMALL "images/sonocraft_icon_256.png"
         NEEDS_WEB_BROWSER FALSE
         VST2_CATEGORY "${vst2cat}"
         VST3_CATEGORIES "${vst3cats}"
@@ -459,6 +459,7 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         ${PLAT_COMPILE_DEFS} )
 
     juce_add_binary_data("${target_name}_SBData" SOURCES
+        images/sonocraft_icon_256.png
         Source/wordmaker.g
         Source/GoNotoKurrent-Regular.ttf
 	Source/DejaVuSans.ttf
