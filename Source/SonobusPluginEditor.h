@@ -25,6 +25,7 @@
 #include "ReverbView.h"
 #include "VDONinjaView.h"
 
+class SonoCraftMixerView;
 class RandomSentenceGenerator;
 class WaveformTransportComponent;
 
@@ -556,6 +557,7 @@ private:
 
     AooServerConnectionInfo currConnectionInfo;
     
+    std::unique_ptr<SonoCraftMixerView> mMixerWorkspace;
     std::unique_ptr<TableListBox> mRemoteSinkListBox;
     std::unique_ptr<TableListBox> mRemoteSourceListBox;
     

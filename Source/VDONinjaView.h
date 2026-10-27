@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "SonoCraftTheme.h"
 #include <JuceHeader.h>
 
 #include "SonoLookAndFeel.h"

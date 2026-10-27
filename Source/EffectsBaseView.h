@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "SonoCraftTheme.h"
 #include "JuceHeader.h"
 
 #include "SonobusPluginProcessor.h"
@@ -18,14 +19,14 @@ class EffectsBaseView    : public Component
 public:
     EffectsBaseView() : sonoSliderLNF(14), smallLNF(12)
     {
-        bgColor = Colour(0xff101010);
+        bgColor = SonoCraftTheme::panel();
 
         headerComponent.addAndMakeVisible(enableButton);
         headerComponent.addAndMakeVisible(titleLabel);
         headerComponent.addAndMakeVisible(dragButton);
 
         headerComponent.addMouseListener(this, true);
-        
+
         std::unique_ptr<Drawable> powerimg(Drawable::createFromImageData(BinaryData::power_svg, BinaryData::power_svgSize));
         std::unique_ptr<Drawable> powerselimg(Drawable::createFromImageData(BinaryData::power_sel_svg, BinaryData::power_sel_svgSize));
         enableButton.setImages(powerimg.get(), nullptr, nullptr, nullptr, powerselimg.get());
@@ -63,10 +64,10 @@ public:
     {
     public:
         HeaderComponent(EffectsBaseView & parent_) : parent(parent_) {
-            
+
         }
         ~HeaderComponent() {}
-        
+
         void paint (Graphics& g) override
         {
             Colour usecolor = parent.enableButton.getToggleState() ? enabledColor : normalColor;
@@ -74,61 +75,61 @@ public:
             if (mouseIsOver) {
                 usecolor = usecolor.withMultipliedBrightness(1.3f);
             }
-            
-            g.setColour(usecolor);  
+
+            g.setColour(usecolor);
 
             auto bounds = getLocalBounds().withTrimmedTop(2).withTrimmedBottom(0);
             g.fillRoundedRectangle(bounds.toFloat(), 6.0);
         }
-        
+
         void resized() override {
             auto bounds = getLocalBounds().withTrimmedTop(2).withTrimmedBottom(2);
             headerBox.performLayout(bounds);
         }
-        
+
         void mouseEnter (const MouseEvent& event) override {
             mouseIsOver = true;
             repaint();
         }
 
         void mouseExit (const MouseEvent& event) override {
-            mouseIsOver = false;            
+            mouseIsOver = false;
             repaint();
         }
-        
+
         FlexBox headerBox;
         EffectsBaseView & parent;
-        Colour normalColor = { Colour(0xff2a2a2a) };
-        Colour enabledColor = { Colour::fromFloatRGBA(0.2f, 0.5f, 0.7f, 0.5f) };
+        Colour normalColor = { SonoCraftTheme::recessed() };
+        Colour enabledColor = { SonoCraftTheme::selection() };
         bool mouseIsOver = false;
     };
-    
+
     virtual Component * getHeaderComponent() {
-        
+
         return &headerComponent;
     }
-    
+
     void mouseUp (const MouseEvent& event) override {
         if (event.eventComponent == &headerComponent) {
-            if (!event.mouseWasDraggedSinceMouseDown()) {                
+            if (!event.mouseWasDraggedSinceMouseDown()) {
                 headerListeners.call (&EffectsBaseView::HeaderListener::effectsHeaderClicked, this);
             }
         }
     }
 
-    
 
-    
+
+
     class HeaderListener {
     public:
         virtual ~HeaderListener() {}
         virtual void effectsHeaderClicked(EffectsBaseView *comp) {}
     };
-    
+
     void addHeaderListener(HeaderListener * listener) { headerListeners.add(listener); }
     void removeHeaderListener(HeaderListener * listener) { headerListeners.remove(listener); }
-    
-    
+
+
 
     virtual juce::Rectangle<int> getMinimumContentBounds() const {
         return minBounds;
@@ -141,17 +142,17 @@ public:
 
     void setDragButtonVisible(bool flag) { dragButton.setVisible(flag); }
     bool getDragButtonVisible() const  { return dragButton.isVisible(); }
-    
-   
-    
+
+
+
 protected:
-    
+
 
     ListenerList<HeaderListener> headerListeners;
     juce::Rectangle<int> minHeaderBounds;
     juce::Rectangle<int> minBounds;
-    
-    void configKnobSlider(Slider & slider) 
+
+    void configKnobSlider(Slider & slider)
     {
         slider.setSliderStyle(Slider::SliderStyle::RotaryHorizontalVerticalDrag);
         slider.setTextBoxStyle(Slider::TextBoxAbove, true, 60, 14);
@@ -164,11 +165,11 @@ protected:
         slider.setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
         slider.setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
         slider.setColour(Slider::textBoxTextColourId, Colour(0x77eeeeee));
-        slider.setColour(TooltipWindow::textColourId, Colour(0xf0eeeeee));
+        slider.setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
         slider.setLookAndFeel(&sonoSliderLNF);
     }
-    
-    void configBarSlider(Slider & slider) 
+
+    void configBarSlider(Slider & slider)
     {
         slider.setSliderStyle(Slider::SliderStyle::LinearBar);
         slider.setTextBoxStyle(Slider::TextBoxRight, true, 60, 14);
@@ -180,8 +181,8 @@ protected:
         //slider->setPopupDisplayEnabled(true, false, this);
         //slider.setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
         //slider.setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-        //slider.setColour(Slider::textBoxTextColourId, Colour(0x90eeeeee));
-        slider.setColour(TooltipWindow::textColourId, Colour(0xf0eeeeee));
+        //slider.setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+        slider.setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
         //slider.setLookAndFeel(&sonoSliderLNF);
     }
 
@@ -190,8 +191,8 @@ protected:
         //slider->setTextValueSuffix(" dB");
         slider.setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
         slider.setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-        slider.setColour(Slider::textBoxTextColourId, Colour(0x90eeeeee));
-        slider.setColour(TooltipWindow::textColourId, Colour(0xf0eeeeee));
+        slider.setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+        slider.setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
         slider.setWantsKeyboardFocus(true);
 
         slider.setTextBoxStyle(Slider::TextBoxAbove, true, 100, 12);
@@ -216,29 +217,29 @@ protected:
     #endif
     }
 
-    void configLabel(Label & label, bool bright=false) 
+    void configLabel(Label & label, bool bright=false)
     {
         if (bright) {
             label.setFont(13);
-            label.setColour(Label::textColourId, Colour(0xffeeeeee));
+            label.setColour(Label::textColourId, SonoCraftTheme::text());
         } else {
             label.setFont(12);
-            label.setColour(Label::textColourId, Colour(0xc0eeeeee));            
+            label.setColour(Label::textColourId, SonoCraftTheme::secondary());
         }
         label.setJustificationType(Justification::centred);
         label.setMinimumHorizontalScale(0.5);
     }
-    
+
     SonoBigTextLookAndFeel sonoSliderLNF;
     SonoBigTextLookAndFeel smallLNF;
 
     Colour   bgColor;
 
-    SonoDrawableButton enableButton = { "enable", DrawableButton::ButtonStyle::ImageFitted };    
+    SonoDrawableButton enableButton = { "enable", DrawableButton::ButtonStyle::ImageFitted };
     HeaderComponent headerComponent = { *this };
     Label titleLabel;
     SonoDrawableButton dragButton = { "drag", DrawableButton::ButtonStyle::ImageFitted };
 
-        
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EffectsBaseView)
 };

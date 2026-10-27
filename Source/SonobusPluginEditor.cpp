@@ -3,8 +3,10 @@
 
 
 
+#include "SonoCraftTheme.h"
 #include "SonobusPluginProcessor.h"
 #include "SonobusPluginEditor.h"
+#include "SonoCraftMixerView.h"
 
 #include "BeatToggleGrid.h"
 
@@ -29,6 +31,14 @@
 #include "juce_core/native/juce_JNIHelpers_android.h"
 #endif
 
+
+class SonoCraftSettingsContent final : public Component {
+public:
+    explicit SonoCraftSettingsContent(Component& component) : content(&component) { addAndMakeVisible(component); }
+    void resized() override { if (content) content->setBounds(getLocalBounds().reduced(12)); }
+private:
+    Component::SafePointer<Component> content;
+};
 
 enum {
     PeriodicUpdateTimerId = 0,
@@ -243,7 +253,7 @@ static void configLabel(Label *label, bool val)
 {
     if (val) {
         label->setFont(12);
-        label->setColour(Label::textColourId, Colour(0xff526474));
+        label->setColour(Label::textColourId, SonoCraftTheme::secondary());
         label->setJustificationType(Justification::centred);        
     }
     else {
@@ -256,7 +266,7 @@ static void configLabel(Label *label, bool val)
 static void configServerLabel(Label *label)
 {
     label->setFont(14);
-    label->setColour(Label::textColourId, Colour(0xff526474));
+    label->setColour(Label::textColourId, SonoCraftTheme::secondary());
     label->setJustificationType(Justification::centredRight);        
 }
 
@@ -302,7 +312,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     teensyLNF.setLanguageCode(mActiveLanguageCode, processor.getUseUniversalFont());
     panSliderLNF.setLanguageCode(mActiveLanguageCode, processor.getUseUniversalFont());
 
-    setColour (nameTextColourId, Colour(0xff203344));
+    setColour (nameTextColourId, SonoCraftTheme::text());
     setColour (selectedColourId, Colour::fromFloatRGBA(0.0f, 0.4f, 0.8f, 0.5f));
     setColour (separatorColourId, Colour::fromFloatRGBA(0.3f, 0.3f, 0.3f, 0.3f));
 
@@ -349,7 +359,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mTitleLabel = std::make_unique<Label>("title", TRANS("SonoCraft"));
     mTitleLabel->setFont(20);
     mTitleLabel->setAccessible(false);
-    mTitleLabel->setColour(Label::textColourId, Colour(0xff167d8d));
+    mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::accent());
     mTitleLabel->setInterceptsMouseClicks(true, false);
     mTitleLabel->addMouseListener(this, false);
 
@@ -397,10 +407,10 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mPeerLayoutFullButton->setImages(fullimg.get());
     mPeerLayoutFullButton->addListener(this);
     mPeerLayoutFullButton->setClickingTogglesState(false);
-    mPeerLayoutFullButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    mPeerLayoutFullButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     mPeerLayoutFullButton->setColour(TextButton::buttonColourId, Colours::transparentBlack);
     mPeerLayoutFullButton->setColour(SonoTextButton::outlineColourId, Colours::transparentBlack);
-    mPeerLayoutFullButton->setColour(DrawableButton::backgroundOnColourId, Colour(0xffdceff0));
+    mPeerLayoutFullButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mPeerLayoutFullButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mPeerLayoutFullButton->setTitle(TRANS("Detailed View"));
     mPeerLayoutFullButton->setTooltip(TRANS("Shows full information for connected users"));
@@ -412,10 +422,10 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mPeerLayoutMinimalButton->setImages(minimg.get());
     mPeerLayoutMinimalButton->addListener(this);
     mPeerLayoutMinimalButton->setClickingTogglesState(false);
-    mPeerLayoutMinimalButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    mPeerLayoutMinimalButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     mPeerLayoutMinimalButton->setColour(TextButton::buttonColourId, Colours::transparentBlack);
     mPeerLayoutMinimalButton->setColour(SonoTextButton::outlineColourId, Colours::transparentBlack);
-    mPeerLayoutMinimalButton->setColour(DrawableButton::backgroundOnColourId, Colour(0xffdceff0));
+    mPeerLayoutMinimalButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mPeerLayoutMinimalButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mPeerLayoutMinimalButton->setTooltip(TRANS("Shows minimal information for connected users"));
     mPeerLayoutMinimalButton->setTitle(TRANS("Minimal View"));
@@ -436,7 +446,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mInMixerButton->setLookAndFeel(&smallLNF);
     mInMixerButton->addListener(this);
     mInMixerButton->setClickingTogglesState(true);
-    mInMixerButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    mInMixerButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     mInMixerButton->setTooltip(TRANS("This button shows/hides the Input Mixer where you can organize your audio input levels, panning, and effects before your signal is sent out. You can also control how you monitor yourself."));
 
     mInMuteButton = std::make_unique<TextButton>("mute");
@@ -476,10 +486,10 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mMainMuteButton->setImages(sendallowimg.get(), nullptr, nullptr, nullptr, senddisallowimg.get());
     mMainMuteButton->addListener(this);
     mMainMuteButton->setClickingTogglesState(true);
-    mMainMuteButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    mMainMuteButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     mMainMuteButton->setColour(TextButton::buttonColourId, Colours::transparentBlack);
     mMainMuteButton->setColour(SonoTextButton::outlineColourId, Colours::transparentBlack);
-    mMainMuteButton->setColour(DrawableButton::backgroundOnColourId, Colour(0xffdceff0));
+    mMainMuteButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mMainMuteButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mMainMuteButton->setTooltip(TRANS("Silences your Input, none of your audio (including file playback) will be sent to users and they will see a muted indicator"));
 
@@ -489,10 +499,10 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mMainRecvMuteButton->setImages(recvallowimg.get(), nullptr, nullptr, nullptr, recvdisallowimg.get());
     mMainRecvMuteButton->addListener(this);
     mMainRecvMuteButton->setClickingTogglesState(true);
-    mMainRecvMuteButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    mMainRecvMuteButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     mMainRecvMuteButton->setColour(TextButton::buttonColourId, Colours::transparentBlack);
     mMainRecvMuteButton->setColour(SonoTextButton::outlineColourId, Colours::transparentBlack);
-    mMainRecvMuteButton->setColour(DrawableButton::backgroundOnColourId, Colour(0xffdceff0));
+    mMainRecvMuteButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mMainRecvMuteButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mMainRecvMuteButton->setTooltip(TRANS("Mutes/Unmutes all users, no audio data will be received when users are muted"));
     mMainRecvMuteButton->setTitle(TRANS("Mute All Others"));
@@ -502,10 +512,10 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     std::unique_ptr<Drawable> pttonimg(Drawable::createFromImageData(BinaryData::speaker_disabled_svg, BinaryData::speaker_disabled_svgSize));
     mMainPushToTalkButton->setImages(pttimg.get()/*, nullptr, pttonimg.get()*/);
     mMainPushToTalkButton->addMouseListener(this, false);
-    mMainPushToTalkButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    mMainPushToTalkButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     mMainPushToTalkButton->setColour(TextButton::buttonColourId, Colours::transparentBlack);
     mMainPushToTalkButton->setColour(SonoTextButton::outlineColourId, Colours::transparentBlack);
-    mMainPushToTalkButton->setColour(DrawableButton::backgroundOnColourId, Colour(0xffdceff0));
+    mMainPushToTalkButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mMainPushToTalkButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mMainPushToTalkButton->setTitle(TRANS("Push To Talk"));
     String pttmessage = TRANS("When pressed, mutes others and unmutes you momentarily (push to talk).");
@@ -521,7 +531,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     
     mMetButtonBg = std::make_unique<DrawableRectangle>();
     mMetButtonBg->setCornerSize(Point<float>(8,8));
-    mMetButtonBg->setFill (Colour(0xffe9f0f4));
+    mMetButtonBg->setFill (SonoCraftTheme::recessed());
     mMetButtonBg->setStrokeFill (Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.25));
     mMetButtonBg->setStrokeThickness(0.5);
 
@@ -530,7 +540,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
 
     mFileAreaBg = std::make_unique<DrawableRectangle>();
     mFileAreaBg->setCornerSize(Point<float>(8,8));
-    mFileAreaBg->setFill (Colour(0xffe9f0f4));
+    mFileAreaBg->setFill (SonoCraftTheme::recessed());
     mFileAreaBg->setStrokeFill (Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.25));
     mFileAreaBg->setStrokeThickness(0.5);
     
@@ -540,7 +550,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mMetEnableButton->setImages(metimg.get(), nullptr, nullptr, nullptr, nullptr);
     mMetEnableButton->addListener(this);
     mMetEnableButton->setClickingTogglesState(true);
-    mMetEnableButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    mMetEnableButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     mMetEnableButton->setColour(TextButton::buttonColourId, Colours::transparentBlack);
     mMetEnableButton->setTooltip(TRANS("Metronome On/Off"));
     mMetEnableButton->setTitle(TRANS("Metronome"));
@@ -706,7 +716,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mConnectButton = std::make_unique<SonoTextButton>("directconnect");
     mConnectButton->setButtonText(TRANS("Connect..."));
     mConnectButton->addListener(this);
-    mConnectButton->setColour(TextButton::buttonColourId, Colour(0xffdceff0));
+    mConnectButton->setColour(TextButton::buttonColourId, SonoCraftTheme::selection());
     mConnectButton->setColour(TextButton::buttonOnColourId, Colour(0xffc7e8e9));
     mConnectButton->setColour(SonoTextButton::outlineColourId, Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.4));
     mConnectButton->setTextJustification(Justification::centred);
@@ -832,10 +842,10 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
         resized();
     };
     //mChatButton->setClickingTogglesState(true);
-    //mChatButton->setColour(TextButton::buttonOnColourId, Colour(0xffdceff0));
+    //mChatButton->setColour(TextButton::buttonOnColourId, SonoCraftTheme::selection());
     //mChatButton->setColour(TextButton::buttonColourId, Colours::transparentBlack);
     //mChatButton->setColour(SonoTextButton::outlineColourId, Colours::transparentBlack);
-    mChatButton->setColour(DrawableButton::backgroundOnColourId, Colour(0xffdceff0));
+    mChatButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     //mChatButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mChatButton->setTooltip(TRANS("Show/Hide Chat"));
 
@@ -873,7 +883,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
         this->showSoundboardPanel(newshown);
         resized();
     };
-    mSoundboardButton->setColour(DrawableButton::backgroundOnColourId, Colour(0xffdceff0));
+    mSoundboardButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mSoundboardButton->setTooltip(TRANS("Show/Hide Soundboard"));
 
     mSoundboardSizeConstrainer = std::make_unique<ComponentBoundsConstrainer>();
@@ -922,7 +932,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     
     mReverbHeaderBg = std::make_unique<DrawableRectangle>();
     mReverbHeaderBg->setCornerSize(Point<float>(6,6));
-    mReverbHeaderBg->setFill (Colour(0xffe9f0f4));
+    mReverbHeaderBg->setFill (SonoCraftTheme::recessed());
     mReverbHeaderBg->setStrokeFill (Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.25));
     mReverbHeaderBg->setStrokeThickness(0.5);
 
@@ -1381,10 +1391,52 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
         processor.getTransportSource().sendChangeMessage();
     }
 
+    mMixerWorkspace = std::make_unique<SonoCraftMixerView>(processor);
+    mMixerWorkspace->onConnectGroup = [this] { showConnectPopup(true); };
+    mMixerWorkspace->onConnectIP = [this] { mConnectView->showDirectConnection(mMixerWorkspace->connectionAnchor()); };
+    mMixerWorkspace->onAudio = [this] { showSettings(true); if (mOptionsView) mOptionsView->showAudioTab(); };
+    mMixerWorkspace->onSettings = [this] { showSettings(true); if (mOptionsView) mOptionsView->showOptionsTab(); };
+    mMixerWorkspace->onPlay = [this] { mPlayButton->triggerClick(); };
+    mMixerWorkspace->onRecord = [this] { buttonClicked(mRecordingButton.get()); };
+
+    mMixerWorkspace->onFile = [this] { buttonClicked(mFileBrowseButton.get()); };
+    mMixerWorkspace->onRouting = [this] { buttonClicked(mPatchbayButton.get()); };
+    mMixerWorkspace->onEffects = [this] { buttonClicked(mEffectsButton.get()); };
+    mMixerWorkspace->onChat = [this] {
+        const bool show = !mChatView->isVisible();
+        showSoundboardPanel(false, false);
+        showChatPanel(show, false);
+        resized();
+        if (show) { mChatView->toFront(false); mChatView->setFocusToChat(); }
+    };
+    mMixerWorkspace->onSoundboard = [this] {
+        const bool show = !mSoundboardView->isVisible();
+        showChatPanel(false, false);
+        showSoundboardPanel(show, false);
+        resized();
+        if (show) mSoundboardView->toFront(false);
+    };
+    mTopLevelContainer->setVisible(false);
+    mTitleImage->setVisible(false);
+    addAndMakeVisible(mMixerWorkspace.get());
+    // Dock panels belong to the visible workspace, not the hidden legacy layout.
+    addChildComponent(mChatView.get());
+    addChildComponent(mSoundboardView.get());
+    setResizeLimits(820, 580, 10000, 10000);
+    setSize(jmax(1040, getWidth()), jmax(680, getHeight()));
+    resized();
+
 }
 
 SonobusAudioProcessorEditor::~SonobusAudioProcessorEditor()
 {
+    if (auto* dialog = dynamic_cast<DialogWindow*>(settingsCalloutBox.get())) {
+        dialog->setLookAndFeel(nullptr);
+        dialog->exitModalState(0);
+        dialog->setVisible(false);
+    }
+    mMixerWorkspace.reset();
+
     if (menuBarModel) {
         menuBarModel->setApplicationCommandManagerToWatch(nullptr);
 #if JUCE_MAC
@@ -1546,8 +1598,8 @@ void SonobusAudioProcessorEditor::configKnobSlider(Slider * slider)
     //slider->setPopupDisplayEnabled(true, false, this);
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
+    slider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    slider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
 
     slider->setLookAndFeel(&sonoSliderLNF);
 }
@@ -1564,8 +1616,8 @@ void SonobusAudioProcessorEditor::configLevelSlider(Slider * slider)
     //slider->setPopupDisplayEnabled(true, false, this);
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
+    slider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    slider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
 
     slider->setLookAndFeel(&sonoSliderLNF);
 }
@@ -1902,7 +1954,8 @@ void SonobusAudioProcessorEditor::timerCallback(int timerid)
             }
 
             // first time thing
-            mConnectButton->grabKeyboardFocus();
+            if (mMixerWorkspace) mMixerWorkspace->connectionAnchor()->grabKeyboardFocus();
+            else mConnectButton->grabKeyboardFocus();
         }
 
         if (processor.getLastChatShown() != mChatView->isVisible()) {
@@ -3317,9 +3370,11 @@ void SonobusAudioProcessorEditor::componentVisibilityChanged (Component& compone
     }
     else if (&component == mConnectView.get()) {
         mTopLevelContainer->setEnabled(!mConnectView->isVisible());
+        if (mMixerWorkspace) mMixerWorkspace->setEnabled(!mConnectView->isVisible());
         if (!mConnectView->isVisible()) {
             // focus on main connect button
-            mConnectButton->grabKeyboardFocus();
+            if (mMixerWorkspace) mMixerWorkspace->connectionAnchor()->grabKeyboardFocus();
+            else mConnectButton->grabKeyboardFocus();
         }
     }
 
@@ -3445,7 +3500,7 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
         int defWidth = 320;
         int defHeight = 420;
 #else
-        int defWidth = 340;
+        int defWidth = 520;
         int defHeight = 400;
 #endif
         
@@ -3474,7 +3529,9 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
         defHeight = jmin(defHeight + 8, dw->getHeight() - 90); // 24
 
 
-        auto wrap = std::make_unique<Component>();
+        std::unique_ptr<Component> wrap;
+        if (mMixerWorkspace) wrap = std::make_unique<SonoCraftSettingsContent>(*mOptionsView);
+        else wrap = std::make_unique<Component>();
 
         wrap->addAndMakeVisible(mOptionsView.get());
 
@@ -3485,11 +3542,21 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
         updateOptionsState();
         
        
-        Rectangle<int> bounds =  dw->getLocalArea(nullptr, mTitleLabel->getScreenBounds().reduced(10));
-        DBG("callout bounds: " << bounds.toString());
-        settingsCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
-        if (CallOutBox * box = dynamic_cast<CallOutBox*>(settingsCalloutBox.get())) {
-            box->setDismissalMouseClicksAreAlwaysConsumed(true);
+        if (mMixerWorkspace) {
+            DialogWindow::LaunchOptions launch;
+            launch.dialogTitle = juce::String::fromUTF8("Configurações do SonoCraft");
+            launch.dialogBackgroundColour = SonoCraftTheme::canvas();
+            launch.content.setOwned(wrap.release());
+            launch.componentToCentreAround = this;
+            launch.useNativeTitleBar = true;
+            launch.resizable = true;
+            auto* dialog = launch.launchAsync();
+            dialog->setLookAndFeel(&sonoLookAndFeel);
+            dialog->setResizeLimits(420, 340, 1000, 1000);
+            settingsCalloutBox = dialog;
+        } else {
+            const auto bounds = dw->getLocalArea(mTitleLabel.get(), mTitleLabel->getLocalBounds());
+            settingsCalloutBox = &CallOutBox::launchAsynchronously(std::move(wrap), bounds, dw, false);
         }
 
         settingsClosedTimestamp = 0;
@@ -3508,6 +3575,11 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
     }
     else {
         // dismiss it
+        if (auto* dialog = dynamic_cast<DialogWindow*>(settingsCalloutBox.get())) {
+            dialog->exitModalState(0);
+            dialog->setVisible(false);
+            settingsCalloutBox = nullptr;
+        }
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(settingsCalloutBox.get())) {
             box->dismiss();
             settingsCalloutBox = nullptr;
@@ -3601,7 +3673,7 @@ void SonobusAudioProcessorEditor::updateState(bool rebuildInputChannels)
     if (mReverbEnabledButton->getToggleState()) {
         mReverbHeaderBg->setFill(Colour::fromFloatRGBA(0.2f, 0.5f, 0.7f, 0.5f));                
     } else {
-        mReverbHeaderBg->setFill(Colour(0xffe9f0f4));
+        mReverbHeaderBg->setFill(SonoCraftTheme::recessed());
     }
 
     mReverbEnabledButton->setAlpha(mReverbEnabledButton->getToggleState() ? 1.0 : 0.5);
@@ -4508,6 +4580,7 @@ void SonobusAudioProcessorEditor::resized()
     mTopLevelContainer->setBounds(getLocalBounds());
 
     mainBox.performLayout(mainBounds);
+    if (mMixerWorkspace) mMixerWorkspace->setBounds(mainBounds);
 
 
     mChatEdgeResizer->setBounds(mChatView->getLocalBounds().withWidth(5));

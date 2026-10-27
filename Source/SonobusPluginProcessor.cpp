@@ -42,6 +42,7 @@ typedef int socklen_t;
 #define PEER_PING_INTERVAL_MS 2000.0
 
 String SonobusAudioProcessor::paramInGain     ("ingain");
+String SonobusAudioProcessor::paramMeetingMode ("meetingmode");
 String SonobusAudioProcessor::paramDry     ("dry");
 String SonobusAudioProcessor::paramInMonitorMonoPan     ("inmonmonopan");
 String SonobusAudioProcessor::paramInMonitorPan1     ("inmonpan1");
@@ -291,6 +292,7 @@ struct SonobusAudioProcessor::RemotePeer {
     bool sendActive = false;
     bool recvActive = false;
     bool sendAllow = true;
+    Atomic<bool> mixerMuted { false }; // Local listening gate; does not renegotiate the stream.
     bool recvAllow = true;
     bool recvAllowCache = false; // used for recvmute all state
     bool sendAllowCache = false; // used for sendmute all state
@@ -632,6 +634,7 @@ mState (*this, &mUndoManager, "SonoBusAoO",
                                           [](const String& s) -> float { return s.getFloatValue()*1e-3f; }),
     std::make_unique<AudioParameterChoice>(ParameterID(paramSendChannels, 1), TRANS ("Send Channels"), StringArray({ "Match # Inputs", "Send Mono", "Send Stereo"}), JUCEApplicationBase::isStandaloneApp() ? mSendChannels.get() : 0),
 
+    std::make_unique<AudioParameterBool>(ParameterID(paramMeetingMode, 1), "Meeting Mode", false),
     std::make_unique<AudioParameterBool>(ParameterID(paramMetEnabled, 1), TRANS ("Metronome Enabled"), mMetEnabled.get()),
     std::make_unique<AudioParameterBool>(ParameterID(paramSendMetAudio, 1), TRANS ("Send Metronome Audio"), mSendMet.get()),
     std::make_unique<AudioParameterFloat>(ParameterID(paramMetGain, 1),     TRANS ("Metronome Gain"),    NormalisableRange<float>(0.0, 1.0, 0.0, 0.5), mMetGain.get(), "", AudioProcessorParameter::genericParameter,
@@ -693,6 +696,7 @@ mState (*this, &mUndoManager, "SonoBusAoO",
 })
 {
     mState.addParameterListener (paramInGain, this);
+    mState.addParameterListener (paramMeetingMode, this);
     mState.addParameterListener (paramDry, this);
     mState.addParameterListener (paramWet, this);
     mState.addParameterListener (paramInMonitorMonoPan, this);
@@ -3295,13 +3299,9 @@ void SonobusAudioProcessor::doSendData()
         setupSourceFormatsForAll();
         mNeedsSampleSetup = false;
 
-        // reset all incoming by toggling muting
-        if (!mMainRecvMute.get()) {
-            DBG("Toggling main recv mute");
-            mState.getParameter(paramMainRecvMute)->setValueNotifyingHost(1.0f);
-            mPendingUnmuteAtStamp = Time::getMillisecondCounter() + 250;
-            mPendingUnmute = true;
-        }
+        // AOO announces source format changes itself. Toggling global receive
+        // mute here tears down live UDP sinks and can race their re-invitation.
+        // Keep listening permissions and existing receive streams unchanged.
 
         sendRemotePeerInfoUpdate(-1); // send to all
 
@@ -4681,6 +4681,66 @@ bool SonobusAudioProcessor::removeRemotePeer(int index, bool sendblock)
     return true;
 }
 
+
+Array<SonobusAudioProcessor::MixerChannelState> SonobusAudioProcessor::getMixerChannelStates()
+{
+    const ScopedReadLock lock(mCoreLock);
+    Array<MixerChannelState> states;
+    for (auto* peer : mRemotePeers) {
+        MixerChannelState state;
+        state.id = peer->connectionId;
+        state.name = peer->userName.isNotEmpty() ? peer->userName : String("Participante");
+        state.address = peer->endpoint->ipaddr + ":" + String(peer->endpoint->port);
+        state.codec = getAudioCodeFormatName(peer->formatIndex);
+        state.gain = peer->gain;
+        state.connected = peer->connected;
+        state.muted = peer->mixerMuted.get() || !peer->recvAllow;
+        state.soloed = peer->soloed;
+        state.bufferMs = peer->buffertimeMs;
+        state.bufferMode = peer->autosizeBufferMode;
+        peer->recvMeterSource.decayIfNeeded();
+        if (peer->recvMeterSource.getNumChannels() > 0)
+            state.left = peer->recvMeterSource.getMaxLevel(0);
+        state.right = peer->recvMeterSource.getNumChannels() > 1
+            ? peer->recvMeterSource.getMaxLevel(1) : state.left;
+        states.add(state);
+    }
+    return states;
+}
+
+void SonobusAudioProcessor::setMixerChannelGain(const String& id, float gain)
+{
+    const ScopedReadLock lock(mCoreLock);
+    const auto index = findRemotePeerConnectionId(id);
+    if (index >= 0) setRemotePeerLevelGain(index, gain);
+}
+
+void SonobusAudioProcessor::setMixerChannelMute(const String& id, bool muted)
+{
+    const ScopedReadLock lock(mCoreLock);
+    const auto index = findRemotePeerConnectionId(id);
+    if (index >= 0) {
+        // Keep the negotiated stream alive so unmute resumes without a new
+        // invitation or waiting for network acknowledgements.
+        mRemotePeers.getUnchecked(index)->mixerMuted = muted;
+    }
+}
+
+void SonobusAudioProcessor::setMixerChannelSolo(const String& id, bool soloed)
+{
+    const ScopedReadLock lock(mCoreLock);
+    const auto index = findRemotePeerConnectionId(id);
+    if (index >= 0) setRemotePeerSoloed(index, soloed);
+}
+
+void SonobusAudioProcessor::setMixerChannelBuffer(const String& id, float milliseconds, bool automatic)
+{
+    const ScopedReadLock lock(mCoreLock);
+    const auto index = findRemotePeerConnectionId(id);
+    if (index < 0) return;
+    setRemotePeerAutoresizeBufferMode(index, automatic ? AutoNetBufferModeAutoFull : AutoNetBufferModeOff);
+    if (!automatic) setRemotePeerBufferTime(index, jlimit(0.0f, 1000.0f, milliseconds));
+}
 
 String SonobusAudioProcessor::getRemotePeerConnectionId(int index) const
 {
@@ -6579,7 +6639,10 @@ void SonobusAudioProcessor::applyLayoutFormatToPeer(RemotePeer * remote, const V
 
 void SonobusAudioProcessor::parameterChanged (const String &parameterID, float newValue)
 {
-    if (parameterID == paramDry) {
+    if (parameterID == paramMeetingMode) {
+        mMeetingMode = newValue > 0.5f;
+    }
+    else if (parameterID == paramDry) {
         mDry = newValue;
     }
     else if (parameterID == paramInGain) {
@@ -6789,7 +6852,12 @@ void SonobusAudioProcessor::parameterChanged (const String &parameterID, float n
         for (int i=0; i < getNumberRemotePeers(); ++i) {
             bool connected  = getRemotePeerConnected(i);
             bool isGroupPeer = getRemotePeerUserName(i).isNotEmpty();
-            
+            // A direct peer may arrive while format setup temporarily mutes
+            // reception. Restore its local allow gate even before handshake
+            // completion, without reconnecting a deliberately disconnected peer.
+            if (!mMainRecvMute.get())
+                setRemotePeerRecvAllow(i, getRemotePeerRecvAllow(i, true));
+
             if (!connected && !isGroupPeer) {
                 /*
                  String hostname;
@@ -7916,7 +7984,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
             bool forceSilent = false;
 
             // we get the stuff, but ignore it (either muted or others soloed)
-            if (!remote->recvActive || (anysoloed && !remote->soloed) || remote->resetSafetyMuted) {
+            if (remote->mixerMuted.get() || !remote->recvAllow || !remote->recvActive || (anysoloed && !remote->soloed) || remote->resetSafetyMuted) {
 
                 usegain = 0.0f;
                 forceSilent = true;
@@ -8251,11 +8319,21 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
         mFilePlaybackChannelGroup.processMonitor(fileBuffer, 0, buffer, dstch, dstcnt, numSamples, fgain);
     }
 
+    // Dedicated meeting mix: local voice and pads only. Received peers, file
+    // playback, metronome and their effects never return to the meeting input.
+    const bool meetingMode = mMeetingMode.get();
+    if (meetingMode) {
+        buffer.clear();
+        if (!mMainSendMute.get()) {
+            for (int channel = 0; channel < jmin(mainBusOutputChannels, inputBuffer.getNumChannels()); ++channel)
+                buffer.copyFrom(channel, 0, inputBuffer, channel, 0, numSamples);
+        }
+    }
     if (hassoundboarddata) {
         soundboardChannelProcessor->processMonitor(buffer, numSamples, totalOutputChannels);
     }
 
-    if (metenabled) {
+    if (metenabled && !meetingMode) {
         int dstch = mMetChannelGroup.params.monDestStartIndex;
         int dstcnt = jmin(totalOutputChannels, mMetChannelGroup.params.monDestChannels);
         auto fgain = mMetChannelGroup.params.gain;

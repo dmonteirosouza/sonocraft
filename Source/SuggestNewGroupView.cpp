@@ -3,6 +3,7 @@
 
 
 
+#include "SonoCraftTheme.h"
 #include "SuggestNewGroupView.h"
 #include "GenericItemChooser.h"
 
@@ -19,28 +20,28 @@ SuggestNewGroupView::SuggestNewGroupView(SonobusAudioProcessor& proc) :  smallLN
     mTitleLabel = std::make_unique<Label>("title", TRANS("Suggest New Group"));
     mTitleLabel->setJustificationType(Justification::centred);
     mTitleLabel->setFont(Font(16, Font::bold));
-    mTitleLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
 
     mGroupStaticLabel = std::make_unique<Label>("title", TRANS("Group"));
     mGroupStaticLabel->setJustificationType(Justification::centred);
     mGroupStaticLabel->setFont(Font(14, Font::plain));
-    mGroupStaticLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mGroupStaticLabel->setColour(Label::textColourId, SonoCraftTheme::text());
 
     mGroupEditor = std::make_unique<TextEditor>("group");
     mGroupEditor->setFont(Font(16, Font::plain));
-    mGroupEditor->setColour(Label::textColourId, Colour(0xeeffffff));
+    mGroupEditor->setColour(Label::textColourId, SonoCraftTheme::text());
     mGroupEditor->setMultiLine(false);
     mGroupEditor->setIndents(8, 8);
 
     mGroupPassStaticLabel = std::make_unique<Label>("title", TRANS("Password"));
     mGroupPassStaticLabel->setJustificationType(Justification::centred);
     mGroupPassStaticLabel->setFont(Font(16, Font::plain));
-    mGroupPassStaticLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mGroupPassStaticLabel->setColour(Label::textColourId, SonoCraftTheme::text());
 
     mGroupPassEditor = std::make_unique<TextEditor>("passwd");
     mGroupPassEditor->setFont(Font(14, Font::plain));
-    mGroupPassEditor->setColour(Label::textColourId, Colour(0xeeffffff));
-    mGroupPassEditor->setTextToShowWhenEmpty(TRANS("optional"), Colour(0x44ffffff));
+    mGroupPassEditor->setColour(Label::textColourId, SonoCraftTheme::text());
+    mGroupPassEditor->setTextToShowWhenEmpty(TRANS("optional"), SonoCraftTheme::secondary());
     mGroupPassEditor->setMultiLine(false);
     mGroupPassEditor->setIndents(8, 8);
 
@@ -100,7 +101,7 @@ SuggestNewGroupView::SuggestNewGroupView(SonobusAudioProcessor& proc) :  smallLN
             mGroupEditor->repaint();
             return;
         } else {
-            mGroupEditor->setColour(TextEditor::backgroundColourId, Colours::black);
+            mGroupEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
             mGroupEditor->repaint();
         }
 
@@ -123,7 +124,7 @@ SuggestNewGroupView::SuggestNewGroupView(SonobusAudioProcessor& proc) :  smallLN
 
 
     mPeerRect = std::make_unique<DrawableRectangle>();
-    mPeerRect->setFill(Colour::fromFloatRGBA(0.0, 0.0, 0.0, 1.0));
+    mPeerRect->setFill(SonoCraftTheme::panel());
     mPeerRect->setCornerSize(Point<float>(8,8));
 
     addAndMakeVisible(mRequestButton.get());
@@ -227,7 +228,7 @@ void SuggestNewGroupView::dismissSelf()
 
 void SuggestNewGroupView::paint (Graphics& g)
 {
-    //g.fillAll (Colour(0xff272727));
+    //g.fillAll (SonoCraftTheme::canvas());
 }
 
 void SuggestNewGroupView::resized()

@@ -1,5 +1,6 @@
 // SonoCraft regression coverage: no audio device or remote server required.
 #include "../Source/SonobusPluginProcessor.h"
+#include "../Source/SoundboardChannelProcessor.h"
 #include <cmath>
 #include <iostream>
 
@@ -20,6 +21,27 @@ int main()
     auto receiverOwner = std::make_unique<SonobusAudioProcessor>();
     auto& sender = *senderOwner;
     auto& receiver = *receiverOwner;
+    auto resetTestParameters = [](SonobusAudioProcessor& processor) {
+        // User-saved application defaults must not change regression behavior.
+        for (auto* parameter : processor.getParameters())
+            parameter->setValueNotifyingHost(parameter->getDefaultValue());
+        auto set = [&](const juce::String& id, float value) {
+            auto* parameter = processor.getValueTreeState().getParameter(id);
+            parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+        };
+        set(SonobusAudioProcessor::paramDry, 0);
+        set(SonobusAudioProcessor::paramWet, 1);
+        set(SonobusAudioProcessor::paramMainSendMute, 0);
+        set(SonobusAudioProcessor::paramMainRecvMute, 0);
+        set(SonobusAudioProcessor::paramMeetingMode, 0);
+        set(SonobusAudioProcessor::paramMetEnabled, 0);
+        set(SonobusAudioProcessor::paramMainReverbEnabled, 0);
+        processor.setInputGroupCount(1);
+        processor.setInputGroupChannelStartAndCount(0, 0, 2);
+        processor.setInputGroupChannelDestStartAndCount(0, 0, 2);
+    };
+    resetTestParameters(sender);
+    resetTestParameters(receiver);
     std::cout << "Audio processors initialized" << std::endl;
     EmptyPlayHead emptyPlayHead;
     sender.setPlayHead(nullptr);
@@ -64,11 +86,16 @@ int main()
 
     juce::MidiBuffer midi;
     double phase = 0.0;
-    double receivedEnergy = 0.0;
+    double receivedEnergy = 0.0, mutedEnergy = 0.0, resumedEnergy = 0.0;
+    double meetingRemoteEnergy = 0.0, meetingVoiceEnergy = 0.0;
+    auto setMeeting = [](SonobusAudioProcessor& processor, bool enabled) {
+        auto* parameter = processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingMode);
+        parameter->setValueNotifyingHost(enabled ? 1.0f : 0.0f);
+    };
     const int blockSizes[] = {128, 1024, 64, 256, 512, 128};
     const auto startedAt = juce::Time::getMillisecondCounterHiRes();
     auto nextCallbackAt = startedAt;
-    for (int block = 0; block < 1000; ++block)
+    for (int block = 0; block < 1400; ++block)
     {
         const auto samples = block < 300 || block >= 700 ? 256 : blockSizes[(block / 70) % 6];
         juce::AudioBuffer<float> input(2, samples), output(2, samples);
@@ -83,7 +110,27 @@ int main()
         if (block % 100 == 0)
             std::cout << "Processing block " << block << ", samples=" << samples
                       << ", elapsed=" << (juce::Time::getMillisecondCounterHiRes() - startedAt) << " ms" << std::endl;
+        if (block == 1000 || block == 1100) {
+            const auto id = receiver.getRemotePeerConnectionId(0);
+            receiver.setMixerChannelMute(id, block == 1000);
+            const auto states = receiver.getMixerChannelStates();
+            if (states.isEmpty() || states[0].muted != (block == 1000)) {
+                std::cerr << "FAIL: participant mute state did not persist at " << block
+                          << ", peers=" << states.size() << ", allow=" << receiver.getRemotePeerRecvAllow(0)
+                          << ", cached=" << receiver.getRemotePeerRecvAllow(0, true)
+                          << ", masterMute=" << receiver.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMainRecvMute)->load() << "\n";
+                return 1;
+            }
+        }
+        if (block == 1200 || block == 1300) {
+            setMeeting(sender, block == 1200);
+            setMeeting(receiver, block == 1200);
+        }
         sender.processBlock(input, midi);
+        if (block > 1220 && block < 1280)
+            for (int channel = 0; channel < input.getNumChannels(); ++channel)
+                for (int sample = 0; sample < samples; ++sample)
+                    meetingVoiceEnergy += input.getSample(channel, sample) * input.getSample(channel, sample);
         receiver.processBlock(output, midi);
         for (int channel = 0; channel < output.getNumChannels(); ++channel)
             for (int sample = 0; sample < samples; ++sample)
@@ -95,6 +142,9 @@ int main()
                     return 1;
                 }
                 receivedEnergy += value * value;
+                if (block > 1020 && block < 1080) mutedEnergy += value * value;
+                if (block > 1120 && block < 1180) resumedEnergy += value * value;
+                if (block > 1220 && block < 1280) meetingRemoteEnergy += value * value;
             }
         // Model an audio device clock, rather than adding a relative sleep to
         // processing time. macOS CI can coalesce nanosleep by tens of ms, which
@@ -103,6 +153,17 @@ int main()
         while (juce::Time::getMillisecondCounterHiRes() < nextCallbackAt)
             juce::Thread::yield();
     }
+    if (mutedEnergy > 0.000001 || resumedEnergy <= 0.001
+        || meetingRemoteEnergy > 0.000001 || meetingVoiceEnergy <= 0.001) {
+        std::cerr << "FAIL: mute=" << mutedEnergy << ", unmute=" << resumedEnergy
+                  << ", meeting remote=" << meetingRemoteEnergy << ", meeting voice=" << meetingVoiceEnergy << ", total=" << receivedEnergy << "\n";
+        for (auto& state : receiver.getMixerChannelStates())
+            std::cerr << "receiver muted=" << state.muted << ", solo=" << state.soloed << ", gain=" << state.gain
+                      << ", connected=" << state.connected << ", packets=" << receiver.getRemotePeerPacketsReceived(0)
+                      << ", active=" << receiver.getRemotePeerRecvActive(0) << ", channels=" << receiver.getRemotePeerRecvChannelCount(0) << "\n";
+        return 1;
+    }
+    std::cout << "PASS: immediate participant mute, unmute recovery, meeting voice without remote return" << std::endl;
     std::cout << "Audio loop completed; releasing resources" << std::endl;
     sender.releaseResources();
     receiver.releaseResources();
@@ -119,15 +180,30 @@ int main()
     }
     // Exercise removal with a roster that cannot receive asynchronous replies.
     auto roster = std::make_unique<SonobusAudioProcessor>();
+    resetTestParameters(*roster);
     roster->setRateAndBufferSizeDetails(48000.0, 128);
     roster->prepareToPlay(48000.0, 128);
     juce::DatagramSocket secondSilentEndpoint;
     if (!secondSilentEndpoint.bindToPort(0)
         || !roster->connectRemotePeer("127.0.0.1", silentEndpoint.getBoundPort())
         || !roster->connectRemotePeer("127.0.0.1", secondSilentEndpoint.getBoundPort()))
-        return 1;
+        { std::cerr << "FAIL: could not create silent roster endpoints\n"; return 1; }
     const auto removedId = roster->getRemotePeerConnectionId(0);
     const auto retainedId = roster->getRemotePeerConnectionId(1);
+    roster->setMixerChannelGain(retainedId, 0.5f);
+    roster->setMixerChannelMute(retainedId, true);
+    roster->setMixerChannelSolo(retainedId, true);
+    roster->setMixerChannelBuffer(retainedId, 40.0f, false);
+    const auto mixerStates = roster->getMixerChannelStates();
+    if (mixerStates.size() != 2 || mixerStates[1].id != retainedId
+        || std::abs(mixerStates[1].gain - 0.5f) > 0.001f
+        || !mixerStates[1].muted || !mixerStates[1].soloed
+        || std::abs(mixerStates[1].bufferMs - 40.0f) > 0.01f)
+    {
+        std::cerr << "FAIL: mixer controls did not update their selected channel\n";
+        return 1;
+    }
+
     if (removedId.isEmpty() || retainedId.isEmpty() || removedId == retainedId
         || roster->removeRemotePeer(-1)
         || !roster->removeRemotePeerByConnectionId(removedId)
@@ -140,6 +216,44 @@ int main()
         std::cerr << "FAIL: connection removal selected a stale or wrong peer\n";
         return 1;
     }
+    roster->setMixerChannelGain(removedId, 0.9f);
+    if (!roster->getMixerChannelStates().isEmpty()) {
+        std::cerr << "FAIL: stale mixer control recreated a removed channel\n";
+        return 1;
+    }
+    // Play a real pad file into the meeting mix with no microphone signal.
+    // This exercises the Soundboard path rather than synthesising its output.
+    auto fixturePath = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("sonocraft-pad-test", ".wav");
+    juce::TemporaryFile padFile(fixturePath.withFileExtension("unused"), fixturePath);
+    {
+        juce::WavAudioFormat wav;
+        auto stream = padFile.getFile().createOutputStream();
+        std::unique_ptr<juce::AudioFormatWriter> writer(wav.createWriterFor(stream.release(), 48000, 2, 16, {}, 0));
+        if (!writer) { std::cerr << "FAIL: could not create WAV fixture at " << padFile.getFile().getFullPathName() << "\n"; return 1; }
+        juce::AudioBuffer<float> tone(2, 48000);
+        for (int channel = 0; channel < 2; ++channel)
+            for (int sample = 0; sample < tone.getNumSamples(); ++sample)
+                tone.setSample(channel, sample, 0.1f * std::sin(float(sample) * 0.0576f));
+        if (!writer->writeFromAudioSampleBuffer(tone, 0, tone.getNumSamples())) { std::cerr << "FAIL: could not write WAV fixture\n"; return 1; }
+    }
+    SoundSample pad("Regression pad", juce::URL(padFile.getFile()));
+    auto player = roster->getSoundboardProcessor()->loadSample(pad);
+    if (!player) { std::cerr << "FAIL: could not load pad fixture\n"; return 1; }
+    setMeeting(*roster, true);
+    (*player)->play();
+    double padEnergy = 0;
+    for (int block = 0; block < 100; ++block) {
+        juce::AudioBuffer<float> padOutput(2, 128);
+        padOutput.clear();
+        roster->processBlock(padOutput, midi);
+        for (int channel = 0; channel < 2; ++channel)
+            for (int sample = 0; sample < 128; ++sample)
+                padEnergy += padOutput.getSample(channel, sample) * padOutput.getSample(channel, sample);
+    }
+    (*player)->unload();
+    player.reset();
+    if (padEnergy <= 0.001) { std::cerr << "FAIL: no Soundboard in meeting output\n"; return 1; }
+    std::cout << "PASS: real Soundboard pad reaches meeting output" << std::endl;
     roster->releaseResources();
     std::cout << "PASS: stable removal after list reorder and stale action rejection" << std::endl;
 

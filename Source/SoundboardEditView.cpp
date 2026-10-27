@@ -3,6 +3,7 @@
 
 
 
+#include "SonoCraftTheme.h"
 #include "SoundboardEditView.h"
 
 #include <utility>
@@ -17,7 +18,7 @@ SoundboardEditView::SoundboardEditView(std::function<void (String)> callback, co
     mMessageLabel = std::make_unique<Label>("messageLabel", TRANS("Name of the soundboard:"));
     mMessageLabel->setJustificationType(Justification::left);
     mMessageLabel->setFont(Font(12, Font::plain));
-    mMessageLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mMessageLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mMessageLabel.get());
 
     mInputField = std::make_unique<TextEditor>("nameInput");
@@ -99,7 +100,7 @@ void SoundboardEditView::dismissDialog()
 
 void SoundboardEditView::paint(Graphics& g)
 {
-    g.fillAll(Colour(0xff131313));
+    g.fillAll(SonoCraftTheme::panel());
 }
 
 void SoundboardEditView::resized()

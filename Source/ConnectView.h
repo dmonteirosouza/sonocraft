@@ -72,6 +72,7 @@ public:
 
     void showActiveGroupTab();
     void showPrivateGroupTab();
+    void showDirectConnection(Component* anchor = nullptr);
     void showPublicGroupTab();
 
     String getServerHostText() const { return mServerHostEditor->getText(); }

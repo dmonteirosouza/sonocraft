@@ -468,7 +468,7 @@ countries: br
 "Local Address:Port" = "Endereço Local: Porto"
 "Remote Host:Port" = "Host Remoto: Porta"
 "Close" = "Fechar"
-"Menu" = "Cardápio"
+"Menu" = "Menu"
 "Connection Server" = "Servidor de Conexão"
 "Optional Group Password" = "Senha de grupo opcional"
 "Randomize Group Name" = "Randomize Group Name"
@@ -684,3 +684,17 @@ countries: br
 "Remove this connection from your list. You can connect again at any time." = "Remove esta conexão da sua lista. Você pode conectar novamente a qualquer momento."
 
 "Remove peer" = "Remover"
+
+"Audio" = "Áudio"
+
+"Options" = "Geral"
+
+"Recording" = "Gravação"
+
+"Recent sessions" = "Recentes"
+
+"Private group" = "Grupo privado"
+
+"Public groups" = "Grupos públicos"
+
+"All" = "Todos"

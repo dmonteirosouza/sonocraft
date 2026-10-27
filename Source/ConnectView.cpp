@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2021 Jesse Chappell
 
+#include "SonoCraftTheme.h"
 #include "ConnectView.h"
 
 #include "RandomSentenceGenerator.h"
@@ -38,7 +39,7 @@ recentsListModel(this),
 recentsGroupFont (17.0 * SonoLookAndFeel::getFontScale(), Font::bold), recentsNameFont(15 * SonoLookAndFeel::getFontScale(), Font::plain), recentsInfoFont(13 * SonoLookAndFeel::getFontScale(), Font::plain),
 publicGroupsListModel(this)
 {
-    setColour (nameTextColourId, Colour(0xff203344));
+    setColour (nameTextColourId, SonoCraftTheme::text());
     setColour (selectedColourId, Colour::fromFloatRGBA(0.0f, 0.4f, 0.8f, 0.5f));
     setColour (separatorColourId, Colour::fromFloatRGBA(0.3f, 0.3f, 0.3f, 0.3f));
 
@@ -46,7 +47,7 @@ publicGroupsListModel(this)
     mConnectTab->setOutline(0);
     mConnectTab->setTabBarDepth(36);
     mConnectTab->getTabbedButtonBar().setMinimumTabScaleFactor(0.1f);
-    mConnectTab->getTabbedButtonBar().setColour(TabbedButtonBar::frontTextColourId, Colour(0xff167d8d));
+    mConnectTab->getTabbedButtonBar().setColour(TabbedButtonBar::frontTextColourId, SonoCraftTheme::accent());
     mConnectTab->getTabbedButtonBar().setColour(TabbedButtonBar::frontOutlineColourId, Colour::fromFloatRGBA(0.4, 0.8, 1.0, 0.5));
 
     mDirectConnectContainer = std::make_unique<Component>();
@@ -60,15 +61,15 @@ publicGroupsListModel(this)
 
 
 
-    mRecentsGroup = std::make_unique<GroupComponent>("", TRANS("RECENTS"));
-    mRecentsGroup->setColour(GroupComponent::textColourId, Colour(0xff526474));
+    mRecentsGroup = std::make_unique<GroupComponent>("", TRANS("Recent sessions"));
+    mRecentsGroup->setColour(GroupComponent::textColourId, SonoCraftTheme::secondary());
     mRecentsGroup->setColour(GroupComponent::outlineColourId, Colour::fromFloatRGBA(0.8, 0.8, 0.8, 0.1));
     mRecentsGroup->setTextLabelPosition(Justification::centred);
 
-    mConnectTab->addTab(TRANS("RECENTS"), Colour(0xfff4f7fa), mRecentsContainer.get(), false);
-    mConnectTab->addTab(TRANS("PRIVATE GROUP"), Colour(0xfff4f7fa), mServerConnectViewport.get(), false);
-    mConnectTab->addTab(TRANS("PUBLIC GROUPS"), Colour(0xfff4f7fa), mPublicServerConnectContainer.get(), false);
-    //mConnectTab->addTab(TRANS("DIRECT"), Colour(0xfff4f7fa), mDirectConnectContainer.get(), false);
+    mConnectTab->addTab(TRANS("Recent sessions"), SonoCraftTheme::canvas(), mRecentsContainer.get(), false);
+    mConnectTab->addTab(TRANS("Private group"), SonoCraftTheme::canvas(), mServerConnectViewport.get(), false);
+    mConnectTab->addTab(TRANS("Public groups"), SonoCraftTheme::canvas(), mPublicServerConnectContainer.get(), false);
+    //mConnectTab->addTab(TRANS("DIRECT"), SonoCraftTheme::canvas(), mDirectConnectContainer.get(), false);
 
 
 
@@ -102,7 +103,7 @@ publicGroupsListModel(this)
     mConnectTitle->setColour(Label::textColourId, Colour(0xff607684));
 
     mConnectComponentBg = std::make_unique<DrawableRectangle>();
-    mConnectComponentBg->setFill (Colour(0xfff4f7fa));
+    mConnectComponentBg->setFill (SonoCraftTheme::canvas());
 
     mConnectCloseButton = std::make_unique<SonoDrawableButton>("x", DrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> ximg(Drawable::createFromImageData(BinaryData::x_icon_svg, BinaryData::x_icon_svgSize));
@@ -122,14 +123,14 @@ publicGroupsListModel(this)
     mDirectConnectButton = std::make_unique<TextButton>("directconnect");
     mDirectConnectButton->setButtonText(TRANS("Direct Connect"));
     mDirectConnectButton->addListener(this);
-    mDirectConnectButton->setColour(TextButton::buttonColourId, Colour(0xffdceff0));
+    mDirectConnectButton->setColour(TextButton::buttonColourId, SonoCraftTheme::selection());
     mDirectConnectButton->setWantsKeyboardFocus(true);
 
 
     mServerConnectButton = std::make_unique<TextButton>("serverconnect");
     mServerConnectButton->setButtonText(TRANS("Connect to Group"));
     mServerConnectButton->addListener(this);
-    mServerConnectButton->setColour(TextButton::buttonColourId, Colour(0xffdceff0));
+    mServerConnectButton->setColour(TextButton::buttonColourId, SonoCraftTheme::selection());
     mServerConnectButton->setWantsKeyboardFocus(true);
 
     mServerHostEditor = std::make_unique<TextEditor>("srvaddredit");
@@ -226,14 +227,14 @@ publicGroupsListModel(this)
     mServerInfoLabel = std::make_unique<Label>("servinfo", "");
     mServerInfoLabel->setJustificationType(Justification::centred);
     mServerInfoLabel->setFont(16);
-    mServerInfoLabel->setColour(Label::textColourId, Colour(0xff526474));
+    mServerInfoLabel->setColour(Label::textColourId, SonoCraftTheme::secondary());
     mServerInfoLabel->setMinimumHorizontalScale(0.85);
 
     String servaudioinfo = TRANS("The connection server is only used to help users find each other, no audio passes through it. All audio is sent directly between users (peer to peer).");
     mServerAudioInfoLabel = std::make_unique<Label>("servaudioinfo", servaudioinfo);
     mServerAudioInfoLabel->setJustificationType(Justification::centredTop);
     mServerAudioInfoLabel->setFont(14);
-    mServerAudioInfoLabel->setColour(Label::textColourId, Colour(0xff667b8b));
+    mServerAudioInfoLabel->setColour(Label::textColourId, SonoCraftTheme::secondary());
     mServerAudioInfoLabel->setMinimumHorizontalScale(0.75);
 
     mMainStatusLabel = std::make_unique<Label>("mainstat", "");
@@ -250,7 +251,7 @@ publicGroupsListModel(this)
     mRecentsListBox = std::make_unique<ListBox>("recentslist");
     mRecentsListBox->setColour (ListBox::outlineColourId, Colour::fromFloatRGBA(0.7, 0.7, 0.7, 0.0));
     mRecentsListBox->setColour (ListBox::backgroundColourId, Colour::fromFloatRGBA(0.1, 0.12, 0.1, 0.0f));
-    mRecentsListBox->setColour (ListBox::textColourId, Colour(0xff344e60));
+    mRecentsListBox->setColour (ListBox::textColourId, SonoCraftTheme::text());
     mRecentsListBox->setTitle(TRANS("Recents List"));
     mRecentsListBox->setOutlineThickness (1);
 #if JUCE_IOS || JUCE_ANDROID
@@ -267,7 +268,7 @@ publicGroupsListModel(this)
     mPublicGroupsListBox = std::make_unique<ListBox>("publicgroupslist");
     mPublicGroupsListBox->setColour (ListBox::outlineColourId, Colour::fromFloatRGBA(0.7, 0.7, 0.7, 0.0));
     mPublicGroupsListBox->setColour (ListBox::backgroundColourId, Colour::fromFloatRGBA(0.1, 0.12, 0.1, 0.0f));
-    mPublicGroupsListBox->setColour (ListBox::textColourId, Colour(0xff344e60));
+    mPublicGroupsListBox->setColour (ListBox::textColourId, SonoCraftTheme::text());
     mPublicGroupsListBox->setTitle(TRANS("Public Groups List"));
     mPublicGroupsListBox->setOutlineThickness (1);
 #if JUCE_IOS || JUCE_ANDROID
@@ -305,7 +306,7 @@ publicGroupsListModel(this)
     configEditor(mPublicServerUsernameEditor.get());
 
     mPublicGroupComponent = std::make_unique<GroupComponent>("", TRANS("Active Public Groups"));
-    mPublicGroupComponent->setColour(GroupComponent::textColourId, Colour(0xff526474));
+    mPublicGroupComponent->setColour(GroupComponent::textColourId, SonoCraftTheme::secondary());
     mPublicGroupComponent->setColour(GroupComponent::outlineColourId, Colour::fromFloatRGBA(0.8, 0.8, 0.8, 0.1));
     mPublicGroupComponent->setTextLabelPosition(Justification::centred);
 
@@ -317,7 +318,7 @@ publicGroupsListModel(this)
     mPublicServerAddGroupButton = std::make_unique<TextButton>("addgroup");
     mPublicServerAddGroupButton->setButtonText(TRANS("Create Group..."));
     mPublicServerAddGroupButton->addListener(this);
-    mPublicServerAddGroupButton->setColour(TextButton::buttonColourId, Colour(0xffdceff0));
+    mPublicServerAddGroupButton->setColour(TextButton::buttonColourId, SonoCraftTheme::selection());
     mPublicServerAddGroupButton->setWantsKeyboardFocus(true);
 
     mPublicServerGroupEditor = std::make_unique<TextEditor>("pubgroupedit");
@@ -445,7 +446,7 @@ void ConnectView::timerCallback(int timerid)
 void ConnectView::configServerLabel(Label *label)
 {
     label->setFont(14);
-    label->setColour(Label::textColourId, Colour(0xff526474));
+    label->setColour(Label::textColourId, SonoCraftTheme::secondary());
     label->setJustificationType(Justification::centredRight);
 }
 
@@ -699,7 +700,7 @@ void ConnectView::resized()  {
             mRecentsGroup->removeChildComponent(mRecentsContainer.get());
             mRecentsGroup->setVisible(false);
 
-            mConnectTab->addTab(TRANS("RECENTS"), Colour(0xfff4f7fa), mRecentsContainer.get(), false);
+            mConnectTab->addTab(TRANS("Recent sessions"), SonoCraftTheme::canvas(), mRecentsContainer.get(), false);
             mConnectTab->moveTab(2, 0);
             mConnectTab->setCurrentTabIndex(tabsel + 1);
             updateLayout();
@@ -1165,41 +1166,34 @@ void ConnectView::showAdvancedMenu()
 
     SafePointer<ConnectView> safeThis(this);
 
-    auto callback = [safeThis,dw,bounds](GenericItemChooser* chooser,int index) mutable {
-        if (!safeThis) return;
-        auto wrap = std::make_unique<Viewport>();
-
-        int defWidth = 320;
-#if JUCE_IOS || JUCE_ANDROID
-        int defHeight = 300;
-#else
-        int defHeight = 250;
-#endif
-
-        int extrawidth = 0;
-        if (defHeight > dw->getHeight() - 24) {
-            extrawidth = wrap->getScrollBarThickness() + 1;
-        }
-
-        wrap->setSize(jmin(defWidth + extrawidth, dw->getWidth() - 10), jmin(defHeight, dw->getHeight() - 24));
-
-        safeThis->mDirectConnectContainer->setBounds(Rectangle<int>(0,0,defWidth,defHeight));
-
-        wrap->setViewedComponent(safeThis->mDirectConnectContainer.get(), false);
-        safeThis->mDirectConnectContainer->setVisible(true);
-
-        safeThis->remoteBox.performLayout(safeThis->mDirectConnectContainer->getLocalBounds().withSizeKeepingCentre(jmin(400, safeThis->mDirectConnectContainer->getWidth()), safeThis->mDirectConnectContainer->getHeight()));
-
-        // show direct connect container
-        safeThis->directConnectCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
-        if (CallOutBox * box = dynamic_cast<CallOutBox*>(safeThis->directConnectCalloutBox.get())) {
-            box->setDismissalMouseClicksAreAlwaysConsumed(true);
-        }
-
+    auto callback = [safeThis](GenericItemChooser*, int) {
+        if (safeThis) safeThis->showDirectConnection();
     };
 
     GenericItemChooser::launchPopupChooser(items, bounds, dw, callback, -1, dw ? dw->getHeight()-30 : 0);
 
+}
+
+void ConnectView::showDirectConnection(Component* anchor)
+{
+    if (auto* existing = dynamic_cast<CallOutBox*>(directConnectCalloutBox.get())) {
+        existing->toFront(true);
+        return;
+    }
+    auto* parent = findParentComponentOfClass<AudioProcessorEditor>();
+    if (parent == nullptr) return;
+    auto wrap = std::make_unique<Viewport>();
+    const int width = jmin(400, parent->getWidth() - 24);
+    const int height = jmin(280, parent->getHeight() - 24);
+    mDirectConnectContainer->setSize(width, height);
+    wrap->setSize(width, height);
+    wrap->setViewedComponent(mDirectConnectContainer.get(), false);
+    remoteBox.performLayout(mDirectConnectContainer->getLocalBounds().reduced(12));
+    auto bounds = anchor != nullptr ? parent->getLocalArea(anchor, anchor->getLocalBounds())
+                                  : Rectangle<int>(parent->getWidth() / 2 - 40, 40, 80, 28);
+    directConnectCalloutBox = &CallOutBox::launchAsynchronously(std::move(wrap), bounds, parent, false);
+    if (auto* box = dynamic_cast<CallOutBox*>(directConnectCalloutBox.get()))
+        box->setDismissalMouseClicksAreAlwaysConsumed(true);
 }
 
 void ConnectView::connectWithInfo(const AooServerConnectionInfo & info, bool allowEmptyGroup)
@@ -1223,9 +1217,9 @@ void ConnectView::connectWithInfo(const AooServerConnectionInfo & info, bool all
         return;
     }
     else {
-        mServerGroupEditor->setColour(TextEditor::backgroundColourId, Colour(0xffffffff));
+        mServerGroupEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
         mServerGroupEditor->repaint();
-        mPublicServerGroupEditor->setColour(TextEditor::backgroundColourId, Colour(0xffffffff));
+        mPublicServerGroupEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
         mPublicServerGroupEditor->repaint();
     }
 
@@ -1247,14 +1241,14 @@ void ConnectView::connectWithInfo(const AooServerConnectionInfo & info, bool all
         return;
     }
     else {
-        mServerUsernameEditor->setColour(TextEditor::backgroundColourId, Colour(0xffffffff));
+        mServerUsernameEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
         mServerUsernameEditor->repaint();
-        mPublicServerUsernameEditor->setColour(TextEditor::backgroundColourId, Colour(0xffffffff));
+        mPublicServerUsernameEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
         mPublicServerUsernameEditor->repaint();
     }
 
     //mServerGroupPasswordEditor->setColour(TextEditor::backgroundColourId, Colour(0xff880000));
-    mServerGroupPasswordEditor->setColour(TextEditor::backgroundColourId, Colour(0xffffffff));
+    mServerGroupPasswordEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
     mServerGroupPasswordEditor->repaint();
 
     if (currConnectionInfo.serverHost.isNotEmpty() && currConnectionInfo.serverPort != 0)
@@ -1274,10 +1268,10 @@ void ConnectView::connectWithInfo(const AooServerConnectionInfo & info, bool all
             safeThis->listeners.call(&ConnectView::Listener::connectionsChanged, safeThis.getComponent());
         });
 
-        mServerHostEditor->setColour(TextEditor::backgroundColourId, Colour(0xffffffff));
+        mServerHostEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
         mServerHostEditor->repaint();
 
-        mPublicServerHostEditor->setColour(TextEditor::backgroundColourId, Colour(0xffffffff));
+        mPublicServerHostEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
         mPublicServerHostEditor->repaint();
     }
     else {

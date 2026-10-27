@@ -3,6 +3,7 @@
 
 
 
+#include "SonoCraftTheme.h"
 #include "SampleEditView.h"
 
 #include <utility>
@@ -66,7 +67,7 @@ void SampleEditView::createNameInputs()
     mNameLabel = std::make_unique<Label>("nameLabel", TRANS("Name"));
     mNameLabel->setJustificationType(Justification::left);
     mNameLabel->setFont(Font(14, Font::bold));
-    mNameLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mNameLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mNameLabel.get());
 
     mNameInput = std::make_unique<TextEditor>("nameInput");
@@ -86,7 +87,7 @@ void SampleEditView::createFilePathInputs()
     mFilePathLabel = std::make_unique<Label>("filePathLabel", TRANS("File"));
     mFilePathLabel->setJustificationType(Justification::left);
     mFilePathLabel->setFont(Font(14, Font::bold));
-    mFilePathLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mFilePathLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mFilePathLabel.get());
 
     mFilePathInput = std::make_unique<TextEditor>("filePathInput");
@@ -115,7 +116,7 @@ void SampleEditView::createColourInput()
     mColourInputLabel = std::make_unique<Label>("colourInputLabel", TRANS("Button colour"));
     mColourInputLabel->setJustificationType(Justification::left);
     mColourInputLabel->setFont(Font(14, Font::bold));
-    mColourInputLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mColourInputLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mColourInputLabel.get());
 
     // Add default 11 colour buttons.
@@ -174,7 +175,7 @@ void SampleEditView::createPlaybackOptionInputs()
     mPlaybackOptionsLabel = std::make_unique<Label>("playbackOptionsLabel", TRANS("Playback options"));
     mPlaybackOptionsLabel->setJustificationType(Justification::left);
     mPlaybackOptionsLabel->setFont(Font(14, Font::bold));
-    mPlaybackOptionsLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mPlaybackOptionsLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mPlaybackOptionsLabel.get());
 
 
@@ -201,7 +202,7 @@ void SampleEditView::createVolumeInputs()
     mVolumeLabel = std::make_unique<Label>("gainLabel", TRANS("Gain"));
     mVolumeLabel->setJustificationType(Justification::left);
     mVolumeLabel->setFont(Font(14, Font::bold));
-    mVolumeLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mVolumeLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mVolumeLabel.get());
 
     mVolumeSlider = std::make_unique<Slider>(Slider::LinearHorizontal,  Slider::TextBoxRight);
@@ -314,7 +315,7 @@ void SampleEditView::createHotkeyInput()
     mHotkeyLabel = std::make_unique<Label>("hotkeyLabel", TRANS("Hotkey"));
     mHotkeyLabel->setJustificationType(Justification::left);
     mHotkeyLabel->setFont(Font(14, Font::bold));
-    mHotkeyLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mHotkeyLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mHotkeyLabel.get());
 
     auto keyPress = juce::KeyPress(hotkeyCode);
@@ -390,7 +391,7 @@ void SampleEditView::updateColourButtonCheckmark()
 void SampleEditView::createButtonBar()
 {
     mDeleteButton = std::make_unique<SonoTextButton>(isEditMode() ? TRANS("Delete") : TRANS("Cancel"));
-    mDeleteButton->setColour(SonoTextButton::buttonColourId, Colour(0xcc911707));
+    mDeleteButton->setColour(SonoTextButton::buttonColourId, SonoCraftTheme::danger().withAlpha(0.12f));
     mDeleteButton->onClick = [this]() {
         if (isEditMode()) {
             deleteSample = true;
@@ -506,7 +507,7 @@ void SampleEditView::submitDialog(bool dismiss)
 {
     auto inputtedName = mNameLabel->getText().trim();
     if (inputtedName.isEmpty()) {
-        mNameInput->setColour(TextEditor::backgroundColourId, Colour(0xcc911707));
+        mNameInput->setColour(TextEditor::backgroundColourId, SonoCraftTheme::danger().withAlpha(0.12f));
         return;
     }
 
@@ -545,7 +546,7 @@ bool SampleEditView::keyPressed(const KeyPress& keyPress)
 
 void SampleEditView::paint(Graphics& g)
 {
-    g.fillAll(Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0));
+    g.fillAll(SonoCraftTheme::canvas());
 }
 
 void SampleEditView::resized()

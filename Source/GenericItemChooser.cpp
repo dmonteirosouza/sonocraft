@@ -2,6 +2,7 @@
 // Copyright (C) 2020 Jesse Chappell
 
 
+#include "SonoCraftTheme.h"
 #include "GenericItemChooser.h"
 #include "SonoLookAndFeel.h"
 
@@ -82,12 +83,12 @@ GenericItemChooser::GenericItemChooser(const Array<GenericItemChooserItem> & ite
 
     table.setColour (ListBox::outlineColourId, Colour::fromFloatRGBA(0.0, 0.0, 0.0, 0.0));
     table.setColour (ListBox::backgroundColourId, Colour(0xfff7fafc));
-    table.setColour (ListBox::textColourId, Colours::whitesmoke.withAlpha(0.8f));
+    table.setColour (ListBox::textColourId, SonoCraftTheme::text());
     
-    setColour (nameTextColourId, Colour(0xff203344));
-    setColour (currentNameTextColourId, Colour(0xff167d8d));
-    setColour (selectedColourId, Colour(0xffdceff0));
-    setColour (separatorColourId, Colour(0xffd9e3ea));
+    setColour (nameTextColourId, SonoCraftTheme::text());
+    setColour (currentNameTextColourId, SonoCraftTheme::accent());
+    setColour (selectedColourId, SonoCraftTheme::selection());
+    setColour (separatorColourId, SonoCraftTheme::border());
     setColour (disabledColourId, Colour::fromFloatRGBA(0.7f, 0.7f, 0.7f, 0.7f));
 
     

@@ -3,6 +3,7 @@
 
 
 
+#include "SonoCraftTheme.h"
 #include "ChatView.h"
 #include "GenericItemChooser.h"
 #include "SonoLookAndFeel.h"
@@ -62,11 +63,11 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     mTitleLabel = std::make_unique<Label>("title", TRANS("Chat"));
     mTitleLabel->setJustificationType(Justification::centred);
     mTitleLabel->setFont(Font(18, Font::bold));
-    mTitleLabel->setColour(Label::textColourId, Colour(0xff203344));
+    mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
 
     mChatTabs = std::make_unique<SonobusChatTabbedButtonBar>(TabbedButtonBar::Orientation::TabsAtBottom, *this);
     mChatTabs->setMinimumTabScaleFactor(0.2f);
-    mChatTabs->setColour(TabbedButtonBar::frontTextColourId, Colours::white);
+    mChatTabs->setColour(TabbedButtonBar::frontTextColourId, SonoCraftTheme::accent());
     mChatTabs->setColour(TabbedButtonBar::frontOutlineColourId, Colour::fromFloatRGBA(0.5, 0.9, 1.0, 0.7));
     
     mChatTextEditor = std::make_unique<TextEditor>();
@@ -106,10 +107,11 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
 
     mSendButton = std::make_unique<SonoDrawableButton>("x", DrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> simg(Drawable::createFromImageData(BinaryData::send_svg, BinaryData::send_svgSize));
+    simg->replaceColour(Colour(0xffe5e5e5), SonoCraftTheme::accent());
     mSendButton->setImages(simg.get());
     mSendButton->setTitle(TRANS("Send Message"));
     mSendButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
-    mSendButton->setAlpha(0.6f);
+    mSendButton->setAlpha(1.0f);
     mSendButton->setWantsKeyboardFocus(false);
     mSendButton->onClick = [this]() {
         commitChatMessage();
@@ -117,6 +119,7 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
 
     mMenuButton = std::make_unique<SonoDrawableButton>("menu", DrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> dotsimg(Drawable::createFromImageData(BinaryData::dots_svg, BinaryData::dots_svgSize));
+    dotsimg->replaceColour(Colour(0xffcccccc), SonoCraftTheme::secondary());
     mMenuButton->setTitle(TRANS("Chat Menu"));
     mMenuButton->setImages(dotsimg.get());
     mMenuButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
@@ -138,7 +141,7 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     //mChatSendButton->setButtonText(TRANS("Send"));
     //mChatSendButton->onClick = [this]() { commitChatMessage(); };
 
-    mChatTabs->addTab(TRANS("ALL"), Colour(0xffedf3f6), 0);
+    mChatTabs->addTab(TRANS("All"), SonoCraftTheme::recessed(), 0);
     
     addAndMakeVisible(mChatTabs.get());
     addAndMakeVisible(mChatTextEditor.get());
@@ -207,7 +210,7 @@ ChatView::~ChatView()
 
 void ChatView::paint (Graphics& g)
 {
-    g.fillAll (Colour(0xffedf3f6));
+    g.fillAll (SonoCraftTheme::recessed());
 }
 
 void ChatView::resized()
@@ -748,7 +751,7 @@ void ChatView::setMesgUnreadForTab(const String & name, bool flag)
 void ChatView::appendPrivateChatTab(const String & name, bool setcurrent)
 {
     auto usecolor = getOrGenerateUserColor(name);
-    mChatTabs->addTab(name, Colour(0xffedf3f6), mChatTabs->getNumTabs());
+    mChatTabs->addTab(name, SonoCraftTheme::recessed(), mChatTabs->getNumTabs());
     if (auto button = mChatTabs->getTabButton(mChatTabs->getNumTabs()-1)) {
         button->setColour(TabbedButtonBar::tabTextColourId, usecolor);
         button->setColour(TabbedButtonBar::frontTextColourId, usecolor);
@@ -796,13 +799,13 @@ void ChatView::processNewChatMessages(int index, int count)
     if (index < 0) return;
 
     // for now just add their text to the big texteditor showing all chats
-    const Colour selfNameColour(0xff167d8d);
-    const Colour selfBgColour(0xffdceff0);
+    const auto selfNameColour = SonoCraftTheme::accent();
+    const auto selfBgColour = SonoCraftTheme::selection();
     const Colour otherNameColour(0xff426171);
-    const Colour selfTextColour(0xff203344);
-    const Colour otherTextColour(0xff344e60);
+    const auto selfTextColour = SonoCraftTheme::text();
+    const auto otherTextColour = SonoCraftTheme::text();
     const Colour sysTextColour(0xffa73546);
-    const Colour urlTextColour(0xff167d8d);
+    const auto urlTextColour = SonoCraftTheme::accent();
 
     mChatTextEditor->moveCaretToEnd();
 

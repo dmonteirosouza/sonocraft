@@ -2,6 +2,7 @@
 // Copyright (C) 2020 Jesse Chappell
 
 
+#include "SonoCraftTheme.h"
 #include "SonoLookAndFeel.h"
 #include "SonoDrawableButton.h"
 //#include "ConfigurationRowView.h"
@@ -54,15 +55,15 @@ SonoLookAndFeel::SonoLookAndFeel(bool useUniversalFont) : mUseUniversalFont(useU
 
     // SonoCraft: quiet light surfaces, high-contrast type and one accent.
     setColourScheme(getLightColourScheme());
-    const Colour canvas(0xfff4f7fa), surface(0xffffffff), ink(0xff203344);
-    const Colour muted(0xff5d7080), border(0xffd9e3ea), accent(0xff167d8d);
+    const auto canvas = SonoCraftTheme::canvas(), surface = SonoCraftTheme::panel(), ink = SonoCraftTheme::text();
+    const auto muted = SonoCraftTheme::secondary(), border = SonoCraftTheme::border(), accent = SonoCraftTheme::accent();
     getCurrentColourScheme().setUIColour(ColourScheme::UIColour::windowBackground, canvas);
     getCurrentColourScheme().setUIColour(ColourScheme::UIColour::widgetBackground, surface);
     getCurrentColourScheme().setUIColour(ColourScheme::UIColour::outline, border);
     setColour(ResizableWindow::backgroundColourId, canvas);
     setColour(Label::textColourId, ink);
     setColour(Label::textWhenEditingColourId, ink);
-    setColour(TextButton::buttonColourId, Colour(0xffe9f0f4));
+    setColour(TextButton::buttonColourId, SonoCraftTheme::recessed());
     setColour(TextButton::buttonOnColourId, Colour(0xffc7e8e9));
     setColour(TextButton::textColourOffId, ink);
     setColour(TextButton::textColourOnId, Colour(0xff075361));
@@ -102,7 +103,7 @@ SonoLookAndFeel::SonoLookAndFeel(bool useUniversalFont) : mUseUniversalFont(useU
     setColour(TooltipWindow::outlineColourId, border);
     setColour(PopupMenu::backgroundColourId, surface);
     setColour(PopupMenu::textColourId, ink);
-    setColour(PopupMenu::highlightedBackgroundColourId, Colour(0xffdceff0));
+    setColour(PopupMenu::highlightedBackgroundColourId, SonoCraftTheme::selection());
     setColour(PopupMenu::highlightedTextColourId, ink);
     setColour(SidePanel::backgroundColour, canvas);
     setColour(DrawableButton::textColourId, ink);
@@ -110,7 +111,7 @@ SonoLookAndFeel::SonoLookAndFeel(bool useUniversalFont) : mUseUniversalFont(useU
     setColour(DrawableButton::backgroundOnColourId, Colour(0xffc7e8e9));
     setColour(SonoDrawableButton::overOverlayColourId, accent.withAlpha(0.08f));
     setColour(SonoDrawableButton::downOverlayColourId, accent.withAlpha(0.16f));
-    setColour(DirectoryContentsDisplayComponent::highlightColourId, Colour(0xffdceff0));
+    setColour(DirectoryContentsDisplayComponent::highlightColourId, SonoCraftTheme::selection());
     setColour(DirectoryContentsDisplayComponent::textColourId, ink);
 
     myFont = Font(16 * fontScale);
@@ -153,6 +154,11 @@ Typeface::Ptr SonoLookAndFeel::getTypefaceForFont (const Font& font)
         }
         
         String slang = lang.initialSectionNotContaining("_").toLowerCase();
+#if JUCE_MAC || JUCE_WINDOWS
+        if (!mUseUniversalFont && !slang.startsWith("ja") && !slang.startsWith("ko") && !slang.startsWith("zh"))
+            return LookAndFeel_V4::getTypefaceForFont(font);
+#endif
+
 
         if (!mUseUniversalFont)
         {
@@ -362,128 +368,20 @@ void SonoLookAndFeel::createTabTextLayout (const TabBarButton& button, float len
     textLayout.createLayout (s, length);
 }
 
-void SonoLookAndFeel::drawTabButton (TabBarButton& button, Graphics& g, bool isMouseOver, bool isMouseDown)
+void SonoLookAndFeel::drawTabButton(TabBarButton& button, Graphics& g, bool hovered, bool down)
 {
-    const Rectangle<int> activeArea (button.getActiveArea());
-    
-    const TabbedButtonBar::Orientation o = button.getTabbedButtonBar().getOrientation();
-    
-    const Colour bkg (button.getTabBackgroundColour());
-    const Colour selcol = Colour::fromFloatRGBA(0.0f, 0.2f, 0.4f, 1.0f);
-
-    // DBG("Sono draw tab button");
-    
-    
-    if (button.getToggleState() && bkg != Colours::black)
-    {
-        //g.setColour (bkg);
-        g.setColour (selcol);
+    auto bounds = button.getLocalBounds().toFloat().reduced(3, 4);
+    const bool selected = button.isFrontTab();
+    g.setColour(selected ? SonoCraftTheme::panel() : (hovered || down) ? SonoCraftTheme::recessed() : SonoCraftTheme::canvas());
+    g.fillRoundedRectangle(bounds, 6);
+    if (selected) {
+        g.setColour(SonoCraftTheme::border());
+        g.drawRoundedRectangle(bounds, 6, 1);
     }
-    else
-    {
-        
-        Point<int> p1, p2;
-        
-        switch (o)
-        {
-            case TabbedButtonBar::TabsAtBottom:   p1 = activeArea.getBottomLeft(); p2 = activeArea.getTopLeft();    break;
-            case TabbedButtonBar::TabsAtTop:      p1 = activeArea.getTopLeft();    p2 = activeArea.getBottomLeft(); break;
-            case TabbedButtonBar::TabsAtRight:    p1 = activeArea.getTopRight();   p2 = activeArea.getTopLeft();    break;
-            case TabbedButtonBar::TabsAtLeft:     p1 = activeArea.getTopLeft();    p2 = activeArea.getTopRight();   break;
-            default:                              jassertfalse; break;
-        }
-
-        g.setColour(isMouseDown ? bkg.brighter(0.1) : bkg);
-
-        //g.setGradientFill (ColourGradient (bkg.darker (0.1f), (float) p1.x, (float) p1.y,
-        //                                   bkg.darker (0.5f),   (float) p2.x, (float) p2.y, false));
-    }
-
-    Rectangle<int> p (activeArea.reduced(1));
-
-    g.fillRect (p);
-
-    //g.fillRect (activeArea);
-   
-#if 0
-    g.setColour (button.findColour (TabbedButtonBar::tabOutlineColourId));
-    
-    Rectangle<int> r (activeArea);
-    
-    if (o != TabbedButtonBar::TabsAtBottom)   g.fillRect (r.removeFromTop (1));
-    if (o != TabbedButtonBar::TabsAtTop)      g.fillRect (r.removeFromBottom (1));
-    if (o != TabbedButtonBar::TabsAtRight)    g.fillRect (r.removeFromLeft (1));
-    if (o != TabbedButtonBar::TabsAtLeft)     g.fillRect (r.removeFromRight (1));
-#endif
-
-
-    const float alpha = button.isEnabled() ? ((isMouseOver || isMouseDown) ? 1.0f : 0.8f) : 0.3f;
-    
-    Colour col (bkg.contrasting().withMultipliedAlpha (alpha));
-    
-    if (TabbedButtonBar* bar = button.findParentComponentOfClass<TabbedButtonBar>())
-    {
-        TabbedButtonBar::ColourIds colID = button.isFrontTab() ? TabbedButtonBar::frontTextColourId
-        : TabbedButtonBar::tabTextColourId;
-        
-        if (button.isColourSpecified (colID))
-            col = button.findColour (colID);
-        else if (bar->isColourSpecified (colID))
-            col = bar->findColour (colID);
-        else if (isColourSpecified (colID))
-            col = findColour (colID);
-    }
-    
-    const Rectangle<float> area (button.getTextArea().reduced(1).toFloat());
-    
-    float length = area.getWidth();
-    float depth  = area.getHeight();
-    
-    if (button.getTabbedButtonBar().isVertical())
-        std::swap (length, depth);
-    
-    TextLayout textLayout;
-    createTabTextLayout (button, length, depth, col, textLayout);
-    
-    AffineTransform t;
-    
-    switch (o)
-    {
-        case TabbedButtonBar::TabsAtLeft:   t = t.rotated (MathConstants<float>::pi * -0.5f).translated (area.getX(), area.getBottom()); break;
-        case TabbedButtonBar::TabsAtRight:  t = t.rotated (MathConstants<float>::pi *  0.5f).translated (area.getRight(), area.getY()); break;
-        case TabbedButtonBar::TabsAtTop:
-        case TabbedButtonBar::TabsAtBottom: t = t.translated (area.getX(), area.getY()); break;
-        default:                            jassertfalse; break;
-    }
-    
-    g.addTransform (t);
-    textLayout.draw (g, Rectangle<float> (length, depth));
-
+    g.setColour((selected ? SonoCraftTheme::accent() : SonoCraftTheme::secondary()).withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.45f));
+    g.setFont(Font(13.0f, selected ? Font::bold : Font::plain));
+    g.drawFittedText(button.getButtonText(), bounds.toNearestInt().reduced(6, 0), Justification::centred, 1);
 }
-
-/*
-void SonoLookAndFeel::drawTabButton (TabBarButton& button, Graphics& g, bool isMouseOver, bool isMouseDown)
-{
-    const Rectangle<int> activeArea (button.getActiveArea());
-
-    const Colour bkg (getTabBackgroundColour (button));
-
-    g.setGradientFill (ColourGradient (bkg.brighter (0.1f), 0, (float) activeArea.getY(),
-                                       bkg.darker (0.1f), 0, (float) activeArea.getBottom(), false));
-    g.fillRect (activeArea);
-
-    g.setColour (button.findColour (TabbedComponent::backgroundColourId).darker (0.3f));
-    g.drawRect (activeArea);
-
-    const float alpha = button.isEnabled() ? ((isMouseOver || isMouseDown) ? 1.0f : 0.8f) : 0.3f;
-    const Colour col (bkg.contrasting().withMultipliedAlpha (alpha));
-
-    TextLayout textLayout;
-    LookAndFeel_V3::createTabTextLayout (button, (float) activeArea.getWidth(), (float) activeArea.getHeight(), col, textLayout);
-
-    textLayout.draw (g, button.getTextArea().toFloat());
-}
-*/
 
 void SonoLookAndFeel::drawTabbedButtonBarBackground (TabbedButtonBar&, Graphics&) {}
 
@@ -665,7 +563,7 @@ Font SonoLookAndFeel::getTextButtonFont (TextButton& button, int buttonHeight)
         textRatio = textbutt->getTextHeightRatio();
     }
     
-    return myFont.withHeight(jmin (16.0f, buttonHeight * textRatio) * fontScale);
+    return myFont.withHeight(jmin(14.0f, buttonHeight * textRatio));
 }
 
 Button* SonoLookAndFeel::createSliderButton (Slider&, const bool isIncrement)
@@ -1438,7 +1336,7 @@ void SonoBigTextLookAndFeel::drawToggleButton (Graphics& g, ToggleButton& button
 SonoPanSliderLookAndFeel::SonoPanSliderLookAndFeel(float maxTextSize)
 : maxSize(maxTextSize)
 {
-    setColour (TooltipWindow::textColourId, Colour(0xeecccccc));
+    setColour (TooltipWindow::textColourId, SonoCraftTheme::text());
    // setColour (TooltipWindow::backgroundColourId, Colour(0xeeffff99));
     //setColour (Slider::textBoxBackgroundColourId, Colour::fromFloatRGBA(0.05, 0.05, 0.05, 1.0));
     setColour (Slider::textBoxBackgroundColourId, Colours::transparentBlack);

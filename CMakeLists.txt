@@ -320,6 +320,8 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         Source/SoundSampleButtonColourPicker.h
         Source/SonobusPluginEditor.cpp
         Source/SonobusPluginEditor.h
+        Source/SonoCraftTheme.h
+        Source/SonoCraftMixerView.h
         Source/SonobusPluginProcessor.cpp
         Source/SonobusPluginProcessor.h
         Source/SonobusTypes.h

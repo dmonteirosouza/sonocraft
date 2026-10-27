@@ -3,6 +3,7 @@
 
 
 
+#include "SonoCraftTheme.h"
 #include "LatencyMatchView.h"
 #include "GenericItemChooser.h"
 
@@ -23,12 +24,12 @@ LatencyMatchView::LatencyMatchView(SonobusAudioProcessor& proc) :  sonoSliderLNF
     mTitleLabel = std::make_unique<Label>("title", TRANS("Group Latency Match"));
     mTitleLabel->setJustificationType(Justification::centred);
     mTitleLabel->setFont(Font(16, Font::bold));
-    mTitleLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
 
     mMainSliderLabel = std::make_unique<Label>("title", TRANS("Target Latency"));
     mMainSliderLabel->setJustificationType(Justification::centred);
     mMainSliderLabel->setFont(Font(14, Font::plain));
-    mMainSliderLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mMainSliderLabel->setColour(Label::textColourId, SonoCraftTheme::text());
 
     mCloseButton = std::make_unique<SonoDrawableButton>("x", DrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> ximg(Drawable::createFromImageData(BinaryData::x_icon_svg, BinaryData::x_icon_svgSize));
@@ -110,7 +111,7 @@ LatencyMatchView::~LatencyMatchView()
 
 void LatencyMatchView::paint (Graphics& g)
 {
-    //g.fillAll (Colour(0xff272727));
+    //g.fillAll (SonoCraftTheme::canvas());
 }
 
 void LatencyMatchView::resized()
@@ -125,7 +126,7 @@ Slider * LatencyMatchView::createPeerLatSlider()
     auto * slider = new Slider(Slider::LinearBar,  Slider::TextBoxAbove);
     slider->setEnabled(false);
     slider->setLookAndFeel(&sonoSliderLNF);
-    slider->setColour(Slider::backgroundColourId, Colour(0xff050505));
+    slider->setColour(Slider::backgroundColourId, SonoCraftTheme::recessed());
 
     slider->setTextValueSuffix(" ms");
     slider->getProperties().set ("noFill", true);

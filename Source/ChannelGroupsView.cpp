@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2020 Jesse Chappell
 
+#include "SonoCraftTheme.h"
 #include "ChannelGroupsView.h"
 
 
@@ -844,7 +845,7 @@ void ChannelGroupReverbEffectsView::effectsHeaderClicked(EffectsBaseView *comp)
 
 ChannelGroupView::ChannelGroupView() : smallLnf(12), medLnf(14), sonoSliderLNF(12), panSliderLNF(12)
 {
-    bgColor = Colour(0xffffffff);
+    bgColor = SonoCraftTheme::panel();
     borderColor = Colour::fromFloatRGBA(0.5f, 0.5f, 0.5f, 0.3f);
 
     sonoSliderLNF.textJustification = Justification::centredLeft;
@@ -918,8 +919,8 @@ ChannelGroupsView::ChannelGroupsView(SonobusAudioProcessor& proc, bool peerMode,
  : Component("pcv"),  addLnf(20), processor(proc), mPeerMode(peerMode), mPeerIndex(peerIndex)
 {
     mutedTextColor = Colour::fromFloatRGBA(0.8, 0.5, 0.2, 1.0);
-    regularTextColor = Colour(0xff344e60);; //Colour(0xc0eeeeee);
-    dimTextColor = Colour(0xff667b8b); //Colour(0xc0aaaaaa);
+    regularTextColor = SonoCraftTheme::text();; //Colour(0xc0eeeeee);
+    dimTextColor = SonoCraftTheme::secondary(); //Colour(0xc0aaaaaa);
     //soloColor = Colour::fromFloatRGBA(0.2, 0.5, 0.8, 1.0);
     mutedColor = Colour(0xffffe4c9);
     soloColor = Colour::fromFloatRGBA(1.0, 1.0, 0.6, 1.0);
@@ -930,7 +931,7 @@ ChannelGroupsView::ChannelGroupsView(SonobusAudioProcessor& proc, bool peerMode,
     outlineColor = Colour::fromFloatRGBA(0.25, 0.25, 0.25, 1.0);
 
     //bgColor = Colour::fromFloatRGBA(0.045f, 0.045f, 0.05f, 1.0f);
-    bgColor = Colour(0xffedf3f6);
+    bgColor = SonoCraftTheme::recessed();
 
     mInGainSlider     = std::make_unique<Slider>(Slider::LinearHorizontal,  Slider::TextBoxAbove);
     mInGainSlider->setName("ingain");
@@ -986,7 +987,7 @@ ChannelGroupsView::ChannelGroupsView(SonobusAudioProcessor& proc, bool peerMode,
     addChildComponent(mDragDrawable.get());
 
     mMetFileBg = std::make_unique<DrawableRectangle>();
-    mMetFileBg->setFill (Colour::fromFloatRGBA(0.0, 0.0, 0.0, 0.75));
+    mMetFileBg->setFill (SonoCraftTheme::recessed());
     //mMetFileBg->setStrokeFill (Colour::fromFloatRGBA(0.4, 0.4, 0.4, 0.3));
     mMetFileBg->setStrokeFill (Colours::transparentBlack);
     //mMetFileBg->setStrokeThickness(0.75f);
@@ -1009,8 +1010,8 @@ void ChannelGroupsView::configLevelSlider(Slider * slider, bool monmode)
     //slider->setTextValueSuffix(" dB");
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
+    slider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    slider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
 
     
     slider->setTextBoxStyle(Slider::TextBoxAbove, true, 100, 12);
@@ -1062,8 +1063,8 @@ void ChannelGroupsView::configKnobSlider(Slider * slider)
     //slider->setPopupDisplayEnabled(true, false, this);
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
+    slider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    slider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
     slider->setWantsKeyboardFocus(true);
 
     //slider->setLookAndFeel(&sonoSliderLNF);
@@ -1257,7 +1258,7 @@ ChannelGroupView * ChannelGroupsView::createChannelGroupView(bool first)
 
     if (!mPeerMode) {
         pvf->nameEditor->setColour(TextEditor::outlineColourId, Colour(0x66666666));
-        pvf->nameEditor->setColour(TextEditor::backgroundColourId, Colours::black);
+        pvf->nameEditor->setColour(TextEditor::backgroundColourId, SonoCraftTheme::panel());
         //pvf->nameLabel->setColour(Label::outlineColourId, Colour(0x66666666));
         //pvf->nameLabel->setColour(Label::backgroundColourId, Colours::black);
         pvf->nameLabel->setTooltip(TRANS("Set name for this group that others will see"));

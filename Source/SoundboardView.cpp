@@ -3,6 +3,7 @@
 
 
 
+#include "SonoCraftTheme.h"
 #include <sstream>
 
 #include "SoundboardView.h"
@@ -88,7 +89,7 @@ void SoundboardView::createSoundboardTitleLabel()
     mTitleLabel = std::make_unique<Label>("title", TRANS("Soundboard"));
     mTitleLabel->setJustificationType(Justification::centred);
     mTitleLabel->setFont(Font(TITLE_FONT_HEIGHT, Font::bold));
-    mTitleLabel->setColour(Label::textColourId, Colour(0xeeffffff));
+    mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mTitleLabel.get());
 }
 
@@ -110,6 +111,7 @@ void SoundboardView::createSoundboardMenu()
 {
     mMenuButton = std::make_unique<SonoDrawableButton>("menu", SonoDrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> imageMenu(Drawable::createFromImageData(BinaryData::dots_svg, BinaryData::dots_svgSize));
+    imageMenu->replaceColour(Colour(0xffcccccc), SonoCraftTheme::secondary());
     mMenuButton->setTitle(TRANS("Soundboard Menu"));
     mMenuButton->setImages(imageMenu.get());
     mMenuButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
@@ -144,7 +146,7 @@ void SoundboardView::createControlPanel()
     mHotkeyStateButton->setForegroundImageRatio(0.75f);
     mHotkeyStateButton->setClickingTogglesState(true);
     mHotkeyStateButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
-    mHotkeyStateButton->setColour(DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0.2, 0.2, 0.2, 0.7));
+    mHotkeyStateButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mHotkeyStateButton->setTitle(TRANS("Toggle hotkeys"));
     mHotkeyStateButton->setTooltip(TRANS("Toggles whether sound samples can be played using hotkeys."));
     mHotkeyStateButton->setToggleState(processor->isHotkeysMuted(), NotificationType::dontSendNotification);
@@ -160,7 +162,7 @@ void SoundboardView::createControlPanel()
     mNumericHotkeyStateButton->setForegroundImageRatio(0.75f);
     mNumericHotkeyStateButton->setClickingTogglesState(true);
     mNumericHotkeyStateButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
-    mNumericHotkeyStateButton->setColour(DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0.2, 0.2, 0.2, 0.7));
+    mNumericHotkeyStateButton->setColour(DrawableButton::backgroundOnColourId, SonoCraftTheme::selection());
     mNumericHotkeyStateButton->setTitle(TRANS("Toggle numeric hotkeys"));
     mNumericHotkeyStateButton->setTooltip(TRANS("Toggles whether sound samples can be played using default numeric hotkeys."));
     mNumericHotkeyStateButton->setToggleState(!processor->isDefaultNumericHotkeyAllowed(), NotificationType::dontSendNotification);
@@ -191,8 +193,8 @@ void SoundboardView::createControlPanel()
     };
     mVolumeSlider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     mVolumeSlider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    mVolumeSlider->setColour(Slider::textBoxTextColourId, Colour(0x90eeeeee));
-    mVolumeSlider->setColour(TooltipWindow::textColourId, Colour(0xf0eeeeee));
+    mVolumeSlider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    mVolumeSlider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
     mVolumeSlider->setTextBoxStyle(Slider::TextBoxAbove, true, 100, 12);
     mVolumeSlider->setRange(0.0, 2.0, 0.0);
     mVolumeSlider->setSkewFactor(0.5);
@@ -213,6 +215,7 @@ void SoundboardView::createControlPanel()
 
     mSendAudioButton = std::make_unique<SonoDrawableButton>("sendaudio", DrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> filesendimg(Drawable::createFromImageData(BinaryData::send_group_small_svg, BinaryData::send_group_small_svgSize));
+    filesendimg->replaceColour(Colour(0xffe6e6e6), SonoCraftTheme::accent());
     mSendAudioButton->setImages(filesendimg.get(), nullptr, nullptr, nullptr, nullptr);
     mSendAudioButton->setClickingTogglesState(true);
     mSendAudioButton->setColour(DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0.2, 0.5, 0.7, 0.65));
@@ -904,7 +907,7 @@ void SoundboardView::applyOptionsToAll(SoundSample & fromsample)
 
 void SoundboardView::paint(Graphics& g)
 {
-    g.fillAll(Colour(0xff272727));
+    g.fillAll(SonoCraftTheme::canvas());
 }
 
 void SoundboardView::componentVisibilityChanged (Component& component)

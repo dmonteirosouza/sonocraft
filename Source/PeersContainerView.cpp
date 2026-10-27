@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2020 Jesse Chappell
 
+#include "SonoCraftTheme.h"
 #include "PeersContainerView.h"
 #include "JitterBufferMeter.h"
 #include <set>
@@ -9,7 +10,7 @@ using namespace SonoAudio;
 
 PeerViewInfo::PeerViewInfo() : smallLnf(12), medLnf(14), sonoSliderLNF(12), panSliderLNF(12)
 {
-    bgColor = Colour(0xffffffff);
+    bgColor = SonoCraftTheme::panel();
     borderColor = Colour::fromFloatRGBA(0.5f, 0.5f, 0.5f, 0.3f);
 
     sonoSliderLNF.textJustification = Justification::centredLeft;
@@ -169,7 +170,7 @@ void PeerViewInfo::resized()
 
 PendingPeerViewInfo::PendingPeerViewInfo()
 {
-    bgColor = Colour(0xffffffff);
+    bgColor = SonoCraftTheme::panel();
     borderColor = Colour::fromFloatRGBA(0.5f, 0.5f, 0.5f, 0.3f);
 
     //Random rcol;
@@ -205,8 +206,8 @@ PeersContainerView::PeersContainerView(SonobusAudioProcessor& proc)
  : Component("pcv"),  processor(proc)
 {
     mutedTextColor = Colour::fromFloatRGBA(0.8, 0.5, 0.2, 1.0);
-    regularTextColor = Colour(0xff344e60);; //Colour(0xc0eeeeee);
-    dimTextColor = Colour(0xff667b8b); //Colour(0xc0aaaaaa);
+    regularTextColor = SonoCraftTheme::text();; //Colour(0xc0eeeeee);
+    dimTextColor = SonoCraftTheme::secondary(); //Colour(0xc0aaaaaa);
     //soloColor = Colour::fromFloatRGBA(0.2, 0.5, 0.8, 1.0);
     mutedColor = Colour(0xffffe4c9);
     soloColor = Colour::fromFloatRGBA(1.0, 1.0, 0.6, 1.0);
@@ -215,7 +216,7 @@ PeersContainerView::PeersContainerView(SonobusAudioProcessor& proc)
     droppedTextColor = Colour(0xc0ee8888);
 
     outlineColor = Colour::fromFloatRGBA(0.25, 0.25, 0.25, 1.0);
-    bgColor = Colour(0xffedf3f6);
+    bgColor = SonoCraftTheme::recessed();
 
     peerModeFull = processor.getPeerDisplayMode() == SonobusAudioProcessor::PeerDisplayModeFull;
 
@@ -243,8 +244,8 @@ void PeersContainerView::configLevelSlider(Slider * slider)
     //slider->setTextValueSuffix(" dB");
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
+    slider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    slider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
 
     
     slider->setTextBoxStyle(Slider::TextBoxAbove, true, 80, 12);
@@ -273,8 +274,8 @@ void PeersContainerView::configKnobSlider(Slider * slider)
     //slider->setPopupDisplayEnabled(true, false, this);
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0xff526474));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xff203344));
+    slider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    slider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
 
     //slider->setLookAndFeel(&sonoSliderLNF);
     
@@ -422,7 +423,7 @@ PeerViewInfo * PeersContainerView::createPeerViewInfo()
     pvf->removeConnectionButton->setColour(TextButton::textColourOffId, Colour(0xffb43d4b));
     pvf->connectionSummary = std::make_unique<Label>();
     pvf->connectionSummary->setFont(Font(12.0f));
-    pvf->connectionSummary->setColour(Label::textColourId, Colour(0xff526474));
+    pvf->connectionSummary->setColour(Label::textColourId, SonoCraftTheme::secondary());
     pvf->addAndMakeVisible(pvf->removeConnectionButton.get());
     pvf->addAndMakeVisible(pvf->connectionSummary.get());
 

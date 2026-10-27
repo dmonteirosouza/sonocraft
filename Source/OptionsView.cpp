@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2021 Jesse Chappell
 
+#include "SonoCraftTheme.h"
 #include "OptionsView.h"
 
 #if JUCE_ANDROID
@@ -485,7 +486,7 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
         }
 
         if (firsttime) {
-            mSettingsTab->addTab(TRANS("AUDIO"), Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0), mAudioOptionsViewport.get(), false);
+            mSettingsTab->addTab(TRANS("Audio"), SonoCraftTheme::canvas(), mAudioOptionsViewport.get(), false);
         }
 
     }
@@ -493,13 +494,13 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
     mOtherOptionsViewport = std::make_unique<Viewport>();
     mOtherOptionsViewport->setViewedComponent(mOptionsComponent.get(), false);
 
-    mSettingsTab->addTab(TRANS("OPTIONS"),Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0), mOtherOptionsViewport.get(), false);
-   // mSettingsTab->addTab(TRANS("HELP"), Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0), mHelpComponent.get(), false);
+    mSettingsTab->addTab(TRANS("Options"),SonoCraftTheme::canvas(), mOtherOptionsViewport.get(), false);
+   // mSettingsTab->addTab(TRANS("HELP"), SonoCraftTheme::canvas(), mHelpComponent.get(), false);
 
     mRecordOptionsViewport = std::make_unique<Viewport>();
     mRecordOptionsViewport->setViewedComponent(mRecOptionsComponent.get(), false);
 
-    mSettingsTab->addTab(TRANS("RECORDING"),Colour::fromFloatRGBA(0.1, 0.1, 0.1, 1.0), mRecordOptionsViewport.get(), false);
+    mSettingsTab->addTab(TRANS("Recording"),SonoCraftTheme::canvas(), mRecordOptionsViewport.get(), false);
 
     setFocusContainerType(FocusContainerType::keyboardFocusContainer);
 
@@ -552,7 +553,7 @@ void OptionsView::configLabel(Label *label, bool val)
 {
     if (val) {
         label->setFont(12);
-        label->setColour(Label::textColourId, Colour(0x90eeeeee));
+        label->setColour(Label::textColourId, SonoCraftTheme::secondary());
         label->setJustificationType(Justification::centred);
     }
     else {
@@ -574,8 +575,8 @@ void OptionsView::configLevelSlider(Slider * slider)
     //slider->setPopupDisplayEnabled(true, false, this);
     slider->setColour(Slider::textBoxBackgroundColourId, Colours::transparentBlack);
     slider->setColour(Slider::textBoxOutlineColourId, Colours::transparentBlack);
-    slider->setColour(Slider::textBoxTextColourId, Colour(0x90eeeeee));
-    slider->setColour(TooltipWindow::textColourId, Colour(0xf0eeeeee));
+    slider->setColour(Slider::textBoxTextColourId, SonoCraftTheme::secondary());
+    slider->setColour(TooltipWindow::textColourId, SonoCraftTheme::text());
 
     slider->setLookAndFeel(&sonoSliderLNF);
 }

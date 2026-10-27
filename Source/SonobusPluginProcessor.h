@@ -239,6 +239,7 @@ public:
     static String paramInMonitorMonoPan;
     static String paramInMonitorPan1;
     static String paramInMonitorPan2;
+    static String paramMeetingMode;
     static String paramDry;
     static String paramWet;
     static String paramSendChannels;
@@ -335,6 +336,17 @@ public:
     bool removeRemotePeer(int index, bool sendblock=false);
 
     bool removeAllRemotePeers();
+    struct MixerChannelState {
+        String id, name, address, codec;
+        float gain = 1.0f, left = 0.0f, right = 0.0f, bufferMs = 0.0f;
+        bool connected = false, muted = false, soloed = false;
+        int bufferMode = 0;
+    };
+    Array<MixerChannelState> getMixerChannelStates();
+    void setMixerChannelGain(const String& id, float gain);
+    void setMixerChannelMute(const String& id, bool muted);
+    void setMixerChannelSolo(const String& id, bool soloed);
+    void setMixerChannelBuffer(const String& id, float milliseconds, bool automatic);
     String getRemotePeerConnectionId(int index) const;
     int findRemotePeerConnectionId(const String& connectionId) const;
     bool removeRemotePeerByConnectionId(const String& connectionId);
@@ -973,6 +985,7 @@ private:
     Atomic<double>   mBufferTime     { 0.001 };
     Atomic<double>   mMaxBufferTime     { 1.0 };
     Atomic<bool>   mMainSendMute    {   false };
+    Atomic<bool>   mMeetingMode { false };
     Atomic<bool>   mMainRecvMute    {   false };
     Atomic<bool>   mMainInMute    {   false };
     Atomic<bool>   mMainMonitorSolo    {   false };
