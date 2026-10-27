@@ -44,6 +44,9 @@ public:
     SamplePlaybackManager(SoundSample* sample_, SoundboardChannelProcessor* channelProcessor_);
     ~SamplePlaybackManager() override;
 
+    // Detach buffered file readers while their disk thread still exists.
+    void releaseFileResources();
+
     /**
      * Loads the file for playback.
      *

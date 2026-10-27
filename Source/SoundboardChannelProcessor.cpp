@@ -12,8 +12,17 @@ SamplePlaybackManager::SamplePlaybackManager(SoundSample* sample_, SoundboardCha
 
 SamplePlaybackManager::~SamplePlaybackManager()
 {
+    releaseFileResources();
+    transportSource.removeChangeListener(this);
+}
+
+void SamplePlaybackManager::releaseFileResources()
+{
     stopTimer();
     transportSource.removeChangeListener(this);
+    transportSource.setSource(nullptr);
+    currentFileSource.reset();
+    loaded = false;
 }
 
 bool SamplePlaybackManager::loadFileFromSample(TimeSliceThread &fileReadThread)
@@ -190,6 +199,13 @@ SoundboardChannelProcessor::SoundboardChannelProcessor()
 SoundboardChannelProcessor::~SoundboardChannelProcessor()
 {
     mixer.removeAllInputs();
+    // Buffered transports retain a pointer to diskThread. Member destruction
+    // would destroy that thread first, so detach every transport explicitly,
+    // including managers still referenced by a view or a caller.
+    for (const auto& item : activeSamples)
+        item.second->releaseFileResources();
+    activeSamples.clear();
+    diskThread.stopThread(2000);
 }
 
 std::optional<std::shared_ptr<SamplePlaybackManager>> SoundboardChannelProcessor::loadSample(SoundSample& sample)

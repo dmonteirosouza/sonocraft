@@ -8,6 +8,7 @@ Novidades:
 - Remoção manual por conexão estável, evitando que uma ação antiga remova outro participante após reordenar a lista. A reconexão ainda não substitui automaticamente uma entrada antiga.
 - Silenciamento local do participante, com retomada sem renegociar a conexão.
 - Ajuste do fluxo de áudio ao estabilizar o tamanho dos blocos, evitando desligar e religar a recepção nessa transição.
+- Correção da ordem de liberação dos leitores do Soundboard ao encerrar o aplicativo.
 - **Modo reunião:** saída principal com voz local e Soundboard, excluindo o retorno dos participantes, o transporte de arquivos e o metrônomo.
 
 Para usar o modo reunião, configure um dispositivo virtual compatível (como VB-CABLE) separadamente. Em Dispositivos, selecione microfone físico como entrada e cabo virtual como saída. No aplicativo da reunião, escolha esse cabo como microfone e seus fones como saída. O SonoCraft não instala um microfone virtual próprio nem abre uma segunda saída independente para monitorar voz e pads. Consulte docs/SONOCRAFT-MEETING.md no código-fonte.

@@ -251,10 +251,11 @@ int main()
                 padEnergy += padOutput.getSample(channel, sample) * padOutput.getSample(channel, sample);
     }
     (*player)->unload();
-    player.reset();
     if (padEnergy <= 0.001) { std::cerr << "FAIL: no Soundboard in meeting output\n"; return 1; }
     std::cout << "PASS: real Soundboard pad reaches meeting output" << std::endl;
     roster->releaseResources();
+    roster.reset(); // A caller may still retain the playback manager.
+    player.reset(); // Its file reader must already be detached from the disk thread.
     std::cout << "PASS: stable removal after list reorder and stale action rejection" << std::endl;
 
     std::cout << "PASS: missing host position, changing audio blocks, finite output, pending invitation status, local UDP audio" << std::endl;
