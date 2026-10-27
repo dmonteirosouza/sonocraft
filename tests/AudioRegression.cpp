@@ -12,8 +12,13 @@ public:
 int main()
 {
     juce::ScopedJuceInitialiser_GUI juceRuntime;
-    SonobusAudioProcessor sender;
-    SonobusAudioProcessor receiver;
+    // Audio processors contain large DSP buffers. Windows console programs
+    // have a smaller default stack than macOS, so mirror the application's
+    // factory ownership and keep the two processors on the heap.
+    auto senderOwner = std::make_unique<SonobusAudioProcessor>();
+    auto receiverOwner = std::make_unique<SonobusAudioProcessor>();
+    auto& sender = *senderOwner;
+    auto& receiver = *receiverOwner;
     EmptyPlayHead emptyPlayHead;
     sender.setPlayHead(nullptr);
     receiver.setPlayHead(&emptyPlayHead);
