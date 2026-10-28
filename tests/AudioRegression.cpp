@@ -4,6 +4,28 @@
 #include "../Source/SoundboardProcessor.h"
 #include <cmath>
 #include <iostream>
+#if JUCE_MAC
+#include <mach/mach_time.h>
+#endif
+
+static void waitForAudioDeadline(double deadline)
+{
+#if JUCE_MAC
+    // Use an absolute kernel wait instead of spinning on a hosted runner's
+    // limited CPUs or requesting a coalesced nanosleep. Leave CPU time for the
+    // UDP workers, as a real hardware-driven audio callback does.
+    const auto remaining = deadline - juce::Time::getMillisecondCounterHiRes();
+    if (remaining > 0.3) {
+        mach_timebase_info_data_t timebase;
+        mach_timebase_info(&timebase);
+        const auto ticks = static_cast<uint64_t>((remaining - 0.1) * 1.0e6
+                                                * timebase.denom / timebase.numer);
+        mach_wait_until(mach_absolute_time() + ticks);
+    }
+#endif
+    while (juce::Time::getMillisecondCounterHiRes() < deadline)
+        juce::Thread::yield();
+}
 
 class EmptyPlayHead final : public juce::AudioPlayHead
 {
@@ -216,8 +238,7 @@ int main()
             nextCallbackAt = callbackNow;
         }
         nextCallbackAt += samples * 1000.0 / 48000.0;
-        while (juce::Time::getMillisecondCounterHiRes() < nextCallbackAt)
-            juce::Thread::yield();
+        waitForAudioDeadline(nextCallbackAt);
     }
     if (privateAudioLeak > 0.000001 || mutedEnergy > 0.000001 || resumedEnergy <= 0.001
         || meetingRemoteEnergy <= 0.001 || meetingVoiceEnergy <= 0.001
@@ -360,7 +381,7 @@ int main()
         const auto padNow = juce::Time::getMillisecondCounterHiRes();
         if (padNow - padDeadline > 100.0) padDeadline = padNow;
         padDeadline += 128 * 1000.0 / 48000.0;
-        while (juce::Time::getMillisecondCounterHiRes() < padDeadline) juce::Thread::yield();
+        waitForAudioDeadline(padDeadline);
     }
     if (remotePadEnergy <= 0.001 || std::abs(remotePadMean/(179*128)) > 0.01
         || receiver.getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
