@@ -9,7 +9,7 @@
 class SonoCraftListeningControls final : public juce::Component, private juce::Timer {
 public:
     SonoCraftListeningControls(SonobusAudioProcessor& p, bool fullPage = false) : processor(p), full(fullPage) {
-        for (auto* component : std::initializer_list<juce::Component*> { &enabled, &devices, &refresh, &volume, &hint, &instructions, &mode, &configure, &summary, &receive, &micMute }) addAndMakeVisible(component);
+        for (auto* component : std::initializer_list<juce::Component*> { &enabled, &devices, &refresh, &volume, &hint, &instructions, &mode, &configure, &summary, &receive, &micMute, &includeReceived, &separateSources }) addAndMakeVisible(component);
         enabled.setButtonText("Ouvir recebidos e pads nos fones");
         devices.setTextWhenNothingSelected("Escolha seu headset ou fone");
         devices.setTitle(juce::String::fromUTF8("Saída dos fones, sem minha voz"));
@@ -27,12 +27,22 @@ public:
         micMuteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMainInMute, micMute);
         mode.setButtonText(juce::String::fromUTF8("Ativar mistura para reunião"));
         modeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingMode, mode);
+        includeReceived.setButtonText(juce::String::fromUTF8("Enviar também músicas, vídeos e voz recebidos à reunião"));
+        includeReceived.setTooltip(juce::String::fromUTF8("Desmarcado: a reunião recebe sua voz e os pads identificados. Marcado: recebe todo o áudio dos computadores conectados. Seus fones continuam ouvindo tudo."));
+        includeReceivedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingIncludeReceived, includeReceived);
+        separateSources.setButtonText(juce::String::fromUTF8("Separar minhas fontes ao enviar para outro computador"));
+        separateSources.setTooltip(juce::String::fromUTF8("Use também no Mac. Permite que o outro computador envie só os pads à reunião e mantenha músicas e vídeos nos fones. Atualize o SonoCraft nos dois computadores."));
+        separateSources.onClick = [this] {
+            auto* parameter = processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramSendChannels);
+            parameter->setValueNotifyingHost(parameter->convertTo0to1(0));
+            processor.setRemotePeerOverrideSendChannelCount(-1, -1);
+        };
         mode.onClick = [this] {
             if (mode.getToggleState()) processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainRecvMute)->setValueNotifyingHost(0);
         };
         configure.setButtonText(juce::String::fromUTF8("Escolher microfone e saída para a reunião"));
         configure.onClick = [this] { if (onChooseAudio) onChooseAudio(); };
-        instructions.setText(juce::String::fromUTF8("1. Microfone: escolha o headset. Saída principal: escolha CABLE Input.\n2. Ative a mistura e a recepção dos conectados.\n3. Abaixo, escolha seus fones: recebidos + pads, sem sua voz.\n4. No Teams: microfone CABLE Output e alto-falante headset."), juce::dontSendNotification);
+        instructions.setText(juce::String::fromUTF8("Para ouvir: escolha seus fones abaixo. Você ouve os conectados e seus pads, sem retorno da própria voz.\nPara a reunião: entrada = seu microfone; saída principal = CABLE Input. No Teams, microfone = CABLE Output.\nPor padrão, só sua voz e pads vão à reunião. Ative a opção abaixo para incluir os outros sons recebidos."), juce::dontSendNotification);
         instructions.setFont(14.0f);
         instructions.setJustificationType(juce::Justification::topLeft);
         instructions.setMinimumHorizontalScale(1);
@@ -62,14 +72,16 @@ public:
     std::function<juce::String()> configurationSummary;
     void resized() override {
         auto box = getLocalBounds().reduced(full ? 14 : 0);
-        for (auto* item : std::initializer_list<juce::Component*> { &instructions, &mode, &configure, &summary, &receive, &micMute }) item->setVisible(full);
+        for (auto* item : std::initializer_list<juce::Component*> { &instructions, &mode, &configure, &summary, &receive, &micMute, &includeReceived, &separateSources }) item->setVisible(full);
         if (full) {
             instructions.setBounds(box.removeFromTop(getWidth() >= 440 ? 112 : 140));
             configure.setBounds(box.removeFromTop(36)); box.removeFromTop(8);
             summary.setBounds(box.removeFromTop(44));
             mode.setBounds(box.removeFromTop(30));
             receive.setBounds(box.removeFromTop(30));
-            micMute.setBounds(box.removeFromTop(30)); box.removeFromTop(12);
+            micMute.setBounds(box.removeFromTop(30));
+            includeReceived.setBounds(box.removeFromTop(38));
+            separateSources.setBounds(box.removeFromTop(38)); box.removeFromTop(12);
         }
         enabled.setBounds(box.removeFromTop(28));
         auto row = box.removeFromTop(30);
@@ -80,13 +92,14 @@ public:
 private:
     SonobusAudioProcessor& processor;
     const bool full;
-    juce::ToggleButton enabled, mode, receive, micMute;
+    juce::ToggleButton enabled, mode, receive, micMute, includeReceived;
+    juce::TextButton separateSources;
     juce::ComboBox devices;
     juce::TextButton refresh, configure;
     juce::Slider volume;
     juce::Label hint, instructions, summary;
     juce::Array<SonoCraftPadMonitor::Device> outputs;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modeAttachment, micMuteAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modeAttachment, micMuteAttachment, includeReceivedAttachment;
     void showHint() { hint.setText(juce::String::fromUTF8(processor.getPadMonitor().isActive()
         ? "Nos fones: áudio recebido e pads locais. Sua voz fica só na saída da reunião."
         : "Escolha os fones físicos, não o cabo virtual. Desative 'Escutar este dispositivo' no Windows."), juce::dontSendNotification); }

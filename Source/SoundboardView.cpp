@@ -30,7 +30,13 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
     sendPadsToAll.onClick = [this] {
         auto& tree = audioProcessor.getValueTreeState();
         tree.getParameter(SonobusAudioProcessor::paramSendSoundboardAudio)->setValueNotifyingHost(sendPadsToAll.getToggleState() ? 1 : 0);
-        if (sendPadsToAll.getToggleState()) tree.getParameter(SonobusAudioProcessor::paramMainSendMute)->setValueNotifyingHost(0);
+        if (sendPadsToAll.getToggleState()) {
+            // Keep pads distinct from microphone/system input at the receiver.
+            auto* channels = tree.getParameter(SonobusAudioProcessor::paramSendChannels);
+            channels->setValueNotifyingHost(channels->convertTo0to1(0));
+            audioProcessor.setRemotePeerOverrideSendChannelCount(-1, -1);
+            tree.getParameter(SonobusAudioProcessor::paramMainSendMute)->setValueNotifyingHost(0);
+        }
     };
     mSendAudioButton->setVisible(false);
     updateSoundboardSelector();

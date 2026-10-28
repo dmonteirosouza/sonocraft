@@ -36,6 +36,7 @@ struct ChannelGroupParams
 
     // group info
     String name;
+    String sourceRole; // Semantic source identity, independent of translated labels.
     int chanStartIndex = 0; // source channel
     int numChannels = 1;
 

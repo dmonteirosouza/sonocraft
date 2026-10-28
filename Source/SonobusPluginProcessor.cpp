@@ -43,6 +43,7 @@ typedef int socklen_t;
 
 String SonobusAudioProcessor::paramInGain     ("ingain");
 String SonobusAudioProcessor::paramMeetingMode ("meetingmode");
+String SonobusAudioProcessor::paramMeetingIncludeReceived ("meetingincludereceived");
 String SonobusAudioProcessor::paramDry     ("dry");
 String SonobusAudioProcessor::paramInMonitorMonoPan     ("inmonmonopan");
 String SonobusAudioProcessor::paramInMonitorPan1     ("inmonpan1");
@@ -348,6 +349,7 @@ struct SonobusAudioProcessor::RemotePeer {
 
     // channel groups
     SonoAudio::ChannelGroup chanGroups[MAX_CHANGROUPS];
+    SonoAudio::ChannelGroup::ProcessState meetingPanState[MAX_CHANGROUPS];
     int numChanGroups = 1;
     bool modifiedChanGroups = false;
     bool modifiedMultiChanGroups = false;
@@ -635,6 +637,7 @@ mState (*this, &mUndoManager, "SonoBusAoO",
     std::make_unique<AudioParameterChoice>(ParameterID(paramSendChannels, 1), TRANS ("Send Channels"), StringArray({ "Match # Inputs", "Send Mono", "Send Stereo"}), JUCEApplicationBase::isStandaloneApp() ? mSendChannels.get() : 0),
 
     std::make_unique<AudioParameterBool>(ParameterID(paramMeetingMode, 1), "Meeting Mode", false),
+    std::make_unique<AudioParameterBool>(ParameterID(paramMeetingIncludeReceived, 1), "Include other received audio in meeting", false),
     std::make_unique<AudioParameterBool>(ParameterID(paramMetEnabled, 1), TRANS ("Metronome Enabled"), mMetEnabled.get()),
     std::make_unique<AudioParameterBool>(ParameterID(paramSendMetAudio, 1), TRANS ("Send Metronome Audio"), mSendMet.get()),
     std::make_unique<AudioParameterFloat>(ParameterID(paramMetGain, 1),     TRANS ("Metronome Gain"),    NormalisableRange<float>(0.0, 1.0, 0.0, 0.5), mMetGain.get(), "", AudioProcessorParameter::genericParameter,
@@ -697,6 +700,7 @@ mState (*this, &mUndoManager, "SonoBusAoO",
 {
     mState.addParameterListener (paramInGain, this);
     mState.addParameterListener (paramMeetingMode, this);
+    mState.addParameterListener (paramMeetingIncludeReceived, this);
     mState.addParameterListener (paramDry, this);
     mState.addParameterListener (paramWet, this);
     mState.addParameterListener (paramInMonitorMonoPan, this);
@@ -5320,7 +5324,7 @@ void SonobusAudioProcessor::updateRemotePeerSendChannels(int index, RemotePeer *
         DBG("Peer " << index << "  has new sendChannel count: " << remote->sendChannels);
         if (remote->oursource) {
             setupSourceFormat(remote, remote->oursource.get());
-            //setupSourceUserFormat(remote, remote->oursource.get());
+            setupSourceUserFormat(remote, remote->oursource.get());
 
             remote->oursource->setup(getSampleRate(), currSamplesPerBlock, remote->sendChannels);
 
@@ -6474,6 +6478,7 @@ ValueTree SonobusAudioProcessor::getSendUserFormatLayoutTree()
         }
         if (mSendSoundboardAudio.get()) {
             ChannelGroupParams tmpgrp = soundboardChannelProcessor->getChannelGroupParams();
+            tmpgrp.sourceRole = "pads";
             tmpgrp.chanStartIndex = chstart;
             fmttree.appendChild(tmpgrp.getChannelLayoutValueTree(), nullptr);
             chstart += tmpgrp.numChannels;
@@ -6648,6 +6653,9 @@ void SonobusAudioProcessor::parameterChanged (const String &parameterID, float n
 {
     if (parameterID == paramMeetingMode) {
         mMeetingMode = newValue > 0.5f;
+    }
+    else if (parameterID == paramMeetingIncludeReceived) {
+        mMeetingIncludeReceived = newValue > 0.5f;
     }
     else if (parameterID == paramDry) {
         mDry = newValue;
@@ -7203,7 +7211,7 @@ void SonobusAudioProcessor::setupSourceFormatsForAll()
 
         if (s->oursource) {
             setupSourceFormat(s, s->oursource.get());
-            //setupSourceUserFormat(s, s->oursource.get());
+            setupSourceUserFormat(s, s->oursource.get());
 
             s->oursource->setup(sampleRate, currSamplesPerBlock, s->sendChannels);  // todo use inchannels maybe?
             float sendbufsize = jmax(10.0, SENDBUFSIZE_SCALAR * 1000.0f * currSamplesPerBlock / getSampleRate());
@@ -7376,6 +7384,8 @@ void SonobusAudioProcessor::ensureBuffers(int numSamples)
     }
     if (monitorBuffer.getNumSamples() < numSamples || monitorBuffer.getNumChannels() != maxchans) {
         monitorBuffer.setSize(maxchans, numSamples, false, false, true);
+        receivedPadsBuffer.setSize(maxchans, numSamples, false, false, true);
+        receivedPadsWorkBuffer.setSize(MAX_PANNERS, numSamples, false, false, true);
     }
     if (sendWorkBuffer.getNumSamples() < numSamples || sendWorkBuffer.getNumChannels() != maxworkbufchans) {
         sendWorkBuffer.setSize(maxworkbufchans, numSamples, false, false, true);
@@ -7894,6 +7904,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
         }
         
         tempBuffer.clear(0, numSamples);
+        receivedPadsBuffer.clear(0, numSamples);
         
         int rindex = 0;
         
@@ -8035,6 +8046,18 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
             tgain *= usegain; // handles main solo
 
 
+            // Filter by original transmitted channel ranges, even after the user
+            // regroups receive channels. Unknown/legacy mixed streams stay private.
+            receivedPadsWorkBuffer.clear(0, numSamples);
+            for (int group = 0; group < remote->origNumChanGroups; ++group) {
+                const auto& source = remote->origChanParams[group];
+                if (source.sourceRole != "pads") continue;
+                for (int ch = jmax(0, source.chanStartIndex);
+                     ch < jmin(source.chanStartIndex + source.numChannels,
+                               jmin(receivedPadsWorkBuffer.getNumChannels(), remote->workBuffer.getNumChannels())); ++ch)
+                    receivedPadsWorkBuffer.copyFrom(ch, 0, remote->workBuffer, ch, 0, numSamples);
+            }
+
             for (auto i = 0; i < remote->numChanGroups; ++i)
             {
                 // apply solo muting to the gain here
@@ -8043,6 +8066,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
                 int dstch = remote->chanGroups[i].params.panDestStartIndex;
                 int dstcnt = jmin(totalOutputChannels, remote->chanGroups[i].params.panDestChannels);
                 remote->chanGroups[i].processPan(remote->workBuffer, remote->chanGroups[i].params.chanStartIndex, tempBuffer, dstch, dstcnt, numSamples, adjgain);
+                remote->chanGroups[i].processPan(receivedPadsWorkBuffer, remote->chanGroups[i].params.chanStartIndex, receivedPadsBuffer, dstch, dstcnt, numSamples, adjgain, &remote->meetingPanState[i]);
 
                 if (doreverb) {
                     remote->chanGroups[i].processReverbSend(remote->workBuffer, remote->chanGroups[i].params.chanStartIndex, remote->chanGroups[i].params.numChannels, mainFxBuffer, 0, fxchannels, numSamples, mainReverbEnabled, false, adjgain);
@@ -8333,17 +8357,19 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     listeningMeterSource.measureBlock(monitorBuffer, 0, numSamples);
     padMonitor.capture(monitorBuffer, numSamples, 1.0f);
 
-    // Meeting output contains the same listening bus plus local microphone.
-    // Local pads are already in that bus and must not be added a second time.
+    // Meeting output defaults to classified remote pads + local pads + voice.
+    // Other received audio is included only by an explicit user choice.
+    // Local pads are added once after selecting the received sources.
     const bool meetingMode = mMeetingMode.get();
     if (meetingMode) {
         buffer.clear();
         for (int channel = 0; channel < jmin(2, mainBusOutputChannels); ++channel) {
-            buffer.copyFrom(channel, 0, monitorBuffer, channel, 0, numSamples);
+            buffer.copyFrom(channel, 0, mMeetingIncludeReceived.get() ? tempBuffer : receivedPadsBuffer, channel, 0, numSamples);
             if (!mMainInMute.get() && channel < inputBuffer.getNumChannels())
                 buffer.addFrom(channel, 0, inputBuffer, channel, 0, numSamples);
         }
     }
+    if (meetingMode) soundboardChannelProcessor->addPadsToListeningMix(buffer, numSamples);
     if (hassoundboarddata && !meetingMode) {
         soundboardChannelProcessor->processMonitor(buffer, numSamples, totalOutputChannels);
     }

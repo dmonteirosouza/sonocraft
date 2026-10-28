@@ -241,6 +241,7 @@ public:
     static String paramInMonitorPan1;
     static String paramInMonitorPan2;
     static String paramMeetingMode;
+    static String paramMeetingIncludeReceived;
     static String paramDry;
     static String paramWet;
     static String paramSendChannels;
@@ -968,6 +969,8 @@ private:
     AudioSampleBuffer workBuffer;
     AudioSampleBuffer inputBuffer;
     AudioSampleBuffer monitorBuffer;
+    AudioSampleBuffer receivedPadsBuffer;
+    AudioSampleBuffer receivedPadsWorkBuffer;
     AudioSampleBuffer sendWorkBuffer;
     AudioSampleBuffer inputPostBuffer;
     AudioSampleBuffer inputPreBuffer;
@@ -989,6 +992,7 @@ private:
     Atomic<double>   mMaxBufferTime     { 1.0 };
     Atomic<bool>   mMainSendMute    {   false };
     Atomic<bool>   mMeetingMode { false };
+    Atomic<bool>   mMeetingIncludeReceived { false };
     Atomic<bool>   mMainRecvMute    {   false };
     Atomic<bool>   mMainInMute    {   false };
     Atomic<bool>   mMainMonitorSolo    {   false };

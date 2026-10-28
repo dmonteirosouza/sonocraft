@@ -502,7 +502,7 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
 
     mSettingsTab->addTab(TRANS("Recording"),SonoCraftTheme::canvas(), mRecordOptionsViewport.get(), false);
     mMeetingControls = std::make_unique<SonoCraftListeningControls>(processor, true);
-    mMeetingControls->setSize(480, 610);
+    mMeetingControls->setSize(480, 710);
     mMeetingControls->onChooseAudio = [this] { showAudioTab(); };
     mMeetingControls->configurationSummary = [this] {
         auto* manager = getAudioDeviceManager ? getAudioDeviceManager() : nullptr;
@@ -960,7 +960,7 @@ void OptionsView::resized()  {
     mainBox.performLayout(getLocalBounds().reduced(2, 2));
 
     auto innerbounds = mSettingsTab->getLocalBounds();
-    if (mMeetingControls) mMeetingControls->setSize(jmax(280, innerbounds.getWidth()-16), 610);
+    if (mMeetingControls) mMeetingControls->setSize(jmax(280, innerbounds.getWidth()-16), 710);
 
     if (mAudioDeviceSelector) {
         mAudioDeviceSelector->setBounds(Rectangle<int>(0,0,innerbounds.getWidth() - 10,mAudioDeviceSelector->getHeight()));

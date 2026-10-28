@@ -648,6 +648,7 @@ ValueTree ChannelGroupParams::getValueTree() const
     channelGroupTree.setProperty(invertPolarityKey, invertPolarity, nullptr);
 
     channelGroupTree.setProperty(nameKey, name, nullptr);
+    channelGroupTree.setProperty("sourceRole", sourceRole, nullptr);
 
     ValueTree panListTree(stereoPanListKey);
     for (int i=0; i < numChannels && i < MAX_CHANNELS; ++i) {
@@ -734,6 +735,7 @@ ValueTree ChannelGroupParams::getChannelLayoutValueTree()
     channelGroupTree.setProperty(channelStartIndexKey, chanStartIndex, nullptr);
     channelGroupTree.setProperty(numChannelsKey, numChannels, nullptr);
     channelGroupTree.setProperty(nameKey, name, nullptr);
+    channelGroupTree.setProperty("sourceRole", sourceRole, nullptr);
     channelGroupTree.setProperty(peerPan1Key, panStereo[0], nullptr);
     channelGroupTree.setProperty(peerPan2Key, panStereo[1], nullptr);
 
@@ -753,6 +755,7 @@ void ChannelGroupParams::setFromChannelLayoutValueTree(const ValueTree & layoutv
     chanStartIndex = layoutval.getProperty(channelStartIndexKey, chanStartIndex);
     numChannels = layoutval.getProperty(numChannelsKey, numChannels);
     name = layoutval.getProperty(nameKey, name);
+    sourceRole = layoutval.getProperty("sourceRole", String()).toString();
     panStereo[0] = layoutval.getProperty(peerPan1Key, panStereo[0]);
     panStereo[1] = layoutval.getProperty(peerPan2Key, panStereo[1]);
 

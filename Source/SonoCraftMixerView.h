@@ -212,7 +212,7 @@ public:
         meeting.setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
         meetingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingMode, meeting);
         meeting.onClick = [this] { resized(); };
-        meetingHelp.setText(juce::String::fromUTF8("Reunião: seu microfone + áudio recebido + pads locais. Em Dispositivos, use seu microfone como entrada e um cabo virtual como saída. Na reunião, selecione o cabo virtual como microfone e seus fones como saída."), juce::dontSendNotification);
+        meetingHelp.setText(juce::String::fromUTF8("Reunião: sua voz + pads. Em Áudio e reunião, escolha se os outros sons recebidos também serão enviados. Use CABLE Input como saída principal e CABLE Output como microfone no Teams. Atualize os dois computadores para separar os pads."), juce::dontSendNotification);
         meetingHelp.setColour(juce::Label::textColourId, SonoCraftTheme::accent());
         meetingHelp.setFont(juce::Font(12.5f));
         meetingHelp.setMinimumHorizontalScale(1.0f);

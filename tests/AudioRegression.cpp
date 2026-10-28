@@ -107,7 +107,7 @@ int main()
     juce::MidiBuffer midi;
     double phase = 0.0;
     double receivedEnergy = 0.0, mutedEnergy = 0.0, resumedEnergy = 0.0;
-    double meetingRemoteEnergy = 0.0, meetingVoiceEnergy = 0.0;
+    double meetingRemoteEnergy = 0.0, meetingVoiceEnergy = 0.0, privateAudioLeak = 0.0;
     double listeningVoiceLeak = 0.0, listeningRemoteEnergy = 0.0;
     double receiverMeetingSum = 0.0;
     int receiverMeetingSamples = 0;
@@ -115,6 +115,9 @@ int main()
         auto* parameter = processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingMode);
         parameter->setValueNotifyingHost(enabled ? 1.0f : 0.0f);
     };
+    // Legacy remote-audio test explicitly opts into sharing general received audio.
+    sender.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingIncludeReceived)->setValueNotifyingHost(1);
+    receiver.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingIncludeReceived)->setValueNotifyingHost(1);
     const int blockSizes[] = {128, 1024, 64, 256, 512, 128};
     const auto startedAt = juce::Time::getMillisecondCounterHiRes();
     auto nextCallbackAt = startedAt;
@@ -160,6 +163,8 @@ int main()
             setMeeting(sender, block == 1200);
             setMeeting(receiver, block == 1200);
         }
+        if (block == 1230 || block == 1260)
+            receiver.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingIncludeReceived)->setValueNotifyingHost(block == 1260 ? 1 : 0);
         sender.processBlock(input, midi);
         if (block > 1220 && block < 1280)
             for (int channel = 0; channel < input.getNumChannels(); ++channel)
@@ -191,6 +196,7 @@ int main()
                 if (block > 1020 && block < 1080) mutedEnergy += value * value;
                 if (block > 1120 && block < 1180) resumedEnergy += value * value;
                 if (block > 1220 && block < 1280) meetingRemoteEnergy += value * value;
+                if (block > 1240 && block < 1250) privateAudioLeak += value * value;
             }
         // Model an audio device clock, rather than adding a relative sleep to
         // processing time. macOS CI can coalesce nanosleep by tens of ms, which
@@ -199,7 +205,7 @@ int main()
         while (juce::Time::getMillisecondCounterHiRes() < nextCallbackAt)
             juce::Thread::yield();
     }
-    if (mutedEnergy > 0.000001 || resumedEnergy <= 0.001
+    if (privateAudioLeak > 0.000001 || mutedEnergy > 0.000001 || resumedEnergy <= 0.001
         || meetingRemoteEnergy <= 0.001 || meetingVoiceEnergy <= 0.001
         || listeningVoiceLeak > 0.000001 || listeningRemoteEnergy <= 0.001
         || receiverMeetingSamples == 0 || std::abs(receiverMeetingSum/receiverMeetingSamples - 0.02) > 0.005) {
@@ -211,7 +217,7 @@ int main()
                       << ", active=" << receiver.getRemotePeerRecvActive(0) << ", channels=" << receiver.getRemotePeerRecvChannelCount(0) << "\n";
         return 1;
     }
-    std::cout << "PASS: immediate participant mute, unmute recovery, separate listening and meeting mixes, remote audio included, local voice excluded from listening" << std::endl;
+    std::cout << "PASS: immediate participant mute, unmute recovery, separate listening and meeting mixes, private remote audio blocked until opted in, local voice excluded from listening" << std::endl;
     std::cout << "Audio loop completed; releasing resources" << std::endl;
     sender.releaseResources();
     receiver.releaseResources();
@@ -313,8 +319,11 @@ int main()
     };
     setParameter(sender, SonobusAudioProcessor::paramMainInMute, 1);
     setParameter(sender, SonobusAudioProcessor::paramMainSendMute, 0);
+    setParameter(sender, SonobusAudioProcessor::paramSendChannels, 0);
+    sender.setRemotePeerOverrideSendChannelCount(-1, -1);
     setParameter(sender, SonobusAudioProcessor::paramSendSoundboardAudio, 1);
     setMeeting(receiver, true);
+    setParameter(receiver, SonobusAudioProcessor::paramMeetingIncludeReceived, 0);
     SoundSample remotePad("Remote pad", juce::URL(padFile.getFile()), SoundSample::LOOP_AT_END);
     auto remotePlayer = sender.getSoundboardProcessor()->loadSample(remotePad);
     if (!remotePlayer) return 1;
@@ -325,6 +334,9 @@ int main()
         juce::AudioBuffer<float> source(2,128), destination(2,128);
         for (int channel = 0; channel < 2; ++channel)
             for (int sample = 0; sample < 128; ++sample) source.setSample(channel, sample, 0.6f);
+        // Unmute the source voice while its pad keeps playing: the receiver
+        // must still forward only pad channels, not the general input stream.
+        if (block == 240) setParameter(sender, SonobusAudioProcessor::paramMainInMute, 0);
         destination.clear();
         sender.processBlock(source, midi); receiver.processBlock(destination, midi);
         if (block > 300) for (int sample = 0; sample < 128; ++sample) {
@@ -341,7 +353,7 @@ int main()
     (*remotePlayer)->unload();
     sender.getSoundboardProcessor()->clearPlayback(); remotePlayer.reset();
     sender.releaseResources(); receiver.releaseResources();
-    std::cout << "PASS: remote Soundboard reaches meeting and headphones while source mic is muted" << std::endl;
+    std::cout << "PASS: remote pads reach meeting and headphones while unmuted remote voice stays private" << std::endl;
     const auto reuseDir = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("pad-reuse-test", "", false);
     if (reuseDir.createDirectory().failed()) return 1;
     {
