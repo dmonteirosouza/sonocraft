@@ -62,11 +62,11 @@ public:
         solo.setClickingTogglesState(true);
         mute.setColour(juce::TextButton::buttonOnColourId, role == master ? SonoCraftTheme::selection() : juce::Colour(0xffffe6cf));
         solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffffefb7));
-        mute.setTooltip(role == input ? juce::String::fromUTF8("Silenciar o envio de áudio") : role == master ? juce::String::fromUTF8("Ativar ou suspender a recepção de todos os participantes") : juce::String::fromUTF8("Silenciar o áudio recebido deste participante"));
+        mute.setTooltip(role == input ? juce::String::fromUTF8("Silenciar somente meu microfone, mantendo os pads") : role == master ? juce::String::fromUTF8("Ativar ou suspender a recepção de todos os participantes") : juce::String::fromUTF8("Silenciar o áudio recebido deste participante"));
         solo.setTooltip(role == input ? "Monitorar a entrada local" : "Ouvir somente este participante e outros canais em solo");
         mute.onClick = [this] {
             if (role == peer) processor.setMixerChannelMute(id, mute.getToggleState());
-            else writeParameter(role == input ? SonobusAudioProcessor::paramMainSendMute : SonobusAudioProcessor::paramMainRecvMute, (role == master ? !mute.getToggleState() : mute.getToggleState()) ? 1.0f : 0.0f);
+            else writeParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute, (role == master ? !mute.getToggleState() : mute.getToggleState()) ? 1.0f : 0.0f);
         };
         solo.onClick = [this] {
             if (role == peer) processor.setMixerChannelSolo(id, solo.getToggleState());
@@ -106,7 +106,7 @@ public:
         meterLeft = source.getNumChannels() > 0 ? source.getMaxLevel(0) : 0;
         meterRight = source.getNumChannels() > 1 ? source.getMaxLevel(1) : meterLeft;
         syncGain(readParameter(role == input ? SonobusAudioProcessor::paramInGain : SonobusAudioProcessor::paramWet));
-        const auto muted = readParameter(role == input ? SonobusAudioProcessor::paramMainSendMute : SonobusAudioProcessor::paramMainRecvMute) > 0;
+        const auto muted = readParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute) > 0;
         mute.setToggleState(role == master ? !muted : muted, juce::dontSendNotification);
         if (role == input) solo.setToggleState(readParameter(SonobusAudioProcessor::paramDry) > 0, juce::dontSendNotification);
         repaint();
@@ -206,13 +206,13 @@ public:
         session.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
         connectIP.setButtonText("Conectar por IP"); connectGroup.setButtonText("Entrar em grupo");
         connectIP.setColour(juce::TextButton::buttonColourId, SonoCraftTheme::selection());
-        audio.setButtonText("Dispositivos"); settings.setButtonText("Ajustes");
+        audio.setButtonText(juce::String::fromUTF8("Áudio e reunião")); settings.setButtonText("Ajustes");
         meeting.setButtonText(juce::String::fromUTF8("Modo reunião"));
         meeting.setClickingTogglesState(true);
         meeting.setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
         meetingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingMode, meeting);
         meeting.onClick = [this] { resized(); };
-        meetingHelp.setText(juce::String::fromUTF8("Mistura para reunião: sua voz + Soundboard. Em Dispositivos, use seu microfone como entrada e um cabo virtual como saída. Na reunião, selecione o cabo virtual como microfone e seus fones como saída."), juce::dontSendNotification);
+        meetingHelp.setText(juce::String::fromUTF8("Reunião: seu microfone + áudio recebido + pads locais. Em Dispositivos, use seu microfone como entrada e um cabo virtual como saída. Na reunião, selecione o cabo virtual como microfone e seus fones como saída."), juce::dontSendNotification);
         meetingHelp.setColour(juce::Label::textColourId, SonoCraftTheme::accent());
         meetingHelp.setFont(juce::Font(12.5f));
         meetingHelp.setMinimumHorizontalScale(1.0f);
@@ -273,7 +273,7 @@ public:
         auto top = compact ? header.removeFromTop(42) : header;
         brand.setBounds(top.removeFromLeft(38).reduced(2)); top.removeFromLeft(164);
         settings.setBounds(top.removeFromRight(74).reduced(2, 6));
-        audio.setBounds(top.removeFromRight(102).reduced(2, 6)); top.removeFromRight(10);
+        audio.setBounds(top.removeFromRight(144).reduced(2, 6)); top.removeFromRight(10);
         auto connections = compact ? header : top;
         connectGroup.setBounds(connections.removeFromRight(132).reduced(2, compact ? 2 : 6));
         connectIP.setBounds(connections.removeFromRight(132).reduced(2, compact ? 2 : 6));

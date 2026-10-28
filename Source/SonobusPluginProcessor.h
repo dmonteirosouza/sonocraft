@@ -829,6 +829,7 @@ public:
     int getLastSoundboardWidth() const { return mLastSoundboardWidth; }
     void setLastSoundboardShown(bool shown) { mLastSoundboardShown = shown; }
     bool getLastSoundboardShown() const { return mLastSoundboardShown; }
+    foleys::LevelMeterSource& getListeningMeterSource() { return listeningMeterSource; }
     SonoCraftPadMonitor& getPadMonitor() { return padMonitor; }
     SoundboardChannelProcessor* getSoundboardProcessor() { return soundboardChannelProcessor.get(); }
 
@@ -1264,6 +1265,7 @@ private:
     bool mTransportWasPlaying = false;
 
     // soundboard
+    foleys::LevelMeterSource listeningMeterSource;
     SonoCraftPadMonitor padMonitor;
     std::unique_ptr<SoundboardChannelProcessor> soundboardChannelProcessor;
 

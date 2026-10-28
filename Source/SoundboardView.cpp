@@ -20,45 +20,19 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
     createControlPanel();
     createBasePanels();
 
-    refreshOutputs.setButtonText("Atualizar");
-    headphonesEnabled.setButtonText("Ouvir somente pads nos fones");
-    headphonesHint.setText(juce::String::fromUTF8("Saída independente. O microfone nunca vai para os fones."), dontSendNotification);
-    headphonesHint.setFont(12.0f);
-    headphonesHint.setColour(Label::textColourId, SonoCraftTheme::secondary());
-    headphonesDevice.setTextWhenNothingSelected("Selecione seu headset ou fone");
-    headphonesVolume.setRange(0, 1, 0.01);
-    headphonesVolume.setValue(audioProcessor.getPadMonitor().getVolume(), dontSendNotification);
-    headphonesVolume.setSliderStyle(Slider::LinearHorizontal);
-    headphonesVolume.setTextBoxStyle(Slider::TextBoxRight, false, 48, 24);
-    headphonesVolume.setTitle("Volume dos pads nos fones");
-    headphonesVolume.onValueChange = [this] { audioProcessor.getPadMonitor().setVolume(float(headphonesVolume.getValue())); };
-    refreshOutputs.onClick = [this] { refreshHeadphoneOutputs(); };
-    headphonesEnabled.onClick = [this] {
-        auto& monitor = audioProcessor.getPadMonitor();
-        if (!headphonesEnabled.getToggleState()) { monitor.stop(); return; }
-        const int index = headphonesDevice.getSelectedId() - 1;
-        if (!isPositiveAndBelow(index, headphoneOutputs.size())) {
-            headphonesEnabled.setToggleState(false, dontSendNotification);
-            headphonesHint.setText("Selecione primeiro a saida dos fones.", dontSendNotification);
-            return;
-        }
-        auto error = monitor.start(headphoneOutputs[index]);
-        if (error.isNotEmpty()) {
-            headphonesEnabled.setToggleState(false, dontSendNotification);
-            headphonesHint.setText(error, dontSendNotification);
-        } else {
-            headphonesHint.setText(juce::String::fromUTF8("Somente pads nos fones. Voz e pads continuam na saída principal."), dontSendNotification);
-        }
+    listeningControls = std::make_unique<SonoCraftListeningControls>(audioProcessor);
+    addAndMakeVisible(listeningControls.get());
+    sendPadsToAll.setButtonText("Enviar pads a todos os conectados");
+    addAndMakeVisible(sendPadsToAll);
+    mSendAudioAttachment.reset();
+    auto& state = audioProcessor.getValueTreeState();
+    sendPadsToAll.setToggleState(state.getRawParameterValue(SonobusAudioProcessor::paramSendSoundboardAudio)->load() > 0 && state.getRawParameterValue(SonobusAudioProcessor::paramMainSendMute)->load() == 0, dontSendNotification);
+    sendPadsToAll.onClick = [this] {
+        auto& tree = audioProcessor.getValueTreeState();
+        tree.getParameter(SonobusAudioProcessor::paramSendSoundboardAudio)->setValueNotifyingHost(sendPadsToAll.getToggleState() ? 1 : 0);
+        if (sendPadsToAll.getToggleState()) tree.getParameter(SonobusAudioProcessor::paramMainSendMute)->setValueNotifyingHost(0);
     };
-    headphonesDevice.onChange = [this] {
-        if (audioProcessor.getPadMonitor().isActive()) {
-            audioProcessor.getPadMonitor().stop();
-            headphonesEnabled.setToggleState(false, dontSendNotification);
-        }
-    };
-    for (auto* control : std::initializer_list<Component*> {
-            &headphonesEnabled, &headphonesDevice, &headphonesVolume, &headphonesHint, &refreshOutputs }) addAndMakeVisible(control);
-    refreshHeadphoneOutputs();
+    mSendAudioButton->setVisible(false);
     updateSoundboardSelector();
     rebuildButtons();
 
@@ -389,6 +363,8 @@ void SoundboardView::refreshButtons()
 
 void SoundboardView::updateMiscState()
 {
+    auto& state = audioProcessor.getValueTreeState();
+    sendPadsToAll.setToggleState(state.getRawParameterValue(SonobusAudioProcessor::paramSendSoundboardAudio)->load() > 0 && state.getRawParameterValue(SonobusAudioProcessor::paramMainSendMute)->load() == 0, dontSendNotification);
     mVolumeSlider->setValue(audioProcessor.getSoundboardProcessor()->getGain());
     mHotkeyStateButton->setToggleState(processor->isHotkeysMuted(), NotificationType::dontSendNotification);
     mNumericHotkeyStateButton->setToggleState(!processor->isDefaultNumericHotkeyAllowed(), NotificationType::dontSendNotification);
@@ -987,13 +963,8 @@ void SoundboardView::resized()
     auto groups = bounds.removeFromTop(32);
     mBoardSelectComboBox->setBounds(groups);
     bounds.removeFromTop(8);
-    auto monitor = bounds.removeFromBottom(136);
-    headphonesEnabled.setBounds(monitor.removeFromTop(28));
-    auto devices = monitor.removeFromTop(30);
-    refreshOutputs.setBounds(devices.removeFromRight(76)); devices.removeFromRight(6);
-    headphonesDevice.setBounds(devices);
-    headphonesVolume.setBounds(monitor.removeFromTop(32));
-    headphonesHint.setBounds(monitor);
+    if (listeningControls) listeningControls->setBounds(bounds.removeFromBottom(148));
+    sendPadsToAll.setBounds(bounds.removeFromBottom(28));
     auto controls = bounds.removeFromBottom(48);
     controlsBox.performLayout(controls);
     bounds.removeFromTop(10); bounds.removeFromBottom(8);
@@ -1009,24 +980,6 @@ void SoundboardView::resized()
     }
     if (mAddSampleButton) mAddSampleButton->setBounds((i%columns)*(tileWidth+10), (i/columns)*112, tileWidth, 102);
 }
-
-void SoundboardView::refreshHeadphoneOutputs()
-{
-    const auto previous = headphonesDevice.getText();
-    headphoneOutputs = audioProcessor.getPadMonitor().devices();
-    headphonesDevice.clear(dontSendNotification);
-    for (int i = 0; i < headphoneOutputs.size(); ++i) {
-        auto label = headphoneOutputs[i].name + " (" + headphoneOutputs[i].type + ")";
-        headphonesDevice.addItem(label, i+1);
-        if (label == previous) headphonesDevice.setSelectedId(i+1, dontSendNotification);
-    }
-    headphonesEnabled.setToggleState(audioProcessor.getPadMonitor().isActive(), dontSendNotification);
-    if (headphoneOutputs.isEmpty())
-        headphonesHint.setText(juce::String::fromUTF8("Nenhuma saída encontrada. Conecte os fones e clique em Atualizar."), dontSendNotification);
-    else
-        headphonesHint.setText(juce::String::fromUTF8("Selecione seus fones. Você ouvirá apenas os pads, sem sua voz."), dontSendNotification);
-}
-
 
 bool SoundboardView::processKeystroke(const KeyPress& keyPress)
 {

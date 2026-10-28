@@ -108,6 +108,9 @@ int main()
     double phase = 0.0;
     double receivedEnergy = 0.0, mutedEnergy = 0.0, resumedEnergy = 0.0;
     double meetingRemoteEnergy = 0.0, meetingVoiceEnergy = 0.0;
+    double listeningVoiceLeak = 0.0, listeningRemoteEnergy = 0.0;
+    double receiverMeetingSum = 0.0;
+    int receiverMeetingSamples = 0;
     auto setMeeting = [](SonobusAudioProcessor& processor, bool enabled) {
         auto* parameter = processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingMode);
         parameter->setValueNotifyingHost(enabled ? 1.0f : 0.0f);
@@ -151,7 +154,19 @@ int main()
             for (int channel = 0; channel < input.getNumChannels(); ++channel)
                 for (int sample = 0; sample < samples; ++sample)
                     meetingVoiceEnergy += input.getSample(channel, sample) * input.getSample(channel, sample);
+        // Windows microphone is distinct from the remote sine: a DC signal
+        // lets us verify the meeting mix contains it while listening does not.
+        if (block >= 1250 && block < 1300)
+            for (int channel = 0; channel < 2; ++channel)
+                for (int sample = 0; sample < samples; ++sample) output.setSample(channel, sample, 0.02f);
         receiver.processBlock(output, midi);
+        if (block > 1220 && block < 1280) {
+            const float localListening = sender.getListeningMeterSource().getMaxLevel(0);
+            const float remoteListening = receiver.getListeningMeterSource().getMaxLevel(0);
+            if (block < 1245) listeningVoiceLeak += localListening * localListening;
+            listeningRemoteEnergy += remoteListening * remoteListening;
+            if (block > 1260) for (int sample = 0; sample < samples; ++sample) { receiverMeetingSum += output.getSample(0, sample); ++receiverMeetingSamples; }
+        }
         for (int channel = 0; channel < output.getNumChannels(); ++channel)
             for (int sample = 0; sample < samples; ++sample)
             {
@@ -174,7 +189,9 @@ int main()
             juce::Thread::yield();
     }
     if (mutedEnergy > 0.000001 || resumedEnergy <= 0.001
-        || meetingRemoteEnergy > 0.000001 || meetingVoiceEnergy <= 0.001) {
+        || meetingRemoteEnergy <= 0.001 || meetingVoiceEnergy <= 0.001
+        || listeningVoiceLeak > 0.000001 || listeningRemoteEnergy <= 0.001
+        || receiverMeetingSamples == 0 || std::abs(receiverMeetingSum/receiverMeetingSamples - 0.02) > 0.005) {
         std::cerr << "FAIL: mute=" << mutedEnergy << ", unmute=" << resumedEnergy
                   << ", meeting remote=" << meetingRemoteEnergy << ", meeting voice=" << meetingVoiceEnergy << ", total=" << receivedEnergy << "\n";
         for (auto& state : receiver.getMixerChannelStates())
@@ -183,7 +200,7 @@ int main()
                       << ", active=" << receiver.getRemotePeerRecvActive(0) << ", channels=" << receiver.getRemotePeerRecvChannelCount(0) << "\n";
         return 1;
     }
-    std::cout << "PASS: immediate participant mute, unmute recovery, meeting voice without remote return" << std::endl;
+    std::cout << "PASS: immediate participant mute, unmute recovery, separate listening and meeting mixes, remote audio included, local voice excluded from listening" << std::endl;
     std::cout << "Audio loop completed; releasing resources" << std::endl;
     sender.releaseResources();
     receiver.releaseResources();
@@ -271,8 +288,49 @@ int main()
                 padEnergy += padOutput.getSample(channel, sample) * padOutput.getSample(channel, sample);
     }
     (*player)->unload();
+    if (roster->getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
+        std::cerr << "FAIL: local pad missing from headphone mix\n"; return 1;
+    }
     if (padEnergy <= 0.001) { std::cerr << "FAIL: no Soundboard in meeting output\n"; return 1; }
     std::cout << "PASS: real Soundboard pad reaches meeting output" << std::endl;
+    // Real source pad -> UDP receiver -> meeting output and listening bus.
+    // Muting the source microphone must not suppress its Soundboard stream.
+    sender.prepareToPlay(48000, 128); receiver.prepareToPlay(48000, 128);
+    auto setParameter = [](SonobusAudioProcessor& processor, const juce::String& id, float value) {
+        auto* parameter = processor.getValueTreeState().getParameter(id);
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+    };
+    setParameter(sender, SonobusAudioProcessor::paramMainInMute, 1);
+    setParameter(sender, SonobusAudioProcessor::paramMainSendMute, 0);
+    setParameter(sender, SonobusAudioProcessor::paramSendSoundboardAudio, 1);
+    setMeeting(receiver, true);
+    SoundSample remotePad("Remote pad", juce::URL(padFile.getFile()), SoundSample::LOOP_AT_END);
+    auto remotePlayer = sender.getSoundboardProcessor()->loadSample(remotePad);
+    if (!remotePlayer) return 1;
+    (*remotePlayer)->play();
+    double remotePadEnergy = 0, remotePadMean = 0;
+    auto padDeadline = juce::Time::getMillisecondCounterHiRes();
+    for (int block = 0; block < 480; ++block) {
+        juce::AudioBuffer<float> source(2,128), destination(2,128);
+        for (int channel = 0; channel < 2; ++channel)
+            for (int sample = 0; sample < 128; ++sample) source.setSample(channel, sample, 0.6f);
+        destination.clear();
+        sender.processBlock(source, midi); receiver.processBlock(destination, midi);
+        if (block > 300) for (int sample = 0; sample < 128; ++sample) {
+            auto value = destination.getSample(0, sample);
+            remotePadEnergy += value * value; remotePadMean += value;
+        }
+        padDeadline += 128 * 1000.0 / 48000.0;
+        while (juce::Time::getMillisecondCounterHiRes() < padDeadline) juce::Thread::yield();
+    }
+    if (remotePadEnergy <= 0.001 || std::abs(remotePadMean/(179*128)) > 0.01
+        || receiver.getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
+        std::cerr << "FAIL: remote pad/mic-mute/listening routing: energy=" << remotePadEnergy << " mean=" << remotePadMean/(179*128) << "\n"; return 1;
+    }
+    (*remotePlayer)->unload();
+    sender.getSoundboardProcessor()->clearPlayback(); remotePlayer.reset();
+    sender.releaseResources(); receiver.releaseResources();
+    std::cout << "PASS: remote Soundboard reaches meeting and headphones while source mic is muted" << std::endl;
     const auto reuseDir = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("pad-reuse-test", "", false);
     if (reuseDir.createDirectory().failed()) return 1;
     {

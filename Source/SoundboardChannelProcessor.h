@@ -212,7 +212,10 @@ public:
      * @return true whether an audio block was processed, false otherwise.
      */
     bool processAudioBlock(int numSamples);
-    void capturePadMonitor(SonoCraftPadMonitor& monitor, int samples) { monitor.capture(buffer, samples, channelGroup.params.gain); }
+    void addPadsToListeningMix(AudioBuffer<float>& mix, int samples) {
+        for (int channel = 0; channel < jmin(2, mix.getNumChannels()); ++channel)
+            mix.addFrom(channel, 0, buffer, channel, 0, samples, channelGroup.params.gain);
+    }
     void sendAudioBlock(AudioBuffer<float>& sendWorkBuffer, int numSamples, int sendPanChannels, int startChannel);
 
     void releaseResources();

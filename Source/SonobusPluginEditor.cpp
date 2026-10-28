@@ -1394,7 +1394,7 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mMixerWorkspace = std::make_unique<SonoCraftMixerView>(processor);
     mMixerWorkspace->onConnectGroup = [this] { showConnectPopup(true); };
     mMixerWorkspace->onConnectIP = [this] { mConnectView->showDirectConnection(mMixerWorkspace->connectionAnchor()); };
-    mMixerWorkspace->onAudio = [this] { showSettings(true); if (mOptionsView) mOptionsView->showAudioTab(); };
+    mMixerWorkspace->onAudio = [this] { showSettings(true); if (mOptionsView) mOptionsView->showMeetingTab(); };
     mMixerWorkspace->onSettings = [this] { showSettings(true); if (mOptionsView) mOptionsView->showOptionsTab(); };
     mMixerWorkspace->onPlay = [this] { mPlayButton->triggerClick(); };
     mMixerWorkspace->onRecord = [this] { buttonClicked(mRecordingButton.get()); };

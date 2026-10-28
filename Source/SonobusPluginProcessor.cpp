@@ -7130,6 +7130,7 @@ void SonobusAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 
     inputMeterSource.resize (inchannels, meterRmsWindow);
     outputMeterSource.resize (outchannels, meterRmsWindow);
+    listeningMeterSource.resize(2, meterRmsWindow);
     postinputMeterSource.resize (totsendchans, meterRmsWindow);
     metMeterSource.resize (1, 2*meterRmsWindow);
     filePlaybackMeterSource.resize (fileplaychans, meterRmsWindow);
@@ -7766,7 +7767,6 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     }
 
     bool hassoundboarddata = soundboardChannelProcessor->processAudioBlock(numSamples);
-    soundboardChannelProcessor->capturePadMonitor(padMonitor, numSamples);
     if (hassoundboarddata && sendsoundboardaudio) {
         int startChannel = sendfileaudio ? filestartch + fileChannels : filestartch;
         soundboardChannelProcessor->sendAudioBlock(sendWorkBuffer, numSamples, sendPanChannels, startChannel);
@@ -8322,17 +8322,27 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
         mFilePlaybackChannelGroup.processMonitor(fileBuffer, 0, buffer, dstch, dstcnt, numSamples, fgain);
     }
 
-    // Dedicated meeting mix: local voice and pads only. Received peers, file
-    // playback, metronome and their effects never return to the meeting input.
+    // Listening bus is always remote peers + local pads, never local voice.
+    // It is built independently of the legacy microphone monitoring control.
+    monitorBuffer.clear(0, numSamples);
+    for (int channel = 0; channel < jmin(2, tempBuffer.getNumChannels()); ++channel)
+        monitorBuffer.copyFrom(channel, 0, tempBuffer, channel, 0, numSamples);
+    soundboardChannelProcessor->addPadsToListeningMix(monitorBuffer, numSamples);
+    listeningMeterSource.measureBlock(monitorBuffer, 0, numSamples);
+    padMonitor.capture(monitorBuffer, numSamples, 1.0f);
+
+    // Meeting output contains the same listening bus plus local microphone.
+    // Local pads are already in that bus and must not be added a second time.
     const bool meetingMode = mMeetingMode.get();
     if (meetingMode) {
         buffer.clear();
-        if (!mMainSendMute.get()) {
-            for (int channel = 0; channel < jmin(mainBusOutputChannels, inputBuffer.getNumChannels()); ++channel)
-                buffer.copyFrom(channel, 0, inputBuffer, channel, 0, numSamples);
+        for (int channel = 0; channel < jmin(2, mainBusOutputChannels); ++channel) {
+            buffer.copyFrom(channel, 0, monitorBuffer, channel, 0, numSamples);
+            if (!mMainInMute.get() && channel < inputBuffer.getNumChannels())
+                buffer.addFrom(channel, 0, inputBuffer, channel, 0, numSamples);
         }
     }
-    if (hassoundboarddata) {
+    if (hassoundboarddata && !meetingMode) {
         soundboardChannelProcessor->processMonitor(buffer, numSamples, totalOutputChannels);
     }
 

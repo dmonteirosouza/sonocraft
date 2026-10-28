@@ -3,6 +3,7 @@
 
 
 #pragma once
+#include "SonoCraftListeningControls.h"
 
 #include "JuceHeader.h"
 
@@ -63,6 +64,7 @@ public:
     void optionsTabChanged (int newCurrentTabIndex);
 
     void showAudioTab();
+    void showMeetingTab();
     void showOptionsTab();
     void showRecordingTab();
 
@@ -99,6 +101,7 @@ protected:
 
     ListenerList<Listener> listeners;
 
+    std::unique_ptr<SonoCraftListeningControls> mMeetingControls;
     std::unique_ptr<AudioDeviceSelectorComponent> mAudioDeviceSelector;
     std::unique_ptr<Viewport> mAudioOptionsViewport;
     std::unique_ptr<Viewport> mOtherOptionsViewport;

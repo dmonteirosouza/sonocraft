@@ -501,6 +501,16 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
     mRecordOptionsViewport->setViewedComponent(mRecOptionsComponent.get(), false);
 
     mSettingsTab->addTab(TRANS("Recording"),SonoCraftTheme::canvas(), mRecordOptionsViewport.get(), false);
+    mMeetingControls = std::make_unique<SonoCraftListeningControls>(processor, true);
+    mMeetingControls->onChooseAudio = [this] { showAudioTab(); };
+    mMeetingControls->configurationSummary = [this] {
+        auto* manager = getAudioDeviceManager ? getAudioDeviceManager() : nullptr;
+        if (!manager) return String{};
+        auto setup = manager->getAudioDeviceSetup();
+        return juce::String::fromUTF8("Entrada: ") + setup.inputDeviceName + juce::String(juce::CharPointer_UTF8("\n")) + juce::String::fromUTF8("Saída para reunião: ") + setup.outputDeviceName;
+    };
+    mSettingsTab->addTab(juce::String::fromUTF8("Reunião e fones"), SonoCraftTheme::canvas(), mMeetingControls.get(), false);
+
 
     setFocusContainerType(FocusContainerType::keyboardFocusContainer);
 
@@ -939,7 +949,7 @@ void OptionsView::updateLayout()
     mainBox.flexDirection = FlexBox::Direction::column;
     mainBox.items.add(FlexItem(100, minitemheight, *mSettingsTab).withMargin(0).withFlex(1));
 
-    prefHeight = jmax(minOptionsHeight, minRecOptionsHeight) + mSettingsTab->getTabBarDepth();
+    prefHeight = jmax(560, jmax(minOptionsHeight, minRecOptionsHeight) + mSettingsTab->getTabBarDepth());
 }
 
 void OptionsView::resized()  {
@@ -972,19 +982,24 @@ void OptionsView::resized()  {
 
 void OptionsView::showAudioTab()
 {
-    if (mSettingsTab->getNumTabs() == 3) {
+    if (mAudioDeviceSelector != nullptr) {
         mSettingsTab->setCurrentTabIndex(0);
     }
 }
 
+void OptionsView::showMeetingTab()
+{
+    mSettingsTab->setCurrentTabIndex(mSettingsTab->getNumTabs()-1);
+}
+
 void OptionsView::showOptionsTab()
 {
-    mSettingsTab->setCurrentTabIndex(mSettingsTab->getNumTabs() == 3 ? 1 : 0);
+    mSettingsTab->setCurrentTabIndex(mAudioDeviceSelector != nullptr ? 1 : 0);
 }
 
 void OptionsView::showRecordingTab()
 {
-    mSettingsTab->setCurrentTabIndex(mSettingsTab->getNumTabs() == 3 ? 2 : 1);
+    mSettingsTab->setCurrentTabIndex(mAudioDeviceSelector != nullptr ? 2 : 1);
 }
 
 

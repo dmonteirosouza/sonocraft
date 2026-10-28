@@ -1,34 +1,35 @@
-# Modo reunião — prévia local
+# Áudio recebido, pads e reunião
 
-O modo reunião muda a saída principal do SonoCraft para uma mistura de sua voz e dos sons do Soundboard. O áudio recebido dos participantes, a reprodução de arquivos do transporte e o metrônomo ficam fora dessa saída.
+## No Windows que participa da reunião
 
-## Configuração
+Abra **Áudio e reunião → Reunião e fones**.
 
-1. Instale e configure um dispositivo de áudio virtual compatível com seu sistema, como VB-CABLE. O SonoCraft ainda não instala nem cria um microfone virtual próprio.
-2. Em **Dispositivos**, selecione o microfone físico como entrada e o cabo virtual como saída. Não use o mesmo cabo virtual como entrada e saída do SonoCraft.
-3. No aplicativo da reunião, selecione o cabo virtual como microfone e seus fones como saída.
-4. Ative **Modo reunião** no SonoCraft.
-5. Ajuste sua voz no canal **Sua entrada** e os sons no volume próprio do **Soundboard**.
+1. Clique em **Escolher microfone e saída para a reunião**. Na aba Áudio, escolha **microfone do headset** como entrada e **CABLE Input** como saída principal.
+2. Volte a **Reunião e fones** e marque **Ativar mistura para reunião**.
+3. Selecione o **headset físico** na lista dos fones e marque **Ouvir recebidos e pads nos fones**. O volume abaixo controla apenas essa escuta.
+4. No Teams, selecione **CABLE Output** como microfone e **headset** como alto-falante.
 
-**Silenciar** no canal de entrada corta a voz também da mistura da reunião. **Monitorar** fica desativado nesse modo porque a voz já faz parte da saída. O controle **Enviar ao grupo** do Soundboard continua controlando apenas o envio aos participantes do SonoCraft; os pads em reprodução entram na mistura local da reunião independentemente dele.
+| Destino | Conteúdo |
+| --- | --- |
+| Fones independentes | Áudio dos participantes recebidos, incluindo o Mac, e pads locais. Sem seu próprio microfone. |
+| Saída principal com modo reunião ativo | Seu microfone, áudio dos participantes recebidos e pads locais. |
 
-## Ouvir os pads nos fones sem ouvir sua voz
+Não é preciso ativar **Monitorar** para incluir sua voz na reunião. **Silenciar** no canal Sua entrada corta somente seu microfone, mantendo os pads. O silenciamento individual e a recepção global continuam controlando quais participantes são incluídos.
 
-O painel Soundboard agora oferece uma segunda saída, exclusiva para os pads:
+O retorno do Teams deve sair pelo headset escolhido no Teams, sem retornar à entrada do SonoCraft. No Windows, deixe desativado **Escutar este dispositivo** do CABLE Output, pois ele reproduziria sua voz nos fones.
 
-1. Mantenha a saída principal do SonoCraft no cabo virtual usado como microfone da reunião.
-2. Abra o **Soundboard** e selecione o headset físico em **Selecione seu headset ou fone**. Essa saída deve ser o fone, não o VB-CABLE.
-3. Marque **Ouvir somente pads nos fones** e ajuste o volume logo abaixo. Esse volume não altera o volume enviado à reunião.
-4. No Windows, deixe desativada a opção **Escutar este dispositivo** do CABLE Output; ela reproduziria também a voz presente na mistura principal.
+O cabo virtual deve ser instalado separadamente; o SonoCraft não instala um driver de microfone virtual. A escolha dos fones é lembrada, mas a escuta independente precisa ser ativada após iniciar o aplicativo. Se o headset for mono, a saída combina os lados esquerdo e direito.
 
-O áudio de retorno do Teams continua saindo pelos fones selecionados no Teams. A saída adicional do SonoCraft recebe exclusivamente o Soundboard, sem microfone, participantes recebidos, metrônomo ou reprodução do transporte. Ela fica desligada ao iniciar o aplicativo até que o dispositivo seja selecionado e ativado.
+## No Mac ou computador que dispara os pads
 
-A organização das mesas foi mantida no seletor e no menu existentes. Os sons aparecem em pads em grade, com o card inteiro na cor escolhida, progresso de reprodução e acesso às opções pelo botão de três pontos. Para adicionar um som, use o card com o sinal de mais. No menu de cada pad, **Reutilizar em outra mesa** inclui o mesmo arquivo na mesa escolhida, preservando nome, cor e volume, com ajustes independentes. Mesas que já contêm esse arquivo ficam desabilitadas no menu.
+No Soundboard, marque **Enviar pads a todos os conectados**. O controle habilita o envio dos pads e retoma um envio geral que estivesse pausado. Silenciar o microfone não interrompe os pads.
 
-## Silenciamento de participantes
+O envio depende de conexões ativas. Um bloqueio individual de envio continua sendo respeitado. O volume do Soundboard afeta os pads enviados e ouvidos; o volume da escuta independente afeta somente seus fones.
 
-**Silenciar** em um canal de participante aplica um bloqueio local ao áudio desse canal. O fluxo de rede permanece ativo, permitindo restaurar o som sem uma nova conexão. Esse bloqueio é independente do controle global de recepção.
+## Mesas e pads
 
-## Verificação
+A organização continua no seletor de mesas e no menu existentes. Use o card **+** para adicionar um som. O card inteiro usa a cor escolhida, com texto em contraste. No menu **⋮** do pad, **Reutilizar em outra mesa** conserva arquivo, nome, cor e volume, com ajustes independentes. Mesas que já contêm o arquivo ficam desabilitadas nesse menu.
 
-O teste de regressão verifica áudio real por UDP local, silenciamento e retomada do participante, voz local no modo reunião, exclusão do retorno dos participantes reprodução de um arquivo WAV pelo Soundboard e processamento da fila exclusiva dos pads com ganho, silêncio e taxas de 44,1/48/96 kHz. A validação em um aplicativo de reunião real e entre macOS e Windows deve ser feita antes da publicação.
+## Validação
+
+A regressão utiliza duas instâncias por UDP local e arquivos WAV reais para verificar: retomada após silenciamento, mistura de microfone e recebidos na saída da reunião, ausência do microfone local na escuta independente, pads locais e recebidos, envio de pads com microfone silenciado e persistência da reutilização de sons. O funcionamento com dispositivos físicos, Teams e uso prolongado ainda requer teste no equipamento real.

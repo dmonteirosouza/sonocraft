@@ -37,9 +37,9 @@ endif()
 # `project()` command. `project()` sets up some helpful variables that describe source/binary
 # directories, and the current project version. This is a standard CMake command.
 
-project(SonoCraft VERSION 0.2.0)
+project(SonoCraft VERSION 0.3.0)
 
-set(BUILDVERSION 83)
+set(BUILDVERSION 84)
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
@@ -315,6 +315,7 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         Source/SoundboardProcessor.cpp
         Source/SoundboardProcessor.h
         Source/SoundboardView.cpp
+        Source/SonoCraftListeningControls.h
         Source/SonoCraftPadMonitor.h
         Source/SoundboardView.h
         Source/SoundSampleButtonColourPicker.cpp

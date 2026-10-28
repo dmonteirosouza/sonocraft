@@ -1,26 +1,22 @@
-SonoCraft 0.2 — nova mesa de áudio e modo reunião.
+SonoCraft 0.3 — duas saídas para reunião e fones.
 
-Novidades:
-- Interface de mesa com canais lado a lado, faders verticais, medidores, entrada local e master separados.
-- Tema claro padronizado nas abas internas e configurações em janela nativa.
-- Botões com nomes completos: Silenciar, Solo e Monitorar.
-- Chat e Soundboard acessíveis pela nova interface; metrônomo com ativação, BPM, volume e envio ao grupo.
-- Remoção manual por conexão estável, evitando que uma ação antiga remova outro participante após reordenar a lista. A reconexão ainda não substitui automaticamente uma entrada antiga.
-- Silenciamento local do participante, com retomada sem renegociar a conexão.
-- Ajuste do fluxo de áudio ao estabilizar o tamanho dos blocos, evitando desligar e religar a recepção nessa transição.
-- Correção da ordem de liberação dos leitores do Soundboard ao encerrar o aplicativo.
-- **Modo reunião:** saída principal com voz local e Soundboard, excluindo o retorno dos participantes, o transporte de arquivos e o metrônomo.
+- **Fones:** áudio recebido dos participantes (incluindo o Mac) e pads locais, sem sua própria voz.
+- **Reunião:** seu microfone, áudio recebido e pads locais na saída principal, que pode ser conectada ao Teams por VB-CABLE.
+- Nova área **Áudio e reunião → Reunião e fones**, com instruções, resumo dos dispositivos e seleção independente dos fones.
+- **Silenciar** na entrada corta somente o microfone e mantém o envio dos pads.
+- Controle visível **Enviar pads a todos os conectados** no Soundboard.
+- Pads em grade com preenchimento completo da cor escolhida. Adição pelo card **+**.
+- **⋮ → Reutilizar em outra mesa**, preservando arquivo e ajustes iniciais, com configurações independentes.
+- Mantidos os controles do metrônomo, chat, remoção segura de conexões e as correções de áudio e encerramento do Soundboard.
 
-Para usar o modo reunião, configure um dispositivo virtual compatível (como VB-CABLE) separadamente. Em Dispositivos, selecione microfone físico como entrada e cabo virtual como saída. No aplicativo da reunião, escolha esse cabo como microfone e seus fones como saída. O SonoCraft não instala um microfone virtual próprio nem abre uma segunda saída independente para monitorar voz e pads. Consulte docs/SONOCRAFT-MEETING.md no código-fonte.
+Configuração no Windows: entrada SonoCraft = microfone do headset; saída principal = CABLE Input; modo reunião ativo; saída independente = headset. No Teams: microfone = CABLE Output; alto-falante = headset. Desative **Escutar este dispositivo** do cabo virtual no Windows. No Mac que dispara os pads, ative **Enviar pads a todos os conectados**.
+
+O VB-CABLE ou outro dispositivo virtual compatível deve ser instalado separadamente. Consulte docs/SONOCRAFT-MEETING.md no código-fonte.
 
 Downloads:
-- **SonoCraft-mac-universal.zip:** macOS, Apple Silicon e Intel, com assinatura local ad hoc; sem notarização.
-- **SonoCraft-windows-x64.zip:** Windows x64 portátil, com WASAPI; sem ASIO e sem assinatura comercial.
+- **SonoCraft-mac-universal.zip:** Apple Silicon e Intel, com assinatura ad hoc; sem notarização.
+- **SonoCraft-windows-x64.zip:** executável portátil Windows x64, WASAPI; sem ASIO e sem assinatura comercial.
 
-Os pacotes são publicados após compilação e testes de regressão nos dois sistemas. Os testes cobrem áudio UDP local, blocos de tamanho variável, silenciamento e retomada, remoção por identidade, voz local sem retorno remoto no modo reunião e reprodução de um arquivo real do Soundboard.
+Os pacotes só são publicados após compilar e passar os testes nos dois sistemas. Os testes utilizam UDP local e arquivos de áudio reais; não substituem a validação com headset físico, Teams, Mac → Windows e uso prolongado. Esta versão é uma prévia experimental.
 
-Esta é uma prévia experimental. Ainda requer validação com dispositivos reais, numa reunião real, Mac → Windows, grupo/senha e uso prolongado. Os testes automáticos não comprovam que todas as falhas foram resolvidas.
-
-O aplicativo usa configurações separadas das do SonoBus. Ao conectar por IP, informe IP:porta exibido no outro computador.
-
-Licença GPLv3 e exceção de lojas preservadas. Consulte SONOCRAFT.md e os avisos das dependências no código-fonte deste tag.
+Licença GPLv3 e exceção de lojas preservadas. Consulte SONOCRAFT.md e os avisos das dependências.
