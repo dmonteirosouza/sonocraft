@@ -3785,6 +3785,10 @@ int32_t SonobusAudioProcessor::handleSinkEvents(const aoo_event ** events, int32
 
             RemotePeer * peer = findRemotePeer(es, sinkId);
             if (peer) {
+                // Bootstrap source 0 and a replaced source can leave queued
+                // events for this same sink. They must not overwrite the live
+                // channel format or stop its receive state.
+                if (e->id == 0 || (peer->remoteSourceId > 0 && e->id != peer->remoteSourceId)) break;
                 aoo_format_storage f;
                 if (peer->oursink->get_source_format(e->endpoint, e->id, f) > 0) {
                     DBG("Got source format event from " << es->ipaddr << ":" << es->port << "  " <<  e->id  << "  channels: " << f.header.nchannels);
@@ -3903,6 +3907,10 @@ int32_t SonobusAudioProcessor::handleSinkEvents(const aoo_event ** events, int32
 
             RemotePeer * peer = findRemotePeer(es, sinkId);
             if (peer) {
+                // Bootstrap source 0 and a replaced source can leave queued
+                // events for this same sink. They must not overwrite the live
+                // channel format or stop its receive state.
+                if (e->id == 0 || (peer->remoteSourceId > 0 && e->id != peer->remoteSourceId)) break;
                 peer->recvActive = peer->recvAllow && e->state > 0;
                 if (!peer->recvActive && !peer->sendActive) {
                     peer->connected = false;

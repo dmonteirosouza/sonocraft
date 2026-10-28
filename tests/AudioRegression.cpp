@@ -227,6 +227,23 @@ int main()
         if (block % 100 == 0)
             std::cout << "Processing block " << block << ", samples=" << samples
                       << ", elapsed=" << (juce::Time::getMillisecondCounterHiRes() - startedAt) << " ms" << std::endl;
+        if (block == 930) {
+            const bool activeBefore = receiver.getRemotePeerRecvActive(0);
+            const int channelsBefore = receiver.getRemotePeerRecvChannelCount(0);
+            for (int32_t staleId : { 0, 99999 }) {
+                aoo_source_state_event staleStop {};
+                staleStop.type = AOO_SOURCE_STATE_EVENT;
+                staleStop.endpoint = receiver.findOrAddEndpoint("127.0.0.1",sender.getUdpLocalPort());
+                staleStop.id = staleId; staleStop.state = AOO_SOURCE_STATE_STOP;
+                aoo_source_event staleFormat {};
+                staleFormat.type = AOO_SOURCE_FORMAT_EVENT; staleFormat.endpoint = staleStop.endpoint; staleFormat.id = staleId;
+                const aoo_event* staleEvents[] { reinterpret_cast<const aoo_event*>(&staleStop), reinterpret_cast<const aoo_event*>(&staleFormat) };
+                receiver.handleSinkEvents(staleEvents,2,1);
+                if ((activeBefore && !receiver.getRemotePeerRecvActive(0)) || receiver.getRemotePeerRecvChannelCount(0)!=channelsBefore) {
+                    std::cerr << "FAIL: stale sink event changed live receive state, source=" << staleId << " activeBefore=" << activeBefore << " activeAfter=" << receiver.getRemotePeerRecvActive(0) << "\n"; return 1;
+                }
+            }
+        }
         if (block == 950) {
             // Each fresh test peer owns sink 1. Simulate a delayed teardown of
             // source 0 (bootstrap), targeting that same remote sink. It must
@@ -471,7 +488,7 @@ int main()
         padDeadline += 128 * 1000.0 / 48000.0;
         waitForAudioDeadline(padDeadline);
     }
-    if (remoteMeetingWithEars <= 0.001 || remoteMeetingWithoutEars <= 0.001 || remoteHeadphoneEnergy <= 0.001) { std::cerr << "FAIL: remote pad lost when toggling headphones or restoring mono settings\n"; return 1; }
+    if (remoteMeetingWithEars <= 0.001 || remoteMeetingWithoutEars <= 0.001 || remoteHeadphoneEnergy <= 0.001) { std::cerr << "FAIL: remote pad lost when toggling headphones or restoring mono settings: on=" << remoteMeetingWithEars << " off=" << remoteMeetingWithoutEars << " ears=" << remoteHeadphoneEnergy << " recvChannels=" << receiver.getRemotePeerRecvChannelCount(0) << " sendChannels=" << sender.getRemotePeerActualSendChannelCount(0) << " active=" << receiver.getRemotePeerRecvActive(0) << "\n"; return 1; }
     if (remotePadEnergy <= 0.001 || std::abs(remotePadMean/(179*128)) > 0.01
         || receiver.getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
         std::cerr << "FAIL: remote pad/mic-mute/listening routing: energy=" << remotePadEnergy << " mean=" << remotePadMean/(179*128) << "\n"; return 1;
