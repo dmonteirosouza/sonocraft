@@ -42,8 +42,10 @@ public:
             }
             if (network.getToggleState()) processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainSendMute)->setValueNotifyingHost(0);
             if (SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName())) {
-                processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainInMute)->setValueNotifyingHost(0);
-                inputNotice.setText(juce::String::fromUTF8("A entrada virtual continua enviando o áudio completo. Esta fonte segue separadamente e só entra na saída para aplicativos quando autorizada no destino."),juce::dontSendNotification);
+                const bool inputMuted = processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMainInMute)->load() > 0.5f;
+                inputNotice.setText(juce::String::fromUTF8(inputMuted
+                    ? "Sua entrada continua silenciada. A fonte selecionada e os pads são independentes desse controle. Para voltar a enviar o áudio completo da entrada, desative Silenciar minha entrada."
+                    : "A entrada virtual continua enviando o áudio completo. Esta fonte segue separadamente e só entra na saída para aplicativos quando autorizada no destino."),juce::dontSendNotification);
             }
             if (mode.getSelectedId()==1) {
                 const auto url=processor.getApplicationAudio().startBrowserTab();

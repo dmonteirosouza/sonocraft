@@ -13,7 +13,7 @@ public:
         : processor(p), full(fullPage), managerProvider(std::move(provider)) {
         for (auto* item : std::initializer_list<juce::Component*> { &enabled, &devices, &refresh, &volume, &hint,
                 &instructions, &role, &roleLabel, &inputDevices, &inputLabel, &mainDevices, &mainLabel,
-                &apply, &routingStatus, &configure, &receive, &micMute, &includeReceived, &headphonesLabel })
+                &apply, &routingStatus, &configure, &diagnostic, &receive, &micMute, &includeReceived, &headphonesLabel })
             addAndMakeVisible(item);
         instructions.setText(juce::String::fromUTF8("Escolha a entrada e o destino principal. A escuta permite ouvir os sons recebidos e os pads; a saída para aplicativos entrega uma mistura separada, que pode ser usada como microfone."), juce::dontSendNotification);
         roleLabel.setText(juce::String::fromUTF8("1. Como usar a saída principal?"), juce::dontSendNotification);
@@ -25,6 +25,12 @@ public:
         apply.onClick = [this] { applySetup(); };
         configure.setButtonText(juce::String::fromUTF8("Dispositivos e opções avançadas…"));
         configure.onClick = [this] { if (onChooseAudio) onChooseAudio(); };
+        diagnostic.setButtonText(juce::String::fromUTF8("Copiar diagnóstico de áudio"));
+        diagnostic.setTooltip(juce::String::fromUTF8("Copia dispositivos, controles e níveis atuais para você compartilhar no suporte. Não grava áudio nem copia nomes de abas ou endereços das conexões."));
+        diagnostic.onClick = [this] {
+            juce::SystemClipboard::copyTextToClipboard(audioDiagnostic());
+            diagnostic.setButtonText(juce::String::fromUTF8("Diagnóstico copiado"));
+        };
         receive.setButtonText(juce::String::fromUTF8("Receber áudio dos conectados"));
         receive.onClick = [this] { setParameter(SonobusAudioProcessor::paramMainRecvMute, receive.getToggleState() ? 0 : 1); };
         micMute.setButtonText("Silenciar minha entrada (mantendo os pads)");
@@ -69,7 +75,7 @@ public:
         auto box = getLocalBounds().reduced(full ? 14 : 0);
         for (auto* item : std::initializer_list<juce::Component*> { &instructions, &role, &roleLabel, &inputDevices,
                 &inputLabel, &mainDevices, &mainLabel, &apply, &routingStatus, &configure, &receive, &micMute,
-                &includeReceived, &headphonesLabel }) item->setVisible(full);
+                &includeReceived, &headphonesLabel, &diagnostic }) item->setVisible(full);
         if (full) {
             instructions.setBounds(box.removeFromTop(76));
             roleLabel.setBounds(box.removeFromTop(24)); role.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
@@ -77,7 +83,8 @@ public:
             mainLabel.setBounds(box.removeFromTop(24)); mainDevices.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
             apply.setBounds(box.removeFromTop(36)); box.removeFromTop(8);
             routingStatus.setBounds(box.removeFromTop(94));
-            configure.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
+            configure.setBounds(box.removeFromTop(32)); box.removeFromTop(6);
+            diagnostic.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
             receive.setBounds(box.removeFromTop(28)); micMute.setBounds(box.removeFromTop(28));
             includeReceived.setBounds(box.removeFromTop(38)); box.removeFromTop(12);
             headphonesLabel.setBounds(box.removeFromTop(24));
@@ -92,13 +99,67 @@ private:
     DeviceManagerProvider managerProvider;
     juce::ToggleButton enabled, receive, micMute, includeReceived;
     juce::ComboBox role, inputDevices, mainDevices, devices;
-    juce::TextButton apply, refresh, configure;
+    juce::TextButton apply, refresh, configure, diagnostic;
     juce::Slider volume;
     juce::Label instructions, roleLabel, inputLabel, mainLabel, routingStatus, headphonesLabel, hint;
     juce::Array<SonoCraftPadMonitor::Device> outputs;
     juce::StringArray inputs, mainOutputs;
     juce::String applyError;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> micMuteAttachment, includeReceivedAttachment;
+    juce::String audioDiagnostic() {
+        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 1\n";
+        const auto line = [&text](const char* key, const juce::String& value) { text += juce::String(key) + ": " + value + "\n"; };
+        const auto flag = [this,&line](const char* key, const juce::String& parameter) {
+            line(key, processor.getValueTreeState().getRawParameterValue(parameter)->load()>0.5f ? "on" : "off");
+        };
+        line("time",juce::Time::getCurrentTime().toISO8601(true));
+        if (auto* manager = managerProvider ? managerProvider() : nullptr) {
+            const auto setup = manager->getAudioDeviceSetup();
+            line("configured_input",setup.inputDeviceName);
+            line("configured_output",setup.outputDeviceName);
+            line("audio_backend",manager->getCurrentAudioDeviceType());
+            if (auto* device = manager->getCurrentAudioDevice()) {
+                line("device_playing",device->isPlaying() ? "yes" : "no");
+                line("sample_rate",juce::String(device->getCurrentSampleRate()));
+                line("buffer_samples",juce::String(device->getCurrentBufferSizeSamples()));
+                line("input_channels",juce::String(device->getActiveInputChannels().countNumberOfSetBits()));
+                line("output_channels",juce::String(device->getActiveOutputChannels().countNumberOfSetBits()));
+            } else line("device_playing","no device");
+        }
+        line("engine_input",processor.getStandaloneInputName());
+        line("engine_output",processor.getStandaloneOutputName());
+        line("loop_protection",processor.isStandaloneOutputBlocked() ? "blocked" : "clear");
+        flag("input_muted",SonobusAudioProcessor::paramMainInMute);
+        flag("network_send_muted",SonobusAudioProcessor::paramMainSendMute);
+        flag("network_receive_muted",SonobusAudioProcessor::paramMainRecvMute);
+        flag("application_output_mode",SonobusAudioProcessor::paramMeetingMode);
+        flag("include_all_received",SonobusAudioProcessor::paramMeetingIncludeReceived);
+        flag("pads_to_connections",SonobusAudioProcessor::paramSendSoundboardAudio);
+        flag("selected_source_to_connections",SonobusAudioProcessor::paramSendApplicationAudio);
+        flag("local_source_to_output",SonobusAudioProcessor::paramApplicationToMeeting);
+        flag("received_sources_to_output",SonobusAudioProcessor::paramReceivedApplicationsToMeeting);
+        line("local_capture_active",processor.getApplicationAudio().isActive() ? "yes" : "no");
+        auto& monitor = processor.getPadMonitor();
+        line("listening_active",monitor.isActive() ? "yes" : "no");
+        line("listening_device",monitor.getDeviceName());
+        line("listening_backend",monitor.getDeviceType());
+        const auto peak = [](foleys::LevelMeterSource& meter) {
+            float value = 0;
+            for (int ch=0;ch<meter.getNumChannels();++ch) value=juce::jmax(value,meter.getMaxLevel(ch));
+            return juce::String(juce::Decibels::gainToDecibels(value,-100.0f),1)+" dBFS";
+        };
+        line("input_meter",peak(processor.getInputMeterSource()));
+        line("output_meter",peak(processor.getOutputMeterSource()));
+        line("listening_meter",peak(processor.getListeningMeterSource()));
+        const auto peers = processor.getMixerChannelStates();
+        line("connections",juce::String(peers.size()));
+        for (int i=0;i<peers.size();++i) {
+            text += "connection_"+juce::String(i+1)+": muted="+(peers[i].muted ? "yes" : "no")
+                +" receiving="+(processor.getRemotePeerRecvActive(i) ? "yes" : "no")
+                +" channels="+juce::String(processor.getRemotePeerRecvChannelCount(i))+"\n";
+        }
+        return text;
+    }
     void setParameter(const juce::String& id, float value) {
         auto* parameter = processor.getValueTreeState().getParameter(id);
         parameter->setValueNotifyingHost(parameter->convertTo0to1(value));

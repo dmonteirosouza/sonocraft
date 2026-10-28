@@ -61,6 +61,12 @@ Deixe **Enviar também todo o áudio recebido** desligado para manter o restante
 
 A entrada virtual local continua disponível para envio aos conectados, mas não é somada automaticamente à saída para aplicativos como se fosse sua voz. Silenciar a entrada não silencia os pads nem a seleção adicional.
 
+## Diagnóstico de áudio
+
+Em **Áudio e saídas → Escuta e saídas**, clique em **Copiar diagnóstico de áudio** enquanto reproduz um pad. Cole o texto ao relatar um problema. Ele contém os dispositivos configurados, estados de silêncio/envio, canais e níveis dos medidores; não grava áudio nem copia nomes de abas ou endereços de conexões. O texto fica na área de transferência e só é compartilhado quando você o cola.
+
+Iniciar a captura de uma aba ou aplicativo preserva o estado de **Silenciar minha entrada**. Se a entrada estiver silenciada, apenas os pads e as fontes habilitadas continuam pelos seus destinos. Desligar **Enviar esta fonte aos conectados** interrompe somente o envio dessa seleção.
+
 ## Compatibilidade e validação
 
 Atualize os dois lados para a mesma versão. Captura de aplicativo: macOS 13+ com permissão de áudio/tela; Windows com loopback por processo (build 20348+, normalmente Windows 11). Captura de abas pelo Chrome/Edge é uma alternativa separada. Instale o driver de cabo virtual à parte.

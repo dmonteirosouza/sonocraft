@@ -556,6 +556,47 @@ int main()
         const auto tabNow=juce::Time::getMillisecondCounterHiRes(); if (tabNow-tabDeadline>100) tabDeadline=tabNow;
         tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
     }
+    // Keep a remote pad playing while a live tab is repeatedly added/removed
+    // from the transmitted channels. The receiver's physical input is muted,
+    // headphones stay open, and only the selected source may disappear.
+    receiver.setStandaloneAudioDevices("Headset microphone", "CABLE Input");
+    setParameter(receiver,SonobusAudioProcessor::paramMainInMute,1);
+    auto padDuringTabSwitch = sender.getSoundboardProcessor()->loadSample(remotePad);
+    if (!padDuringTabSwitch) return 1;
+    (*padDuringTabSwitch)->play();
+    double switchPadEnergy[5] {}, switchListeningEnergy[5] {}, mutedVoiceMean[5] {};
+    tabDeadline=juce::Time::getMillisecondCounterHiRes();
+    for (int block=0;block<900;++block) {
+        const int phase=block/180;
+        if (block%180==0) setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,phase%2);
+        if (block%8==0) {
+            float packet[2048];
+            for (int i=0;i<1024;++i) { packet[i*2]=packet[i*2+1]=float(0.12*std::sin(tabPhase)); tabPhase+=2*3.141592653589793*660/48000; }
+            if (!sendBrowserFrame(browser,2,packet,sizeof(packet))) return 1;
+        }
+        juce::AudioBuffer<float> local(2,128), remote(2,128), ears(2,128);
+        for (int ch=0;ch<2;++ch) for (int sample=0;sample<128;++sample) {
+            local.setSample(ch,sample,0.2f); remote.setSample(ch,sample,0.3f);
+        }
+        sender.processBlock(local,midi); receiver.processBlock(remote,midi); tabEars->render(ears);
+        if (block%180>120) {
+            switchPadEnergy[phase]+=remote.getRMSLevel(0,0,128);
+            switchListeningEnergy[phase]+=ears.getRMSLevel(0,0,128);
+            for (int sample=0;sample<128;++sample) mutedVoiceMean[phase]+=remote.getSample(0,sample)/(59*128);
+        }
+        const auto now=juce::Time::getMillisecondCounterHiRes(); if (now-tabDeadline>100) tabDeadline=now;
+        tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
+    }
+    for (int phase=0;phase<5;++phase) {
+        if (switchPadEnergy[phase]<0.05 || switchListeningEnergy[phase]<0.05 || std::abs(mutedVoiceMean[phase])>0.015
+            || receiver.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMainInMute)->load()<0.5f) {
+            std::cerr << "FAIL: tab send toggle interrupted pads or unmuted input: phase=" << phase
+                      << " pads=" << switchPadEnergy[phase] << " ears=" << switchListeningEnergy[phase]
+                      << " voice=" << mutedVoiceMean[phase] << "\n"; return 1;
+        }
+    }
+    (*padDuringTabSwitch)->unload(); sender.getSoundboardProcessor()->clearPlayback(); padDuringTabSwitch.reset();
+    std::cout << "PASS: live tab send on/off preserves pads in both outputs and keeps physical input muted" << std::endl;
     receiver.getPadMonitor().stop(); browser.close(); sender.getApplicationAudio().stop();
     {
         juce::AudioBuffer<float> aggregate(2,128);

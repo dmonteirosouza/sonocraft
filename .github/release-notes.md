@@ -1,18 +1,13 @@
-SonoCraft 0.4 — escuta completa e seleção independente para outros aplicativos.
+SonoCraft 0.4 — captura respeita a entrada silenciada e diagnóstico dos caminhos de áudio.
 
-- Interface genérica: **Entrada**, **Escuta**, **Envio aos conectados** e **Saída para aplicativos**, sem vincular o uso a reuniões ou a um sistema específico.
-- Área **Fontes** organizada em seleção local, destinos e fontes recebidas.
-- A entrada completa continua chegando aos fones enquanto uma aba/aplicativo selecionado segue em faixa separada.
-- Corrigida a indicação de saída desativada na aba Áudio: um dispositivo somente de entrada podia aparecer também como saída, mesmo sem estar aberto nessa direção.
-- Preservadas as proteções contra retorno ao cabo, duplicação na escuta e eventos antigos que desligavam a recepção.
-- Guia **COMO-USAR-FONTES.md** atualizado dentro dos dois pacotes.
+- Corrigido um comportamento da tela Fontes que reativava uma entrada virtual silenciada ao iniciar uma captura de aba/aplicativo. Agora a seleção respeita o silêncio escolhido pelo usuário.
+- Novo botão **Copiar diagnóstico de áudio** em **Áudio e saídas → Escuta e saídas**: reúne dispositivos, controles, canais e medidores para investigar configurações reais. Não grava áudio, não copia nomes de abas ou endereços de conexões e não envia dados automaticamente.
+- Nova regressão: pad recebido continua na saída principal e nos fones ao ligar/desligar repetidamente o envio de uma aba, com a entrada física local silenciada.
 
-Para ouvir tudo e compartilhar apenas uma seleção: mantenha **Enviar também todo o áudio recebido** desligado. Na origem, escolha uma fonte e marque **Enviar esta fonte aos conectados**. No destino, marque **Usar fontes recebidas na saída para aplicativos**. Microfone físico local e pads também compõem essa saída; a escuta é independente.
+Esta atualização corrige o acionamento indevido da entrada; não é uma confirmação de correção do corte de pads no Teams. O cenário real ainda exige diagnóstico no dispositivo afetado. Não altera a supressão de ruído de outros aplicativos.
 
-Cabo virtual de saída: selecione a ponta de reprodução no SonoCraft (ex.: CABLE Input) e a ponta de gravação como microfone do aplicativo de destino (ex.: CABLE Output). Fones físicos ficam em Escuta independente. Quando a entrada captura todo o sistema por um cabo, evite usar esse mesmo cabo como saída do SonoCraft; escolha Sem saída principal para somente transmitir.
+Mantidos os caminhos separados: entrada completa para escuta; microfone físico, pads e fontes autorizadas para a saída virtual. Uma seleção de aba/aplicativo por dispositivo de cada vez. Atualize os dois lados e consulte **COMO-USAR-FONTES.md**, incluído nos pacotes.
 
-Uma seleção por dispositivo de cada vez. Para separar abas do mesmo navegador, use **Uma aba do navegador** pelo Chrome/Edge; aplicativo inteiro inclui todas as janelas dele. Captura nativa: macOS 13+ com autorização; Windows build 20348+, normalmente Windows 11. Driver de cabo virtual instalado à parte.
+Prévia experimental. Pacotes liberados após compilação e testes de áudio UDP local nos dois sistemas. Captura nativa, dispositivos físicos e uso prolongado ainda precisam de validação real.
 
-Prévia experimental. Os pacotes são liberados após compilação e regressão nos dois sistemas. Os testes usam UDP local e fontes sintéticas; isolamento de aba foi verificado manualmente no Chrome do Mac. Dispositivos físicos, captura nativa de aplicativos e uso prolongado precisam de validação real.
-
-Mac universal Apple Silicon/Intel com assinatura ad hoc, sem notarização. Windows x64 portátil, WASAPI, sem ASIO e sem assinatura comercial. GPLv3 e exceção de lojas preservadas.
+Mac universal Apple Silicon/Intel com assinatura ad hoc, sem notarização. Windows x64 portátil, WASAPI, sem ASIO e sem assinatura comercial. Driver de cabo virtual instalado à parte. GPLv3 e exceção de lojas preservadas.
