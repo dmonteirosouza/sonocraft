@@ -7476,7 +7476,9 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     bool userwritingpossible = userWritingPossible.load();
     bool writingpossible = writingPossible.load();
 
-    inGain = mMainInMute.get() ? 0.0f : inGain;
+    // A selected tab/app must not leak other applications through an old
+    // aggregate virtual input, including while the browser picker is pending.
+    inGain = (mMainInMute.get() || (standaloneInputIsVirtual.load() && isAggregateInputProtected())) ? 0.0f : inGain;
 
     drynow = (mAnythingSoloed.get() && !mMainMonitorSolo.get()) ? 0.0f : drynow;
 

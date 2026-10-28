@@ -30,6 +30,7 @@ public:
             if (mode.getSelectedId()==2 && !juce::isPositiveAndBelow(applications.getSelectedId()-1,apps.size())) {
                 showError("Escolha um aplicativo na lista."); return;
             }
+            processor.protectSelectedSourceInput();
             if (network.getToggleState()) processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainSendMute)->setValueNotifyingHost(0);
             // Old virtual-input setups copy every application into the input.
             // Silence that aggregate before promising a private tab selection.
@@ -87,6 +88,8 @@ private:
     void timerCallback() override {
         if (!isShowing()) return;
         auto& audio=processor.getApplicationAudio();
+        if (processor.isAggregateInputProtected() && SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName()))
+            inputNotice.setText(juce::String::fromUTF8("A entrada geral do cabo virtual está bloqueada para manter as outras abas privadas, inclusive após parar esta captura. Para voltar ao envio geral, reaplique a configuração de entrada em Reunião e fones."),juce::dontSendNotification);
         auto text=audio.status();
         if (actionError.isNotEmpty()) { status.setText(actionError,juce::dontSendNotification); return; }
         if (audio.isActive()) text=audio.sourceName()+" · "+(audio.level()>0.001f ? juce::String::fromUTF8("recebendo áudio") : juce::String::fromUTF8("aguardando som"))+"\n"+text;

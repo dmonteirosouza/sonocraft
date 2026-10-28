@@ -500,11 +500,15 @@ int main()
     while (!sender.getApplicationAudio().isActive() && juce::Time::getMillisecondCounterHiRes()<activationDeadline) juce::Thread::sleep(1);
     if (!sender.getApplicationAudio().isActive()) { std::cerr << "FAIL: authenticated tab capture did not activate\n"; return 1; }
     setMeeting(sender,true); setMeeting(receiver,true);
-    setParameter(sender,SonobusAudioProcessor::paramMainInMute,1);
+    sender.setStandaloneAudioDevices("VB-Cable",{});
+    sender.protectSelectedSourceInput();
+    // Even an accidental manual unmute must not forward the aggregate cable
+    // while a selected-source capture is requested.
+    setParameter(sender,SonobusAudioProcessor::paramMainInMute,0);
     setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,1);
     setParameter(sender,SonobusAudioProcessor::paramApplicationToMeeting,1);
     setParameter(receiver,SonobusAudioProcessor::paramReceivedApplicationsToMeeting,0);
-    double privateTabLeak=0, sharedTabEnergy=0, tabInHeadphones=0, stoppedTabEnergy=0, localTabMeetingEnergy=0;
+    double privateTabLeak=0, sharedTabEnergy=0, tabInHeadphones=0, stoppedTabEnergy=0, localTabMeetingEnergy=0, aggregateLeak=0;
     auto earsDevice=std::make_unique<TestListeningDevice>(); auto* tabEars=earsDevice.get();
     receiver.getPadMonitor().startWithDevice(std::move(earsDevice),{"Regression","Headset fixture"});
     double tabPhase=0; auto tabDeadline=juce::Time::getMillisecondCounterHiRes();
@@ -517,15 +521,28 @@ int main()
         if (block==160) setParameter(receiver,SonobusAudioProcessor::paramReceivedApplicationsToMeeting,1);
         if (block==320) setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,0);
         juce::AudioBuffer<float> local(2,128), remote(2,128), ears(2,128); local.clear(); remote.clear();
+        for (int ch=0;ch<2;++ch) for (int sample=0;sample<128;++sample) local.setSample(ch,sample,0.4f);
         sender.processBlock(local,midi); receiver.processBlock(remote,midi); tabEars->render(ears);
         if (block>80 && block<130) { privateTabLeak+=remote.getRMSLevel(0,0,128); tabInHeadphones+=ears.getRMSLevel(0,0,128); }
-        if (block>230 && block<280) { sharedTabEnergy+=remote.getRMSLevel(0,0,128); localTabMeetingEnergy+=local.getRMSLevel(0,0,128); }
+        if (block>230 && block<280) { sharedTabEnergy+=remote.getRMSLevel(0,0,128); localTabMeetingEnergy+=local.getRMSLevel(0,0,128); for (int sample=0;sample<128;++sample) aggregateLeak+=local.getSample(0,sample)/(49*128); }
         if (block>440) stoppedTabEnergy+=remote.getRMSLevel(0,0,128);
         const auto tabNow=juce::Time::getMillisecondCounterHiRes(); if (tabNow-tabDeadline>100) tabDeadline=tabNow;
         tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
     }
     receiver.getPadMonitor().stop(); browser.close(); sender.getApplicationAudio().stop();
-    if (privateTabLeak>0.00001 || sharedTabEnergy<=0.01 || tabInHeadphones<=0.01 || stoppedTabEnergy>0.00001 || localTabMeetingEnergy<=0.01) {
+    {
+        juce::AudioBuffer<float> aggregate(2,128);
+        for (int ch=0;ch<2;++ch) for (int i=0;i<128;++i) aggregate.setSample(ch,i,0.4f);
+        sender.processBlock(aggregate,midi);
+        if (!sender.isAggregateInputProtected() || aggregate.getMagnitude(0,128)>0.00001f) { std::cerr << "FAIL: stopping selected capture re-enabled aggregate audio\n"; return 1; }
+        sender.setStandaloneAudioDevices("Headset microphone","CABLE Input");
+        for (int ch=0;ch<2;++ch) for (int i=0;i<128;++i) aggregate.setSample(ch,i,0.4f);
+        sender.processBlock(aggregate,midi);
+        if (aggregate.getRMSLevel(0,0,128)<0.1f) { std::cerr << "FAIL: virtual-input protection muted a physical microphone\n"; return 1; }
+        sender.allowAggregateInputAfterExplicitSetup();
+        if (sender.isAggregateInputProtected()) { std::cerr << "FAIL: explicit aggregate setup did not release protection\n"; return 1; }
+    }
+    if (privateTabLeak>0.00001 || sharedTabEnergy<=0.01 || tabInHeadphones<=0.01 || stoppedTabEnergy>0.00001 || localTabMeetingEnergy<=0.01 || std::abs(aggregateLeak)>0.01) {
         std::cerr << "FAIL: selected tab destination routing: private=" << privateTabLeak << " meeting=" << sharedTabEnergy << " headphones=" << tabInHeadphones << " stopped=" << stoppedTabEnergy << " local=" << localTabMeetingEnergy << "\n"; return 1;
     }
     std::cout << "PASS: authenticated browser audio, private listening, opt-in local/remote meeting, independent network stop" << std::endl;

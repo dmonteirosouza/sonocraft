@@ -11,7 +11,7 @@ Em **Áudio e reunião → Reunião e fones**, escolha a função deste computad
 
 Para compartilhar somente uma aba ou aplicativo, reproduza os aplicativos normalmente no fone/alto-falante escolhido no sistema operacional. Não direcione a saída geral do navegador para CABLE Input: isso enviaria outros sons diretamente ao cabo, fora das escolhas do SonoCraft.
 
-A entrada virtual antiga é silenciada ao iniciar uma captura selecionada, para que outras abas não vazem pela entrada agregada. Os pads continuam funcionando. O microfone físico não é alterado por essa proteção.
+A entrada virtual antiga é silenciada ao iniciar uma captura selecionada, para que outras abas não vazem pela entrada agregada. Os pads continuam funcionando. O microfone físico não é alterado por essa proteção. O bloqueio da entrada geral permanece após parar a captura; para retomá-la, reaplique explicitamente a configuração de entrada em Reunião e fones.
 
 ## Uma aba privada e outra compartilhada
 

@@ -5,7 +5,7 @@
 
 struct SonoCraftApplicationAudioState {
     SonoCraftPadMonitorQueue queue;
-    std::atomic<bool> active {false}, reset {true};
+    std::atomic<bool> active {false}, reset {true}, requested {false};
     std::atomic<uint64_t> generation {0};
     std::atomic<double> rate {48000.0};
     std::atomic<float> peak {0};

@@ -840,10 +840,14 @@ public:
     void setStandaloneAudioDevices(const String& input, const String& output) {
         const ScopedLock lock(standaloneDevicesLock);
         standaloneInput = input; standaloneOutput = output;
+        standaloneInputIsVirtual = SonoCraftAudioRouting::isVirtualCable(input);
         standaloneOutputBlocked = SonoCraftAudioRouting::feedsBack(input, output);
     }
     String getStandaloneInputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneInput; }
     String getStandaloneOutputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneOutput; }
+    void protectSelectedSourceInput() { blockAggregateInputUntilReconfigured = true; }
+    void allowAggregateInputAfterExplicitSetup() { if (!applicationAudio.isCaptureRequested()) blockAggregateInputUntilReconfigured = false; }
+    bool isAggregateInputProtected() const { return blockAggregateInputUntilReconfigured.load() || applicationAudio.isCaptureRequested(); }
     bool isStandaloneOutputBlocked() const { return standaloneOutputBlocked.load(); }
     String startListeningOutput(const SonoCraftPadMonitor::Device& selected) {
         if (!mMeetingMode.get() && selected.name.equalsIgnoreCase(getStandaloneOutputName()))
@@ -993,7 +997,7 @@ private:
     AudioSampleBuffer inputBuffer;
     mutable CriticalSection standaloneDevicesLock;
     String standaloneInput, standaloneOutput;
-    std::atomic<bool> standaloneOutputBlocked { false };
+    std::atomic<bool> standaloneOutputBlocked { false }, standaloneInputIsVirtual { false }, blockAggregateInputUntilReconfigured { false };
     SonoCraftApplicationAudio applicationAudio;
     AudioSampleBuffer applicationBuffer;
     AudioSampleBuffer monitorBuffer;

@@ -19,6 +19,7 @@ public:
     void stop();
     juce::String startBrowserTab();
     bool isActive() const;
+    bool isCaptureRequested() const;
     juce::String status() const;
     juce::String sourceName() const;
     float level() const;
