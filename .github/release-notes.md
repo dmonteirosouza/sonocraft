@@ -1,9 +1,13 @@
-SonoCraft 0.3 — duas saídas para reunião e fones.
+SonoCraft 0.3 — escolha quais sons entram na reunião.
 
 - Estabilidade ao criar mesas e reutilizar sons no Windows, preservando as referências dos pads.
 - Correção de uma condição em que o encerramento da negociação temporária interrompia o fluxo de áudio já conectado.
 - **Fones:** áudio recebido dos participantes (incluindo o Mac) e pads locais, sem sua própria voz.
-- **Reunião:** seu microfone, áudio recebido e pads locais na saída principal, que pode ser conectada ao Teams por VB-CABLE.
+- **Reunião, por padrão:** seu microfone e pads locais e recebidos identificados.
+- **Opcional:** marque **Enviar também músicas, vídeos e voz recebidos à reunião** para incluir todo o áudio recebido dos computadores conectados. Seus fones continuam ouvindo tudo.
+- Pads são enviados em canais separados ao ativar **Enviar pads a todos os conectados**. A negociação de formato preserva essa identificação.
+- Atualize os dois computadores. Em **Reunião e fones**, use **Separar minhas fontes ao enviar para outro computador** para corrigir um envio que já estava configurado como mono ou estéreo misturado. Áudio misturado de versões antigas fica fora da reunião por padrão.
+- A captura automática do áudio dos aplicativos do próprio computador ainda não está incluída. Esta opção controla sons que já chegam ao SonoCraft pela entrada configurada ou pela conexão.
 - Nova área **Áudio e reunião → Reunião e fones**, com instruções, resumo dos dispositivos e seleção independente dos fones.
 - **Silenciar** na entrada corta somente o microfone e mantém o envio dos pads.
 - Controle visível **Enviar pads a todos os conectados** no Soundboard.
