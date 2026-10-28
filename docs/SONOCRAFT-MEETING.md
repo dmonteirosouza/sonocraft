@@ -5,7 +5,7 @@
 Abra **Áudio e reunião → Reunião e fones**.
 
 1. Clique em **Escolher microfone e saída para a reunião**. Na aba Áudio, escolha **microfone do headset** como entrada e **CABLE Input** como saída principal.
-2. Volte a **Reunião e fones** e marque **Ativar mistura para reunião**.
+2. Volte a **Reunião e fones** e marque **Ativar mistura para reunião** e **Receber áudio dos conectados**.
 3. Selecione o **headset físico** na lista dos fones e marque **Ouvir recebidos e pads nos fones**. O volume abaixo controla apenas essa escuta.
 4. No Teams, selecione **CABLE Output** como microfone e **headset** como alto-falante.
 

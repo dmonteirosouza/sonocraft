@@ -101,6 +101,7 @@ protected:
 
     ListenerList<Listener> listeners;
 
+    std::unique_ptr<Viewport> mMeetingViewport;
     std::unique_ptr<SonoCraftListeningControls> mMeetingControls;
     std::unique_ptr<AudioDeviceSelectorComponent> mAudioDeviceSelector;
     std::unique_ptr<Viewport> mAudioOptionsViewport;

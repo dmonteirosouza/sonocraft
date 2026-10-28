@@ -9,7 +9,7 @@
 class SonoCraftListeningControls final : public juce::Component, private juce::Timer {
 public:
     SonoCraftListeningControls(SonobusAudioProcessor& p, bool fullPage = false) : processor(p), full(fullPage) {
-        for (auto* component : std::initializer_list<juce::Component*> { &enabled, &devices, &refresh, &volume, &hint, &instructions, &mode, &configure, &summary }) addAndMakeVisible(component);
+        for (auto* component : std::initializer_list<juce::Component*> { &enabled, &devices, &refresh, &volume, &hint, &instructions, &mode, &configure, &summary, &receive, &micMute }) addAndMakeVisible(component);
         enabled.setButtonText("Ouvir recebidos e pads nos fones");
         devices.setTextWhenNothingSelected("Escolha seu headset ou fone");
         devices.setTitle(juce::String::fromUTF8("Saída dos fones, sem minha voz"));
@@ -21,11 +21,18 @@ public:
         volume.setTitle("Volume nos meus fones");
         volume.setValue(processor.getPadMonitor().getVolume(), juce::dontSendNotification);
         volume.onValueChange = [this] { processor.getPadMonitor().setVolume(float(volume.getValue())); };
+        receive.setButtonText(juce::String::fromUTF8("Receber áudio dos conectados"));
+        receive.onClick = [this] { processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainRecvMute)->setValueNotifyingHost(receive.getToggleState() ? 0 : 1); };
+        micMute.setButtonText("Silenciar meu microfone");
+        micMuteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMainInMute, micMute);
         mode.setButtonText(juce::String::fromUTF8("Ativar mistura para reunião"));
         modeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingMode, mode);
+        mode.onClick = [this] {
+            if (mode.getToggleState()) processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainRecvMute)->setValueNotifyingHost(0);
+        };
         configure.setButtonText(juce::String::fromUTF8("Escolher microfone e saída para a reunião"));
         configure.onClick = [this] { if (onChooseAudio) onChooseAudio(); };
-        instructions.setText(juce::String::fromUTF8("1. Microfone: escolha o headset. Saída principal: escolha CABLE Input.\n2. Ative a mistura para reunião: microfone + recebidos + pads.\n3. Abaixo, escolha seus fones: recebidos + pads, sem sua voz.\n4. No Teams: microfone CABLE Output e alto-falante headset."), juce::dontSendNotification);
+        instructions.setText(juce::String::fromUTF8("1. Microfone: escolha o headset. Saída principal: escolha CABLE Input.\n2. Ative a mistura e a recepção dos conectados.\n3. Abaixo, escolha seus fones: recebidos + pads, sem sua voz.\n4. No Teams: microfone CABLE Output e alto-falante headset."), juce::dontSendNotification);
         instructions.setFont(14.0f);
         instructions.setJustificationType(juce::Justification::topLeft);
         instructions.setMinimumHorizontalScale(1);
@@ -55,12 +62,14 @@ public:
     std::function<juce::String()> configurationSummary;
     void resized() override {
         auto box = getLocalBounds().reduced(full ? 14 : 0);
-        for (auto* item : std::initializer_list<juce::Component*> { &instructions, &mode, &configure, &summary }) item->setVisible(full);
+        for (auto* item : std::initializer_list<juce::Component*> { &instructions, &mode, &configure, &summary, &receive, &micMute }) item->setVisible(full);
         if (full) {
             instructions.setBounds(box.removeFromTop(getWidth() >= 440 ? 112 : 140));
             configure.setBounds(box.removeFromTop(36)); box.removeFromTop(8);
             summary.setBounds(box.removeFromTop(44));
-            mode.setBounds(box.removeFromTop(30)); box.removeFromTop(12);
+            mode.setBounds(box.removeFromTop(30));
+            receive.setBounds(box.removeFromTop(30));
+            micMute.setBounds(box.removeFromTop(30)); box.removeFromTop(12);
         }
         enabled.setBounds(box.removeFromTop(28));
         auto row = box.removeFromTop(30);
@@ -71,13 +80,13 @@ public:
 private:
     SonobusAudioProcessor& processor;
     const bool full;
-    juce::ToggleButton enabled, mode;
+    juce::ToggleButton enabled, mode, receive, micMute;
     juce::ComboBox devices;
     juce::TextButton refresh, configure;
     juce::Slider volume;
     juce::Label hint, instructions, summary;
     juce::Array<SonoCraftPadMonitor::Device> outputs;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modeAttachment, micMuteAttachment;
     void showHint() { hint.setText(juce::String::fromUTF8(processor.getPadMonitor().isActive()
         ? "Nos fones: áudio recebido e pads locais. Sua voz fica só na saída da reunião."
         : "Escolha os fones físicos, não o cabo virtual. Desative 'Escutar este dispositivo' no Windows."), juce::dontSendNotification); }
@@ -96,6 +105,7 @@ private:
     }
     void timerCallback() override {
         if (!isShowing()) return;
+        receive.setToggleState(processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMainRecvMute)->load() == 0, juce::dontSendNotification);
         auto& monitor = processor.getPadMonitor();
         enabled.setToggleState(monitor.isActive(), juce::dontSendNotification);
         if (!volume.isMouseButtonDown()) volume.setValue(monitor.getVolume(), juce::dontSendNotification);

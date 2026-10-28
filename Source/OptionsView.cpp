@@ -502,6 +502,7 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
 
     mSettingsTab->addTab(TRANS("Recording"),SonoCraftTheme::canvas(), mRecordOptionsViewport.get(), false);
     mMeetingControls = std::make_unique<SonoCraftListeningControls>(processor, true);
+    mMeetingControls->setSize(480, 610);
     mMeetingControls->onChooseAudio = [this] { showAudioTab(); };
     mMeetingControls->configurationSummary = [this] {
         auto* manager = getAudioDeviceManager ? getAudioDeviceManager() : nullptr;
@@ -509,7 +510,9 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
         auto setup = manager->getAudioDeviceSetup();
         return juce::String::fromUTF8("Entrada: ") + setup.inputDeviceName + juce::String(juce::CharPointer_UTF8("\n")) + juce::String::fromUTF8("Saída para reunião: ") + setup.outputDeviceName;
     };
-    mSettingsTab->addTab(juce::String::fromUTF8("Reunião e fones"), SonoCraftTheme::canvas(), mMeetingControls.get(), false);
+    mMeetingViewport = std::make_unique<Viewport>();
+    mMeetingViewport->setViewedComponent(mMeetingControls.get(), false);
+    mSettingsTab->addTab(juce::String::fromUTF8("Reunião e fones"), SonoCraftTheme::canvas(), mMeetingViewport.get(), false);
 
 
     setFocusContainerType(FocusContainerType::keyboardFocusContainer);
@@ -957,6 +960,7 @@ void OptionsView::resized()  {
     mainBox.performLayout(getLocalBounds().reduced(2, 2));
 
     auto innerbounds = mSettingsTab->getLocalBounds();
+    if (mMeetingControls) mMeetingControls->setSize(jmax(280, innerbounds.getWidth()-16), 610);
 
     if (mAudioDeviceSelector) {
         mAudioDeviceSelector->setBounds(Rectangle<int>(0,0,innerbounds.getWidth() - 10,mAudioDeviceSelector->getHeight()));
