@@ -9,3 +9,5 @@ mobile/Builds
 /dist/
 
 /diagnostics/
+
+.DS_Store

@@ -749,6 +749,11 @@ private:
         emptyBuffer.setSize (device->getActiveInputChannels().countNumberOfSetBits(), device->getCurrentBufferSizeSamples());
         emptyBuffer.clear();
 
+        if (auto* sono = dynamic_cast<SonobusAudioProcessor*>(processor.get())) {
+            const auto setup = deviceManager.getAudioDeviceSetup();
+            sono->setStandaloneAudioDevices(device->getActiveInputChannels().isZero() ? String() : setup.inputDeviceName,
+                                             setup.outputDeviceName);
+        }
         player.audioDeviceAboutToStart (device);
         player.setMidiOutput (deviceManager.getDefaultMidiOutput());
         

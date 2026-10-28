@@ -14,16 +14,22 @@ public:
         for (int i = 0; i < size1 + size2; ++i) {
             const int index = i < size1 ? start1 + i : start2 + i - size1;
             for (int ch = 0; ch < 2; ++ch)
-                data[ch][index] = gain * pads.getSample(juce::jmin(ch, pads.getNumChannels()-1), i);
+                {
+                    const auto value = gain * pads.getSample(juce::jmin(ch, pads.getNumChannels()-1), i);
+                    data[ch][index] = std::isfinite(value) ? value : 0.0f;
+                }
         }
         fifo.finishedWrite(size1 + size2);
     }
     void discard() { fifo.finishedRead(fifo.getNumReady()); phase = 0; primed = false; }
     void render(float* const* output, int channels, int samples, double sourceRate, double outputRate, float volume) {
         for (int ch = 0; ch < channels; ++ch) if (output[ch]) juce::FloatVectorOperations::clear(output[ch], samples);
-        const int ready = fifo.getNumReady();
+        int ready = fifo.getNumReady();
         const double baseRatio = sourceRate / juce::jmax(1.0, outputRate);
         const int target = juce::jmax(512, int(samples * baseRatio * 2));
+        if (ready > juce::jmax(4096, target*6)) {
+            fifo.finishedRead(ready-target*2); phase = 0; ready = fifo.getNumReady();
+        }
         if (!primed) { if (ready < target) return; primed = true; }
         const double correction = juce::jlimit(-0.005, 0.005, (ready - target) * 0.000002);
         const double ratio = baseRatio * (1 + correction);
@@ -73,23 +79,25 @@ public:
         ensureTypes();
         for (auto* type : types) {
             if (type->getTypeName() != selected.type) continue;
-            device.reset(type->createDevice(selected.name, {}));
-            if (!device) break;
-            auto rates = device->getAvailableSampleRates();
-            double rate = rates.contains(sourceRate.load()) ? sourceRate.load() : rates.contains(48000.0) ? 48000.0 : rates.getFirst();
-            if (rate <= 0) { device.reset(); return "Dispositivo sem taxa de audio disponivel."; }
-            juce::BigInteger outputs; outputs.setRange(0, juce::jmin(2, device->getOutputChannelNames().size()), true);
-            auto error = device->open({}, outputs, rate, device->getDefaultBufferSize());
-            if (error.isNotEmpty()) { device.reset(); return error; }
-            selectedType = selected.type; selectedName = selected.name;
-            outputRate = device->getCurrentSampleRate();
-            firstCallback = true;
-            active = true;
-            device->start(this);
-            if (!device->isPlaying()) { stop(); return "Nao foi possivel iniciar a saida dos fones."; }
-            return {};
+            return startWithDevice(std::unique_ptr<juce::AudioIODevice>(type->createDevice(selected.name, {})), selected);
         }
         return "Saida de audio nao encontrada. Atualize a lista de dispositivos.";
+    }
+    // Custom output backends use the same open/start/capture path as native devices.
+    juce::String startWithDevice(std::unique_ptr<juce::AudioIODevice> output, const Device& selected) {
+        stop(); device = std::move(output);
+        if (!device) return "Saida de audio nao encontrada.";
+        const auto rates = device->getAvailableSampleRates();
+        const double rate = rates.contains(sourceRate.load()) ? sourceRate.load() : rates.contains(48000.0) ? 48000.0 : rates.getFirst();
+        if (rate <= 0) { device.reset(); return "Dispositivo sem taxa de audio disponivel."; }
+        juce::BigInteger channels; channels.setRange(0, juce::jmin(2, device->getOutputChannelNames().size()), true);
+        const auto error = device->open({}, channels, rate, device->getDefaultBufferSize());
+        if (error.isNotEmpty()) { device.reset(); return error; }
+        selectedType = selected.type; selectedName = selected.name;
+        outputRate = device->getCurrentSampleRate(); firstCallback = true; active = true;
+        device->start(this);
+        if (!device->isPlaying()) { stop(); return "Nao foi possivel iniciar a saida dos fones."; }
+        return {};
     }
     void stop() {
         active = false;

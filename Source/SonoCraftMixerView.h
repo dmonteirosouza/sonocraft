@@ -197,7 +197,7 @@ public:
     {
         for (auto* c : std::initializer_list<juce::Component*> { &input, &master, &viewport, &session,
                          &brand, &connectIP, &connectGroup, &audio, &settings, &record, &metronome, &metEnabled, &metTempo, &metLevel, &metSend,
-                         &file, &routing, &effects, &chat, &soundboard, &play, &stop, &meeting, &meetingHelp, &disconnect, &inspector, &bufferMode, &bufferTime })
+                         &file, &routing, &effects, &sources, &chat, &soundboard, &play, &stop, &meeting, &meetingHelp, &disconnect, &inspector, &bufferMode, &bufferTime })
             addAndMakeVisible(c);
         brand.setImage(juce::ImageCache::getFromMemory(BinaryData::sonocraft_icon_256_png, BinaryData::sonocraft_icon_256_pngSize));
         viewport.setViewedComponent(&channels, false);
@@ -222,6 +222,7 @@ public:
         stop.onClick = [this] { processor.getTransportSource().stop(); processor.getTransportSource().setPosition(0.0); };
         record.setButtonText("Gravar"); metronome.setButtonText(juce::String::fromUTF8("Metrônomo")); file.setButtonText("Arquivo");
         routing.setButtonText("Roteamento"); effects.setButtonText("Efeitos");
+        sources.setButtonText("Fontes"); sources.setTooltip(juce::String::fromUTF8("Escolher uma aba ou aplicativo para enviar à conexão ou reunião"));
         chat.setButtonText("Chat"); soundboard.setButtonText("Soundboard"); disconnect.setButtonText("Desconectar");
         connectIP.onClick = [this] { if (onConnectIP) onConnectIP(); };
         connectGroup.onClick = [this] { if (onConnectGroup) onConnectGroup(); };
@@ -247,6 +248,7 @@ public:
         file.onClick = [this] { if (onFile) onFile(); };
         routing.onClick = [this] { if (onRouting) onRouting(); };
         effects.onClick = [this] { if (onEffects) onEffects(); };
+        sources.onClick = [this] { if (onSources) onSources(); };
         chat.onClick = [this] { if (onChat) onChat(); };
         soundboard.onClick = [this] { if (onSoundboard) onSoundboard(); };
         disconnect.onClick = [this] { processor.disconnectFromServer(); };
@@ -261,7 +263,7 @@ public:
         refresh(); startTimerHz(24);
     }
     ~SonoCraftMixerView() override { stopTimer(); viewport.setViewedComponent(nullptr, false); }
-    std::function<void()> onConnectIP, onConnectGroup, onAudio, onSettings, onRecord, onMetronome, onFile, onRouting, onEffects, onChat, onSoundboard, onPlay;
+    std::function<void()> onConnectIP, onConnectGroup, onAudio, onSettings, onRecord, onMetronome, onFile, onRouting, onEffects, onSources, onChat, onSoundboard, onPlay;
     juce::Component* settingsAnchor() { return &settings; }
     juce::Component* connectionAnchor() { return &connectIP; }
 
@@ -285,7 +287,7 @@ public:
         const bool wrapTransport = bounds.getWidth() < 1020;
         auto transportArea = bounds.removeFromBottom(wrapTransport ? 82 : 44);
         auto transport = wrapTransport ? transportArea.removeFromTop(40) : transportArea;
-        for (auto* button : { &play, &stop, &record, &metronome, &file, &routing, &effects, &chat, &soundboard, &meeting }) {
+        for (auto* button : { &play, &stop, &record, &metronome, &file, &routing, &effects, &sources, &chat, &soundboard, &meeting }) {
             const auto width = button == &meeting ? 124 : button == &soundboard ? 104 : button == &metronome || button == &routing ? 105 : 78;
             if (wrapTransport && transport.getWidth() < width) transport = transportArea;
             button->setBounds(transport.removeFromLeft(width).reduced(3, 6));
@@ -353,7 +355,7 @@ private:
     juce::OwnedArray<SonoCraftChannelStrip> strips;
     juce::ImageComponent brand;
     juce::Label session, inspector, meetingHelp;
-    juce::TextButton connectIP, connectGroup, audio, settings, record, metronome, file, routing, effects, chat, soundboard, play, stop, meeting, disconnect;
+    juce::TextButton connectIP, connectGroup, audio, settings, record, metronome, file, routing, effects, sources, chat, soundboard, play, stop, meeting, disconnect;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> meetingAttachment;
     juce::ComboBox bufferMode;
     juce::Slider bufferTime;

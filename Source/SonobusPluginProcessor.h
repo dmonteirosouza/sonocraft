@@ -5,6 +5,8 @@
 
 #pragma once
 #include "SonoCraftPadMonitor.h"
+#include "SonoCraftAudioRouting.h"
+#include "SonoCraftApplicationAudio.h"
 
 #include "JuceHeader.h"
 
@@ -242,6 +244,9 @@ public:
     static String paramInMonitorPan2;
     static String paramMeetingMode;
     static String paramMeetingIncludeReceived;
+    static String paramSendApplicationAudio;
+    static String paramApplicationToMeeting;
+    static String paramReceivedApplicationsToMeeting;
     static String paramDry;
     static String paramWet;
     static String paramSendChannels;
@@ -832,6 +837,24 @@ public:
     bool getLastSoundboardShown() const { return mLastSoundboardShown; }
     foleys::LevelMeterSource& getListeningMeterSource() { return listeningMeterSource; }
     SonoCraftPadMonitor& getPadMonitor() { return padMonitor; }
+    void setStandaloneAudioDevices(const String& input, const String& output) {
+        const ScopedLock lock(standaloneDevicesLock);
+        standaloneInput = input; standaloneOutput = output;
+        standaloneOutputBlocked = SonoCraftAudioRouting::feedsBack(input, output);
+    }
+    String getStandaloneInputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneInput; }
+    String getStandaloneOutputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneOutput; }
+    bool isStandaloneOutputBlocked() const { return standaloneOutputBlocked.load(); }
+    String startListeningOutput(const SonoCraftPadMonitor::Device& selected) {
+        if (!mMeetingMode.get() && selected.name.equalsIgnoreCase(getStandaloneOutputName()))
+            return String::fromUTF8("Os sons já saem nesse dispositivo pela saída principal. Neste computador que envia sons, não é preciso ligar uma segunda escuta no mesmo fone.");
+        const auto error = SonoCraftAudioRouting::listeningError(selected.name, getStandaloneOutputName());
+        return error.isNotEmpty() ? error : padMonitor.start(selected);
+    }
+    SonoCraftApplicationAudio& getApplicationAudio() { return applicationAudio; }
+    bool isSendingApplicationAudio() const { return mSendApplicationAudio.get() && applicationAudio.isActive(); }
+    int getEffectiveSendChannelMode() const { return mSendSoundboardAudio.get() || isSendingApplicationAudio() ? 0 : mSendChannels.get(); }
+
     SoundboardChannelProcessor* getSoundboardProcessor() { return soundboardChannelProcessor.get(); }
 
     void setLastPluginBounds(juce::Rectangle<int> bounds) { mPluginWindowWidth = bounds.getWidth(); mPluginWindowHeight = bounds.getHeight();}
@@ -968,6 +991,11 @@ private:
     AudioSampleBuffer mixBuffer;
     AudioSampleBuffer workBuffer;
     AudioSampleBuffer inputBuffer;
+    mutable CriticalSection standaloneDevicesLock;
+    String standaloneInput, standaloneOutput;
+    std::atomic<bool> standaloneOutputBlocked { false };
+    SonoCraftApplicationAudio applicationAudio;
+    AudioSampleBuffer applicationBuffer;
     AudioSampleBuffer monitorBuffer;
     AudioSampleBuffer receivedPadsBuffer;
     AudioSampleBuffer receivedPadsWorkBuffer;
@@ -993,6 +1021,7 @@ private:
     Atomic<bool>   mMainSendMute    {   false };
     Atomic<bool>   mMeetingMode { false };
     Atomic<bool>   mMeetingIncludeReceived { false };
+    Atomic<bool> mSendApplicationAudio { false }, mApplicationToMeeting { false }, mReceivedApplicationsToMeeting { false };
     Atomic<bool>   mMainRecvMute    {   false };
     Atomic<bool>   mMainInMute    {   false };
     Atomic<bool>   mMainMonitorSolo    {   false };

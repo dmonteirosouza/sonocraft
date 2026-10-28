@@ -2,6 +2,7 @@
 #include "../Source/SonobusPluginProcessor.h"
 #include "../Source/SoundboardChannelProcessor.h"
 #include "../Source/SoundboardProcessor.h"
+#include "../Source/SonoCraftBrowserAudioBridge.h"
 #include <cmath>
 #include <iostream>
 #if JUCE_MAC
@@ -27,6 +28,55 @@ static void waitForAudioDeadline(double deadline)
         juce::Thread::yield();
 }
 
+// A callback-driven physical-output substitute: the processor still runs its
+// real FIFO/open/start/stop path while tests observe both destinations.
+class TestListeningDevice final : public juce::AudioIODevice {
+public:
+    TestListeningDevice() : AudioIODevice("Headset fixture", "Regression") {}
+    juce::StringArray getOutputChannelNames() override { return { "Left", "Right" }; }
+    juce::StringArray getInputChannelNames() override { return {}; }
+    juce::Array<double> getAvailableSampleRates() override { return { 48000.0 }; }
+    juce::Array<int> getAvailableBufferSizes() override { return { 128 }; }
+    int getDefaultBufferSize() override { return 128; }
+    juce::String open(const juce::BigInteger&, const juce::BigInteger&, double, int) override { opened = true; return {}; }
+    void close() override { stop(); opened = false; }
+    bool isOpen() override { return opened; }
+    void start(juce::AudioIODeviceCallback* value) override { callback = value; callback->audioDeviceAboutToStart(this); juce::AudioBuffer<float> initial(2,128); render(initial); }
+    void stop() override { if (callback) callback->audioDeviceStopped(); callback = nullptr; }
+    bool isPlaying() override { return callback != nullptr; }
+    juce::String getLastError() override { return {}; }
+    int getCurrentBufferSizeSamples() override { return 128; }
+    double getCurrentSampleRate() override { return 48000; }
+    int getCurrentBitDepth() override { return 32; }
+    juce::BigInteger getActiveOutputChannels() const override { juce::BigInteger channels; channels.setRange(0, 2, true); return channels; }
+    juce::BigInteger getActiveInputChannels() const override { return {}; }
+    int getOutputLatencyInSamples() override { return 0; }
+    int getInputLatencyInSamples() override { return 0; }
+    void render(juce::AudioBuffer<float>& buffer) { if (callback) callback->audioDeviceIOCallbackWithContext(nullptr, 0, buffer.getArrayOfWritePointers(), 2, buffer.getNumSamples(), {}); }
+private:
+    juce::AudioIODeviceCallback* callback = nullptr;
+    bool opened = false;
+};
+
+static bool sendBrowserFrame(juce::StreamingSocket& socket, int opcode, const void* data, int length) {
+    juce::MemoryOutputStream frame;
+    frame.writeByte(char(0x80|opcode));
+    if (length<126) frame.writeByte(char(0x80|length));
+    else { frame.writeByte(char(0x80|126)); frame.writeShortBigEndian(short(length)); }
+    const uint8_t mask[] {0x13,0x2a,0x48,0x7f}; frame.write(mask,4);
+    const auto* bytes=static_cast<const uint8_t*>(data);
+    for (int i=0;i<length;++i) frame.writeByte(char(bytes[i]^mask[i%4]));
+    return socket.write(frame.getData(),int(frame.getDataSize()))==int(frame.getDataSize());
+}
+static juce::String readHttpHeaders(juce::StreamingSocket& socket) {
+    juce::String text; const auto deadline=juce::Time::getMillisecondCounterHiRes()+3000;
+    while (!text.endsWith("\r\n\r\n") && text.length()<8192 && juce::Time::getMillisecondCounterHiRes()<deadline) {
+        if (socket.waitUntilReady(true,50)<=0) continue;
+        char byte; if (socket.read(&byte,1,false)!=1) break; text+=juce::String::charToString(byte);
+    }
+    return text;
+}
+
 class EmptyPlayHead final : public juce::AudioPlayHead
 {
 public:
@@ -35,6 +85,17 @@ public:
 
 int main()
 {
+    if (sonoCraftWebSocketAccept("dGhlIHNhbXBsZSBub25jZQ==") != "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=") {
+        std::cerr << "FAIL: RFC 6455 handshake\n"; return 1;
+    }
+    if (!SonoCraftAudioRouting::feedsBack("VB-Cable", "VB-Cable")
+        || !SonoCraftAudioRouting::feedsBack("CABLE Output (VB-Audio Virtual Cable)", "CABLE Input (VB-Audio Virtual Cable)")
+        || SonoCraftAudioRouting::feedsBack("Headset", "Headset")
+        || SonoCraftAudioRouting::feedsBack("CABLE-A Output (VB-Audio Cable A)", "CABLE-B Input (VB-Audio Cable B)")
+        || SonoCraftAudioRouting::listeningError("Headset", "CABLE Input").isNotEmpty()
+        || SonoCraftAudioRouting::listeningError("Headset", "Headset").isEmpty()) {
+        std::cerr << "FAIL: audio destination validation\n"; return 1;
+    }
     // Independent device queue: only pad samples enter, channels remain
     // isolated, gain applies locally, and underflow always produces silence.
     auto monitorQueue = std::make_unique<SonoCraftPadMonitorQueue>();
@@ -330,11 +391,23 @@ int main()
     if (!player) { std::cerr << "FAIL: could not load pad fixture\n"; return 1; }
     setMeeting(*roster, true);
     (*player)->play();
-    double padEnergy = 0;
+    double padEnergy = 0, listeningOnMeetingEnergy = 0, listeningOffMeetingEnergy = 0, headphonePadEnergy = 0;
+    TestListeningDevice* localHeadphones = nullptr;
     for (int block = 0; block < 100; ++block) {
         juce::AudioBuffer<float> padOutput(2, 128);
         padOutput.clear();
+        if (block == 30) {
+            auto device = std::make_unique<TestListeningDevice>(); localHeadphones = device.get();
+            if (roster->getPadMonitor().startWithDevice(std::move(device), {"Regression", "Headset fixture"}).isNotEmpty()) return 1;
+        }
+        if (block == 60) { roster->getPadMonitor().stop(); localHeadphones = nullptr; }
+        if (block == 70) roster->setStandaloneAudioDevices("VB-Cable", "VB-Cable");
+        if (block == 80) roster->setStandaloneAudioDevices("VB-Cable", "Headset");
         roster->processBlock(padOutput, midi);
+        if (block >= 70 && block < 80 && padOutput.getMagnitude(0, 128) != 0) { std::cerr << "FAIL: virtual cable fed its own capture input\n"; return 1; }
+        if (block > 40 && block < 55) listeningOnMeetingEnergy += padOutput.getRMSLevel(0,0,128);
+        if (block > 10 && block < 25) listeningOffMeetingEnergy += padOutput.getRMSLevel(0,0,128);
+        if (localHeadphones) { juce::AudioBuffer<float> ears(2,128); localHeadphones->render(ears); headphonePadEnergy += ears.getRMSLevel(0,0,128); }
         for (int channel = 0; channel < 2; ++channel)
             for (int sample = 0; sample < 128; ++sample)
                 padEnergy += padOutput.getSample(channel, sample) * padOutput.getSample(channel, sample);
@@ -343,8 +416,9 @@ int main()
     if (roster->getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
         std::cerr << "FAIL: local pad missing from headphone mix\n"; return 1;
     }
+    if (listeningOnMeetingEnergy <= 0.001 || listeningOffMeetingEnergy <= 0.001 || headphonePadEnergy <= 0.001) { std::cerr << "FAIL: headphone toggle interrupted meeting audio\n"; return 1; }
     if (padEnergy <= 0.001) { std::cerr << "FAIL: no Soundboard in meeting output\n"; return 1; }
-    std::cout << "PASS: real Soundboard pad reaches meeting output" << std::endl;
+    std::cout << "PASS: local pad reaches meeting with headphones on/off; virtual cable loop output is blocked" << std::endl;
     // Real source pad -> UDP receiver -> meeting output and listening bus.
     // Muting the source microphone must not suppress its Soundboard stream.
     sender.prepareToPlay(48000, 128); receiver.prepareToPlay(48000, 128);
@@ -354,8 +428,9 @@ int main()
     };
     setParameter(sender, SonobusAudioProcessor::paramMainInMute, 1);
     setParameter(sender, SonobusAudioProcessor::paramMainSendMute, 0);
-    setParameter(sender, SonobusAudioProcessor::paramSendChannels, 0);
-    sender.setRemotePeerOverrideSendChannelCount(-1, -1);
+    // Reproduce saved mono/peer override settings from earlier versions.
+    setParameter(sender, SonobusAudioProcessor::paramSendChannels, 1);
+    sender.setRemotePeerOverrideSendChannelCount(-1, 1);
     setParameter(sender, SonobusAudioProcessor::paramSendSoundboardAudio, 1);
     setMeeting(receiver, true);
     setParameter(receiver, SonobusAudioProcessor::paramMeetingIncludeReceived, 0);
@@ -363,7 +438,8 @@ int main()
     auto remotePlayer = sender.getSoundboardProcessor()->loadSample(remotePad);
     if (!remotePlayer) return 1;
     (*remotePlayer)->play();
-    double remotePadEnergy = 0, remotePadMean = 0;
+    double remotePadEnergy = 0, remotePadMean = 0, remoteMeetingWithEars = 0, remoteMeetingWithoutEars = 0, remoteHeadphoneEnergy = 0;
+    TestListeningDevice* remoteHeadphones = nullptr;
     auto padDeadline = juce::Time::getMillisecondCounterHiRes();
     for (int block = 0; block < 480; ++block) {
         juce::AudioBuffer<float> source(2,128), destination(2,128);
@@ -373,7 +449,15 @@ int main()
         // must still forward only pad channels, not the general input stream.
         if (block == 240) setParameter(sender, SonobusAudioProcessor::paramMainInMute, 0);
         destination.clear();
+        if (block == 120) {
+            auto device = std::make_unique<TestListeningDevice>(); remoteHeadphones = device.get();
+            if (receiver.getPadMonitor().startWithDevice(std::move(device), {"Regression", "Headset fixture"}).isNotEmpty()) return 1;
+        }
+        if (block == 300) { receiver.getPadMonitor().stop(); remoteHeadphones = nullptr; }
         sender.processBlock(source, midi); receiver.processBlock(destination, midi);
+        if (block > 180 && block < 230) remoteMeetingWithEars += destination.getRMSLevel(0,0,128);
+        if (block > 330 && block < 380) remoteMeetingWithoutEars += destination.getRMSLevel(0,0,128);
+        if (remoteHeadphones) { juce::AudioBuffer<float> ears(2,128); remoteHeadphones->render(ears); remoteHeadphoneEnergy += ears.getRMSLevel(0,0,128); }
         if (block > 300) for (int sample = 0; sample < 128; ++sample) {
             auto value = destination.getSample(0, sample);
             remotePadEnergy += value * value; remotePadMean += value;
@@ -383,12 +467,68 @@ int main()
         padDeadline += 128 * 1000.0 / 48000.0;
         waitForAudioDeadline(padDeadline);
     }
+    if (remoteMeetingWithEars <= 0.001 || remoteMeetingWithoutEars <= 0.001 || remoteHeadphoneEnergy <= 0.001) { std::cerr << "FAIL: remote pad lost when toggling headphones or restoring mono settings\n"; return 1; }
     if (remotePadEnergy <= 0.001 || std::abs(remotePadMean/(179*128)) > 0.01
         || receiver.getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
         std::cerr << "FAIL: remote pad/mic-mute/listening routing: energy=" << remotePadEnergy << " mean=" << remotePadMean/(179*128) << "\n"; return 1;
     }
     (*remotePlayer)->unload();
     sender.getSoundboardProcessor()->clearPlayback(); remotePlayer.reset();
+    // Browser tab IPC is tested with the same authenticated audio endpoint the
+    // Chrome helper uses; no actual user window or microphone is captured.
+    const juce::URL tabUrl(sender.getApplicationAudio().startBrowserTab());
+    if (tabUrl.getPort()<=0 || tabUrl.getParameterValues().isEmpty()) return 1;
+    const auto tabHost="127.0.0.1:"+juce::String(tabUrl.getPort());
+    const auto token=tabUrl.getParameterValues()[0];
+    const auto request="GET /stream?key="+token+" HTTP/1.1\r\nHost: "+tabHost
+        +"\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nOrigin: http://"+tabHost+"\r\n\r\n";
+    {
+        juce::StreamingSocket unauthorized;
+        if (!unauthorized.connect("127.0.0.1",tabUrl.getPort(),3000)) return 1;
+        const auto badRequest=request.replace("Origin: http://"+tabHost,"Origin: https://unrelated.invalid");
+        unauthorized.write(badRequest.toRawUTF8(),int(badRequest.getNumBytesAsUTF8()));
+        if (readHttpHeaders(unauthorized).contains("101 Switching") || sender.getApplicationAudio().isActive()) { std::cerr << "FAIL: cross-origin tab capture accepted\n"; return 1; }
+    }
+    juce::StreamingSocket browser;
+    if (!browser.connect("127.0.0.1",tabUrl.getPort(),3000)) return 1;
+    browser.write(request.toRawUTF8(),int(request.getNumBytesAsUTF8()));
+    const auto headers=readHttpHeaders(browser);
+    if (!headers.contains("101 Switching Protocols") || !headers.contains("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")) { std::cerr << "FAIL: browser tab socket upgrade\n"; return 1; }
+    const juce::String rateMessage="rate=48000";
+    sendBrowserFrame(browser,1,rateMessage.toRawUTF8(),int(rateMessage.getNumBytesAsUTF8()));
+    const auto activationDeadline=juce::Time::getMillisecondCounterHiRes()+3000;
+    while (!sender.getApplicationAudio().isActive() && juce::Time::getMillisecondCounterHiRes()<activationDeadline) juce::Thread::sleep(1);
+    if (!sender.getApplicationAudio().isActive()) { std::cerr << "FAIL: authenticated tab capture did not activate\n"; return 1; }
+    setMeeting(sender,true); setMeeting(receiver,true);
+    setParameter(sender,SonobusAudioProcessor::paramMainInMute,1);
+    setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,1);
+    setParameter(sender,SonobusAudioProcessor::paramApplicationToMeeting,1);
+    setParameter(receiver,SonobusAudioProcessor::paramReceivedApplicationsToMeeting,0);
+    double privateTabLeak=0, sharedTabEnergy=0, tabInHeadphones=0, stoppedTabEnergy=0, localTabMeetingEnergy=0;
+    auto earsDevice=std::make_unique<TestListeningDevice>(); auto* tabEars=earsDevice.get();
+    receiver.getPadMonitor().startWithDevice(std::move(earsDevice),{"Regression","Headset fixture"});
+    double tabPhase=0; auto tabDeadline=juce::Time::getMillisecondCounterHiRes();
+    for (int block=0;block<500;++block) {
+        if (block%8==0) {
+            float packet[2048];
+            for (int i=0;i<1024;++i) { packet[i*2]=packet[i*2+1]=float(0.12*std::sin(tabPhase)); tabPhase+=2*3.141592653589793*660/48000; }
+            if (!sendBrowserFrame(browser,2,packet,sizeof(packet))) return 1;
+        }
+        if (block==160) setParameter(receiver,SonobusAudioProcessor::paramReceivedApplicationsToMeeting,1);
+        if (block==320) setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,0);
+        juce::AudioBuffer<float> local(2,128), remote(2,128), ears(2,128); local.clear(); remote.clear();
+        sender.processBlock(local,midi); receiver.processBlock(remote,midi); tabEars->render(ears);
+        if (block>80 && block<130) { privateTabLeak+=remote.getRMSLevel(0,0,128); tabInHeadphones+=ears.getRMSLevel(0,0,128); }
+        if (block>230 && block<280) { sharedTabEnergy+=remote.getRMSLevel(0,0,128); localTabMeetingEnergy+=local.getRMSLevel(0,0,128); }
+        if (block>440) stoppedTabEnergy+=remote.getRMSLevel(0,0,128);
+        const auto tabNow=juce::Time::getMillisecondCounterHiRes(); if (tabNow-tabDeadline>100) tabDeadline=tabNow;
+        tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
+    }
+    receiver.getPadMonitor().stop(); browser.close(); sender.getApplicationAudio().stop();
+    if (privateTabLeak>0.00001 || sharedTabEnergy<=0.01 || tabInHeadphones<=0.01 || stoppedTabEnergy>0.00001 || localTabMeetingEnergy<=0.01) {
+        std::cerr << "FAIL: selected tab destination routing: private=" << privateTabLeak << " meeting=" << sharedTabEnergy << " headphones=" << tabInHeadphones << " stopped=" << stoppedTabEnergy << " local=" << localTabMeetingEnergy << "\n"; return 1;
+    }
+    std::cout << "PASS: authenticated browser audio, private listening, opt-in local/remote meeting, independent network stop" << std::endl;
     sender.releaseResources(); receiver.releaseResources();
     std::cout << "PASS: remote pads reach meeting and headphones while unmuted remote voice stays private" << std::endl;
     const auto reuseDir = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("pad-reuse-test", "", false);

@@ -37,9 +37,12 @@ endif()
 # `project()` command. `project()` sets up some helpful variables that describe source/binary
 # directories, and the current project version. This is a standard CMake command.
 
-project(SonoCraft VERSION 0.3.0)
+project(SonoCraft VERSION 0.4.0)
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
 
-set(BUILDVERSION 89)
+set(BUILDVERSION 90)
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
@@ -392,6 +395,15 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
            ${AOOSourceFiles}
        )
 
+    target_sources("${target_name}" PRIVATE Source/SonoCraftApplicationAudio.cpp Source/SonoCraftApplicationAudio_win.cpp)
+    if(APPLE)
+        target_sources("${target_name}" PRIVATE Source/SonoCraftApplicationAudio_mac.mm)
+        set_source_files_properties(Source/SonoCraftApplicationAudio_mac.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+        target_link_libraries("${target_name}" PUBLIC "-weak_framework ScreenCaptureKit" "-framework CoreMedia")
+    elseif(WIN32)
+        target_link_libraries("${target_name}" PUBLIC mmdevapi ole32)
+    endif()
+
     # No, we don't want our source buried in extra nested folders
     set_target_properties("${target_name}" PROPERTIES FOLDER "")
 
@@ -644,6 +656,11 @@ if (SONOCRAFT_BUILD_TESTS)
     target_link_libraries(SonoCraftAudioRegression PRIVATE SonoBus)
     target_include_directories(SonoCraftAudioRegression PRIVATE "$<TARGET_PROPERTY:SonoBus,INCLUDE_DIRECTORIES>")
     target_compile_features(SonoCraftAudioRegression PRIVATE cxx_std_17)
+    # Explicit manual browser check, not an unattended CTest permission prompt.
+    add_executable(SonoCraftBrowserAudioProbe tests/BrowserAudioProbe.cpp)
+    target_link_libraries(SonoCraftBrowserAudioProbe PRIVATE SonoBus)
+    target_include_directories(SonoCraftBrowserAudioProbe PRIVATE "$<TARGET_PROPERTY:SonoBus,INCLUDE_DIRECTORIES>")
+    target_compile_features(SonoCraftBrowserAudioProbe PRIVATE cxx_std_17)
     add_test(NAME SonoCraftAudioRegression COMMAND SonoCraftAudioRegression)
     set_tests_properties(SonoCraftAudioRegression PROPERTIES TIMEOUT 90)
 endif()
