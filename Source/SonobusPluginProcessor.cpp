@@ -5324,7 +5324,8 @@ void SonobusAudioProcessor::updateRemotePeerSendChannels(int index, RemotePeer *
         DBG("Peer " << index << "  has new sendChannel count: " << remote->sendChannels);
         if (remote->oursource) {
             setupSourceFormat(remote, remote->oursource.get());
-            setupSourceUserFormat(remote, remote->oursource.get());
+            // Layout travels via updateRemotePeerUserFormat below. Setting the
+            // AOO userformat here resets its encoder and stream a second time.
 
             remote->oursource->setup(getSampleRate(), currSamplesPerBlock, remote->sendChannels);
 
@@ -7211,7 +7212,8 @@ void SonobusAudioProcessor::setupSourceFormatsForAll()
 
         if (s->oursource) {
             setupSourceFormat(s, s->oursource.get());
-            setupSourceUserFormat(s, s->oursource.get());
+            // Preserve the existing stream metadata; the separate layout
+            // announcement carries source roles without another AOO reset.
 
             s->oursource->setup(sampleRate, currSamplesPerBlock, s->sendChannels);  // todo use inchannels maybe?
             float sendbufsize = jmax(10.0, SENDBUFSIZE_SCALAR * 1000.0f * currSamplesPerBlock / getSampleRate());
