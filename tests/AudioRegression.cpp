@@ -123,6 +123,10 @@ int main()
     auto nextCallbackAt = startedAt;
     for (int block = 0; block < 1400; ++block)
     {
+        if (block == 950) {
+            const auto stall = juce::SystemStats::getEnvironmentVariable("SONOCRAFT_TEST_SCHEDULER_STALL_MS", "0").getIntValue();
+            if (stall > 0) juce::Thread::sleep(juce::jmin(stall, 5000));
+        }
         const auto samples = block < 300 || block >= 700 ? 256 : blockSizes[(block / 70) % 6];
         juce::AudioBuffer<float> input(2, samples), output(2, samples);
         output.clear();
@@ -201,6 +205,16 @@ int main()
         // Model an audio device clock, rather than adding a relative sleep to
         // processing time. macOS CI can coalesce nanosleep by tens of ms, which
         // otherwise simulates a device running far below its declared rate.
+        // Hosted runners can suspend this process for seconds. A hardware
+        // callback cannot catch up by sending hundreds of blocks instantly:
+        // that starves the UDP worker and invalidates the recovery windows.
+        // Rebase only after a scheduler stall; preserve real audio assertions.
+        const auto callbackNow = juce::Time::getMillisecondCounterHiRes();
+        if (callbackNow - nextCallbackAt > 100.0) {
+            std::cout << "Audio clock rebased after scheduler stall of "
+                      << callbackNow - nextCallbackAt << " ms" << std::endl;
+            nextCallbackAt = callbackNow;
+        }
         nextCallbackAt += samples * 1000.0 / 48000.0;
         while (juce::Time::getMillisecondCounterHiRes() < nextCallbackAt)
             juce::Thread::yield();
@@ -343,6 +357,8 @@ int main()
             auto value = destination.getSample(0, sample);
             remotePadEnergy += value * value; remotePadMean += value;
         }
+        const auto padNow = juce::Time::getMillisecondCounterHiRes();
+        if (padNow - padDeadline > 100.0) padDeadline = padNow;
         padDeadline += 128 * 1000.0 / 48000.0;
         while (juce::Time::getMillisecondCounterHiRes() < padDeadline) juce::Thread::yield();
     }

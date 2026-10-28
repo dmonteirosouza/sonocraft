@@ -39,7 +39,7 @@ endif()
 
 project(SonoCraft VERSION 0.3.0)
 
-set(BUILDVERSION 86)
+set(BUILDVERSION 87)
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
