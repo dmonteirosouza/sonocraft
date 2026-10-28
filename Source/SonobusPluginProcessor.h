@@ -842,12 +842,10 @@ public:
         standaloneInput = input; standaloneOutput = output;
         standaloneInputIsVirtual = SonoCraftAudioRouting::isVirtualCable(input);
         standaloneOutputBlocked = SonoCraftAudioRouting::feedsBack(input, output);
+        mNeedsUserLayout = true;
     }
     String getStandaloneInputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneInput; }
     String getStandaloneOutputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneOutput; }
-    void protectSelectedSourceInput() { blockAggregateInputUntilReconfigured = true; }
-    void allowAggregateInputAfterExplicitSetup() { if (!applicationAudio.isCaptureRequested()) blockAggregateInputUntilReconfigured = false; }
-    bool isAggregateInputProtected() const { return blockAggregateInputUntilReconfigured.load() || applicationAudio.isCaptureRequested(); }
     bool isStandaloneOutputBlocked() const { return standaloneOutputBlocked.load(); }
     String startListeningOutput(const SonoCraftPadMonitor::Device& selected) {
         if (!mMeetingMode.get() && selected.name.equalsIgnoreCase(getStandaloneOutputName()))
@@ -857,7 +855,8 @@ public:
     }
     SonoCraftApplicationAudio& getApplicationAudio() { return applicationAudio; }
     bool isSendingApplicationAudio() const { return mSendApplicationAudio.get() && applicationAudio.isActive(); }
-    int getEffectiveSendChannelMode() const { return mSendSoundboardAudio.get() || isSendingApplicationAudio() ? 0 : mSendChannels.get(); }
+    bool mustKeepSourcesSeparate() const { return mSendSoundboardAudio.get() || isSendingApplicationAudio() || standaloneInputIsVirtual.load(); }
+    int getEffectiveSendChannelMode() const { return mustKeepSourcesSeparate() ? 0 : mSendChannels.get(); }
 
     SoundboardChannelProcessor* getSoundboardProcessor() { return soundboardChannelProcessor.get(); }
 
@@ -997,12 +996,14 @@ private:
     AudioSampleBuffer inputBuffer;
     mutable CriticalSection standaloneDevicesLock;
     String standaloneInput, standaloneOutput;
-    std::atomic<bool> standaloneOutputBlocked { false }, standaloneInputIsVirtual { false }, blockAggregateInputUntilReconfigured { false };
+    std::atomic<bool> standaloneOutputBlocked { false }, standaloneInputIsVirtual { false };
+    std::atomic<bool> mNeedsUserLayout { false };
     SonoCraftApplicationAudio applicationAudio;
     AudioSampleBuffer applicationBuffer;
     AudioSampleBuffer monitorBuffer;
     AudioSampleBuffer receivedPadsBuffer;
     AudioSampleBuffer receivedPadsWorkBuffer;
+    AudioSampleBuffer receivedListeningWorkBuffer;
     AudioSampleBuffer sendWorkBuffer;
     AudioSampleBuffer inputPostBuffer;
     AudioSampleBuffer inputPreBuffer;

@@ -149,13 +149,12 @@ private:
         applyError = manager->setAudioDeviceSetup(setup, true);
         if (applyError.isNotEmpty()) { updateStatus(); return; }
         processor.setStandaloneAudioDevices(input, output);
-        processor.allowAggregateInputAfterExplicitSetup();
         setParameter(SonobusAudioProcessor::paramMeetingMode, meeting ? 1 : 0);
         setParameter(SonobusAudioProcessor::paramMainRecvMute, 0);
         setParameter(SonobusAudioProcessor::paramDry, 0);
         setParameter(SonobusAudioProcessor::paramSendSoundboardAudio, 1);
         setParameter(SonobusAudioProcessor::paramMainSendMute, 0);
-        if (!meeting && SonoCraftAudioRouting::isVirtualCable(input)) setParameter(SonobusAudioProcessor::paramMainInMute, processor.getApplicationAudio().isCaptureRequested() ? 1 : 0);
+        if (!meeting && SonoCraftAudioRouting::isVirtualCable(input)) setParameter(SonobusAudioProcessor::paramMainInMute, 0);
         updateStatus(); showHint();
     }
     void updateStatus() {

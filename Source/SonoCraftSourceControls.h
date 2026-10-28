@@ -9,16 +9,16 @@ class SonoCraftSourceControls final : public juce::Component, private juce::Time
 public:
     explicit SonoCraftSourceControls(SonobusAudioProcessor& value) : processor(value) {
         for (auto* item : std::initializer_list<juce::Component*> { &intro,&mode,&applications,&refresh,&begin,&end,&network,&meeting,&received,&status,&explanation,&inputNotice }) addAndMakeVisible(item);
-        intro.setText(juce::String::fromUTF8("Escolha o som que deseja compartilhar. No sistema, mantenha o fone/alto-falante como saída dos aplicativos. Use o cabo virtual somente na saída do SonoCraft para a reunião."), juce::dontSendNotification);
+        intro.setText(juce::String::fromUTF8("Escuta e reunião são independentes: a entrada do Mac continua enviando o áudio completo para seus fones no Windows. A seleção abaixo cria uma faixa separada para você escolher o que entra na reunião."), juce::dontSendNotification);
         mode.addItem("Uma aba do navegador (outras abas privadas)",1);
         mode.addItem("Um aplicativo inteiro (todas as janelas dele)",2);
         mode.setSelectedId(1,juce::dontSendNotification);
         mode.onChange = [this] { processor.getApplicationAudio().stop(); actionError.clear(); inputNotice.setText({},juce::dontSendNotification); updateMode(); scan(); };
         refresh.setButtonText("Atualizar aplicativos"); refresh.onClick = [this] { scan(); };
         end.setButtonText("Parar captura"); end.onClick = [this] { actionError.clear(); processor.getApplicationAudio().stop(); };
-        network.setButtonText(juce::String::fromUTF8("Enviar esta fonte ao grupo / conexão"));
-        meeting.setButtonText(juce::String::fromUTF8("Enviar esta fonte à reunião (microfone virtual)"));
-        received.setButtonText(juce::String::fromUTF8("Enviar abas e aplicativos recebidos à reunião"));
+        network.setButtonText(juce::String::fromUTF8("Enviar seleção separada ao outro computador"));
+        meeting.setButtonText(juce::String::fromUTF8("Incluir esta seleção na reunião deste computador"));
+        received.setButtonText(juce::String::fromUTF8("Na reunião, incluir a seleção recebida do Mac/PC"));
         networkAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(),SonobusAudioProcessor::paramSendApplicationAudio,network);
         meetingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(),SonobusAudioProcessor::paramApplicationToMeeting,meeting);
         receivedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(),SonobusAudioProcessor::paramReceivedApplicationsToMeeting,received);
@@ -30,13 +30,10 @@ public:
             if (mode.getSelectedId()==2 && !juce::isPositiveAndBelow(applications.getSelectedId()-1,apps.size())) {
                 showError("Escolha um aplicativo na lista."); return;
             }
-            processor.protectSelectedSourceInput();
             if (network.getToggleState()) processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainSendMute)->setValueNotifyingHost(0);
-            // Old virtual-input setups copy every application into the input.
-            // Silence that aggregate before promising a private tab selection.
             if (SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName())) {
-                processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainInMute)->setValueNotifyingHost(1);
-                inputNotice.setText(juce::String::fromUTF8("A entrada do cabo virtual foi silenciada para não enviar outras abas junto. Os pads e esta captura continuam funcionando. No sistema, reproduza os aplicativos no fone ou alto-falante físico."),juce::dontSendNotification);
+                processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainInMute)->setValueNotifyingHost(0);
+                inputNotice.setText(juce::String::fromUTF8("A entrada virtual continua levando o Mac completo para a escuta no Windows. A aba/aplicativo escolhido vai em faixa separada, para entrar na reunião somente quando você marcar essa opção."),juce::dontSendNotification);
             }
             if (mode.getSelectedId()==1) {
                 const auto url=processor.getApplicationAudio().startBrowserTab();
@@ -88,8 +85,6 @@ private:
     void timerCallback() override {
         if (!isShowing()) return;
         auto& audio=processor.getApplicationAudio();
-        if (processor.isAggregateInputProtected() && SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName()))
-            inputNotice.setText(juce::String::fromUTF8("A entrada geral do cabo virtual está bloqueada para manter as outras abas privadas, inclusive após parar esta captura. Para voltar ao envio geral, reaplique a configuração de entrada em Reunião e fones."),juce::dontSendNotification);
         auto text=audio.status();
         if (actionError.isNotEmpty()) { status.setText(actionError,juce::dontSendNotification); return; }
         if (audio.isActive()) text=audio.sourceName()+" · "+(audio.level()>0.001f ? juce::String::fromUTF8("recebendo áudio") : juce::String::fromUTF8("aguardando som"))+"\n"+text;

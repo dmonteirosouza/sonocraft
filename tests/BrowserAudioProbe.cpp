@@ -2,10 +2,14 @@
 // 440 Hz tab keeps playing. No microphone, real connection, or file recording.
 #include "../Source/SonoCraftApplicationAudio.h"
 #include <iostream>
+#include "MacAudioTestActivity.h"
 #if JUCE_MAC
 #include <mach/mach_time.h>
 #endif
 int main() {
+#if JUCE_MAC
+    SonoCraftScopedAudioTestActivity activity;
+#endif
     juce::ScopedJuceInitialiser_GUI runtime;
     SonoCraftApplicationAudio source;
     const auto url=source.startBrowserTab();

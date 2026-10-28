@@ -42,7 +42,7 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-set(BUILDVERSION 90)
+set(BUILDVERSION 91)
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
@@ -661,6 +661,11 @@ if (SONOCRAFT_BUILD_TESTS)
     target_link_libraries(SonoCraftBrowserAudioProbe PRIVATE SonoBus)
     target_include_directories(SonoCraftBrowserAudioProbe PRIVATE "$<TARGET_PROPERTY:SonoBus,INCLUDE_DIRECTORIES>")
     target_compile_features(SonoCraftBrowserAudioProbe PRIVATE cxx_std_17)
+    if(APPLE)
+        target_sources(SonoCraftAudioRegression PRIVATE tests/MacAudioTestActivity.mm)
+        target_sources(SonoCraftBrowserAudioProbe PRIVATE tests/MacAudioTestActivity.mm)
+        set_source_files_properties(tests/MacAudioTestActivity.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    endif()
     add_test(NAME SonoCraftAudioRegression COMMAND SonoCraftAudioRegression)
     set_tests_properties(SonoCraftAudioRegression PROPERTIES TIMEOUT 90)
 endif()

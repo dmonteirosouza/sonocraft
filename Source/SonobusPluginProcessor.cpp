@@ -2041,6 +2041,7 @@ void SonobusAudioProcessor::setInputGroupGain(int changroup, float gain)
 {
     if (changroup >= 0 && changroup < MAX_CHANGROUPS) {
         mInputChannelGroups[changroup].params.gain = gain;
+        mNeedsUserLayout = true;
     }
 }
 
@@ -2071,6 +2072,7 @@ void SonobusAudioProcessor::setInputGroupMuted(int changroup, bool muted)
 {
     if (changroup >= 0 && changroup < MAX_CHANGROUPS) {
         mInputChannelGroups[changroup].params.muted = muted;
+        mNeedsUserLayout = true;
     }
 }
 
@@ -3307,6 +3309,8 @@ void SonobusAudioProcessor::doSendData()
 
         mPendingUnmute = false;
     }
+
+    if (mNeedsUserLayout.exchange(false)) updateRemotePeerUserFormat();
 
     if (mNeedsSampleSetup.get()) {
         DBG("Doing sample setup for all");
@@ -5306,7 +5310,7 @@ void SonobusAudioProcessor::updateRemotePeerSendChannels(int index, RemotePeer *
     // this is called while the corereadlock is already held
     int newchancnt = remote->sendChannels;
 
-    if (remote->sendChannelsOverride < 0 || mSendSoundboardAudio.get() || isSendingApplicationAudio()) {
+    if (remote->sendChannelsOverride < 0 || mustKeepSourcesSeparate()) {
         int totinchans = 0;
         for (int cgi=0; cgi < mInputChannelGroupCount && cgi < MAX_CHANGROUPS ; ++cgi) {
             totinchans += mInputChannelGroups[cgi].params.numChannels;
@@ -5323,7 +5327,7 @@ void SonobusAudioProcessor::updateRemotePeerSendChannels(int index, RemotePeer *
         }
 
         if (isSendingApplicationAudio()) totinchans += 2;
-        newchancnt = (mSendSoundboardAudio.get() || isSendingApplicationAudio()) ? totinchans : isAnythingRoutedToPeer(index) ? getMainBusNumOutputChannels() : remote->nominalSendChannels <= 0 ? totinchans : remote->nominalSendChannels;
+        newchancnt = mustKeepSourcesSeparate() ? totinchans : isAnythingRoutedToPeer(index) ? getMainBusNumOutputChannels() : remote->nominalSendChannels <= 0 ? totinchans : remote->nominalSendChannels;
     }
     else {
         newchancnt = jmin(getMainBusNumOutputChannels(), remote->sendChannelsOverride);
@@ -6469,7 +6473,7 @@ ValueTree SonobusAudioProcessor::getSendUserFormatLayoutTree()
         int chstart = 0;
         for (int i=0; i < mInputChannelGroupCount; ++i) {
             ChannelGroupParams tmpgrp = mInputChannelGroups[i].params;
-            tmpgrp.sourceRole = "input";
+            tmpgrp.sourceRole = standaloneInputIsVirtual.load() && !mMainInMute.get() && !tmpgrp.muted && tmpgrp.gain > 0.00001f ? "system" : "input";
             tmpgrp.chanStartIndex = chstart;
             fmttree.appendChild(tmpgrp.getChannelLayoutValueTree(), nullptr);
 
@@ -6825,6 +6829,7 @@ void SonobusAudioProcessor::parameterChanged (const String &parameterID, float n
     }
     else if (parameterID == paramMainInMute) {
         mMainInMute = newValue > 0;
+        mNeedsUserLayout = true;
     }
     else if (parameterID == paramMainMonitorSolo) {
         mMainMonitorSolo = newValue > 0;
@@ -7225,8 +7230,8 @@ void SonobusAudioProcessor::setupSourceFormatsForAll()
             s->workBuffer.setSize(jmax(2, s->recvChannels), currSamplesPerBlock, false, false, true);
         }
 
-        s->sendChannels = (mSendSoundboardAudio.get() || isSendingApplicationAudio()) ? inchannels : isAnythingRoutedToPeer(i) ? outchannels : s->nominalSendChannels <= 0 ? inchannels : s->nominalSendChannels;
-        if (s->sendChannelsOverride > 0 && !mSendSoundboardAudio.get() && !isSendingApplicationAudio()) {
+        s->sendChannels = mustKeepSourcesSeparate() ? inchannels : isAnythingRoutedToPeer(i) ? outchannels : s->nominalSendChannels <= 0 ? inchannels : s->nominalSendChannels;
+        if (s->sendChannelsOverride > 0 && !mustKeepSourcesSeparate()) {
             s->sendChannels = jmin(outchannels, s->sendChannelsOverride);
         }
 
@@ -7410,6 +7415,7 @@ void SonobusAudioProcessor::ensureBuffers(int numSamples)
         monitorBuffer.setSize(maxchans, numSamples, false, false, true);
         receivedPadsBuffer.setSize(maxchans, numSamples, false, false, true);
         receivedPadsWorkBuffer.setSize(MAX_PANNERS, numSamples, false, false, true);
+        receivedListeningWorkBuffer.setSize(MAX_PANNERS, numSamples, false, false, true);
     }
     if (sendWorkBuffer.getNumSamples() < numSamples || sendWorkBuffer.getNumChannels() != maxworkbufchans) {
         sendWorkBuffer.setSize(maxworkbufchans, numSamples, false, false, true);
@@ -7476,9 +7482,9 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     bool userwritingpossible = userWritingPossible.load();
     bool writingpossible = writingPossible.load();
 
-    // A selected tab/app must not leak other applications through an old
-    // aggregate virtual input, including while the browser picker is pending.
-    inGain = (mMainInMute.get() || (standaloneInputIsVirtual.load() && isAggregateInputProtected())) ? 0.0f : inGain;
+    // The virtual input is the complete private listening feed. Selected
+    // application audio is sent separately; it must never replace this feed.
+    inGain = mMainInMute.get() ? 0.0f : inGain;
 
     drynow = (mAnythingSoloed.get() && !mMainMonitorSolo.get()) ? 0.0f : drynow;
 
@@ -8081,8 +8087,33 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
             tgain *= usegain; // handles main solo
 
 
-            // Filter by original transmitted channel ranges, even after the user
-            // regroups receive channels. Unknown/legacy mixed streams stay private.
+            // A complete system feed already contains the chosen app/tab. Use
+            // that complete feed for headphones and the extra track only for
+            // meeting selection, avoiding duplicate playback in headphones.
+            bool hasCompleteListening = false;
+            for (int group=0;group<remote->origNumChanGroups;++group) {
+                const auto& source=remote->origChanParams[group];
+                if (source.sourceRole!="system") continue;
+                for (int current=0;current<remote->numChanGroups;++current) {
+                    const auto& receive=remote->chanGroups[current].params;
+                    if (!receive.muted && receive.gain>0.00001f && (!anysubsolo || receive.soloed)
+                        && receive.chanStartIndex<source.chanStartIndex+source.numChannels
+                        && source.chanStartIndex<receive.chanStartIndex+receive.numChannels
+                        && receive.panDestStartIndex<2 && receive.panDestChannels>0) hasCompleteListening=true;
+                }
+            }
+            receivedListeningWorkBuffer.clear(0,numSamples);
+            for (int ch=0;ch<jmin(remote->workBuffer.getNumChannels(),receivedListeningWorkBuffer.getNumChannels());++ch)
+                receivedListeningWorkBuffer.copyFrom(ch,0,remote->workBuffer,ch,0,numSamples);
+            if (hasCompleteListening) for (int group=0;group<remote->origNumChanGroups;++group) {
+                const auto& source=remote->origChanParams[group];
+                if (source.sourceRole!="application") continue;
+                for (int ch=jmax(0,source.chanStartIndex);ch<jmin(receivedListeningWorkBuffer.getNumChannels(),source.chanStartIndex+source.numChannels);++ch)
+                    receivedListeningWorkBuffer.clear(ch,0,numSamples);
+            }
+
+            // Meeting selection excludes complete listening feeds by default.
+            // Unknown/legacy mixed streams also remain outside the meeting.
             receivedPadsWorkBuffer.clear(0, numSamples);
             for (int group = 0; group < remote->origNumChanGroups; ++group) {
                 const auto& source = remote->origChanParams[group];
@@ -8100,11 +8131,11 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
                 // todo change dest ch target
                 int dstch = remote->chanGroups[i].params.panDestStartIndex;
                 int dstcnt = jmin(totalOutputChannels, remote->chanGroups[i].params.panDestChannels);
-                remote->chanGroups[i].processPan(remote->workBuffer, remote->chanGroups[i].params.chanStartIndex, tempBuffer, dstch, dstcnt, numSamples, adjgain);
+                remote->chanGroups[i].processPan(receivedListeningWorkBuffer, remote->chanGroups[i].params.chanStartIndex, tempBuffer, dstch, dstcnt, numSamples, adjgain);
                 remote->chanGroups[i].processPan(receivedPadsWorkBuffer, remote->chanGroups[i].params.chanStartIndex, receivedPadsBuffer, dstch, dstcnt, numSamples, adjgain, &remote->meetingPanState[i]);
 
                 if (doreverb) {
-                    remote->chanGroups[i].processReverbSend(remote->workBuffer, remote->chanGroups[i].params.chanStartIndex, remote->chanGroups[i].params.numChannels, mainFxBuffer, 0, fxchannels, numSamples, mainReverbEnabled, false, adjgain);
+                    remote->chanGroups[i].processReverbSend(receivedListeningWorkBuffer, remote->chanGroups[i].params.chanStartIndex, remote->chanGroups[i].params.numChannels, mainFxBuffer, 0, fxchannels, numSamples, mainReverbEnabled, false, adjgain);
                 }
 
             }
@@ -8400,7 +8431,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
         buffer.clear();
         for (int channel = 0; channel < jmin(2, mainBusOutputChannels); ++channel) {
             buffer.copyFrom(channel, 0, mMeetingIncludeReceived.get() ? tempBuffer : receivedPadsBuffer, channel, 0, numSamples);
-            if (!mMainInMute.get() && channel < inputBuffer.getNumChannels())
+            if (!mMainInMute.get() && !standaloneInputIsVirtual.load() && channel < inputBuffer.getNumChannels())
                 buffer.addFrom(channel, 0, inputBuffer, channel, 0, numSamples);
         }
     }
