@@ -25,6 +25,7 @@ else:
     shutil.copy(artefacts / 'SonoCraft.exe', stage)
 for filename in ['LICENSE', 'LICENSE_EXCEPTION', 'SONOCRAFT.md']:
     shutil.copy(root / filename, stage)
+shutil.copy(root / 'docs' / 'SONOCRAFT-SOURCES.md', stage / 'COMO-USAR-FONTES.md')
 if args.platform == 'mac-universal':
     subprocess.run(['ditto', '-c', '-k', '--keepParent', str(stage), str(dist / (stage.name + '.zip'))], check=True)
 else:

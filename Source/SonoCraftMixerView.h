@@ -62,7 +62,7 @@ public:
         solo.setClickingTogglesState(true);
         mute.setColour(juce::TextButton::buttonOnColourId, role == master ? SonoCraftTheme::selection() : juce::Colour(0xffffe6cf));
         solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffffefb7));
-        mute.setTooltip(role == input ? juce::String::fromUTF8("Silenciar somente meu microfone, mantendo os pads") : role == master ? juce::String::fromUTF8("Ativar ou suspender a recepção de todos os participantes") : juce::String::fromUTF8("Silenciar o áudio recebido deste participante"));
+        mute.setTooltip(role == input ? juce::String::fromUTF8("Silenciar a entrada de áudio, mantendo os pads e fontes selecionadas") : role == master ? juce::String::fromUTF8("Ativar ou suspender a recepção de todos os participantes") : juce::String::fromUTF8("Silenciar o áudio recebido deste participante"));
         solo.setTooltip(role == input ? "Monitorar a entrada local" : "Ouvir somente este participante e outros canais em solo");
         mute.onClick = [this] {
             if (role == peer) processor.setMixerChannelMute(id, mute.getToggleState());
@@ -99,7 +99,7 @@ public:
     {
         const bool meetingMode = readParameter(SonobusAudioProcessor::paramMeetingMode) > 0;
         solo.setEnabled(!meetingMode);
-        name.setText(role == input ? "Sua entrada" : meetingMode ? juce::String::fromUTF8("Saída reunião") : "Master", juce::dontSendNotification);
+        name.setText(role == input ? "Sua entrada" : meetingMode ? juce::String::fromUTF8("Saída apps") : "Master", juce::dontSendNotification);
         subtitle.setText(role == input ? "ENVIO" : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
         auto& source = role == input ? processor.getInputMeterSource() : processor.getOutputMeterSource();
         source.decayIfNeeded();
@@ -206,13 +206,14 @@ public:
         session.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
         connectIP.setButtonText("Conectar por IP"); connectGroup.setButtonText("Entrar em grupo");
         connectIP.setColour(juce::TextButton::buttonColourId, SonoCraftTheme::selection());
-        audio.setButtonText(juce::String::fromUTF8("Áudio e reunião")); settings.setButtonText("Ajustes");
-        meeting.setButtonText(juce::String::fromUTF8("Modo reunião"));
+        audio.setButtonText(juce::String::fromUTF8("Áudio e saídas")); settings.setButtonText("Ajustes");
+        meeting.setButtonText(juce::String::fromUTF8("Saída para apps"));
+        meeting.setTooltip(juce::String::fromUTF8("Ativa a mistura de microfone local, pads e fontes autorizadas para um cabo virtual. Configure o dispositivo em Áudio e saídas."));
         meeting.setClickingTogglesState(true);
         meeting.setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
         meetingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingMode, meeting);
         meeting.onClick = [this] { resized(); };
-        meetingHelp.setText(juce::String::fromUTF8("Reunião: sua voz + pads. Em Áudio e reunião, escolha se os outros sons recebidos também serão enviados. Use CABLE Input como saída principal e CABLE Output como microfone no Teams. Atualize os dois computadores para separar os pads."), juce::dontSendNotification);
+        meetingHelp.setText(juce::String::fromUTF8("Saída para aplicativos: microfone local + pads + fontes autorizadas. Em Fontes, escolha o que incluir; em Áudio e saídas, escolha o cabo virtual e os fones. A escuta continua independente."), juce::dontSendNotification);
         meetingHelp.setColour(juce::Label::textColourId, SonoCraftTheme::accent());
         meetingHelp.setFont(juce::Font(12.5f));
         meetingHelp.setMinimumHorizontalScale(1.0f);
@@ -222,7 +223,7 @@ public:
         stop.onClick = [this] { processor.getTransportSource().stop(); processor.getTransportSource().setPosition(0.0); };
         record.setButtonText("Gravar"); metronome.setButtonText(juce::String::fromUTF8("Metrônomo")); file.setButtonText("Arquivo");
         routing.setButtonText("Roteamento"); effects.setButtonText("Efeitos");
-        sources.setButtonText("Fontes"); sources.setTooltip(juce::String::fromUTF8("Escolher uma aba ou aplicativo para enviar à conexão ou reunião"));
+        sources.setButtonText("Fontes"); sources.setTooltip(juce::String::fromUTF8("Escolher uma aba ou aplicativo e seus destinos de envio"));
         chat.setButtonText("Chat"); soundboard.setButtonText("Soundboard"); disconnect.setButtonText("Desconectar");
         connectIP.onClick = [this] { if (onConnectIP) onConnectIP(); };
         connectGroup.onClick = [this] { if (onConnectGroup) onConnectGroup(); };

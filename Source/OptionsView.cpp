@@ -506,9 +506,9 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
     mMeetingControls->onChooseAudio = [this] { showAudioTab(); };
     mMeetingViewport = std::make_unique<Viewport>();
     mMeetingViewport->setViewedComponent(mMeetingControls.get(), false);
-    mSettingsTab->addTab(juce::String::fromUTF8("Reunião e fones"), SonoCraftTheme::canvas(), mMeetingViewport.get(), false);
+    mSettingsTab->addTab(juce::String::fromUTF8("Escuta e saídas"), SonoCraftTheme::canvas(), mMeetingViewport.get(), false);
     mSourceControls = std::make_unique<SonoCraftSourceControls>(processor);
-    mSourceControls->setSize(480,780);
+    mSourceControls->setSize(480,920);
     mSourceViewport = std::make_unique<Viewport>(); mSourceViewport->setViewedComponent(mSourceControls.get(),false);
     mSettingsTab->addTab(juce::String::fromUTF8("Fontes"),SonoCraftTheme::canvas(),mSourceViewport.get(),false);
 
@@ -960,7 +960,7 @@ void OptionsView::resized()  {
 
     auto innerbounds = mSettingsTab->getLocalBounds();
     if (mMeetingControls) mMeetingControls->setSize(jmax(280, innerbounds.getWidth()-16), 880);
-    if (mSourceControls) mSourceControls->setSize(jmax(280,innerbounds.getWidth()-16),780);
+    if (mSourceControls) mSourceControls->setSize(jmax(280,innerbounds.getWidth()-16),920);
 
     if (mAudioDeviceSelector) {
         mAudioDeviceSelector->setBounds(Rectangle<int>(0,0,innerbounds.getWidth() - 10,mAudioDeviceSelector->getHeight()));

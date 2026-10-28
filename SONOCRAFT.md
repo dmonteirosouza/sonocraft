@@ -1,35 +1,26 @@
-# SonoCraft 0.2.0 — prévia de desenvolvimento
+# SonoCraft 0.4 — prévia experimental
 
-Derivado de SonoBus 1.7.2, commit 35f1062dab196b9838a4bb529c4bf6592b7f5987.
-Mantém os avisos de autoria e a licença GPLv3 com a exceção de distribuição em lojas.
+Derivado do SonoBus 1.7.2, com avisos de autoria, GPLv3 e exceção de distribuição em lojas preservados.
 
-Foco inicial: Mac enviando áudio para Windows na mesma rede, via IP.
+## Começar
 
-## Novidades da versão 0.2
+O áudio completo pode chegar à escuta enquanto apenas microfone, pads e fontes autorizadas seguem para outros aplicativos. A interface usa os mesmos caminhos em todos os sistemas: **Entrada**, **Escuta**, **Envio aos conectados** e **Saída para aplicativos**.
 
-- Botão **Remover** visível no cabeçalho de cada participante, inclusive na visualização mínima.
-- A remoção usa a identidade da conexão exibida, em vez da posição da linha. Uma ação antiga não passa a remover outro cliente quando a lista muda.
-- Menu de participante corrigido para não aplicar duas vezes a ordenação da lista.
-- Atualização imediata da lista após remover; rejeição de índices inválidos e resultado de remoção correto.
-- Interface clara, com superfícies neutras, texto escuro, destaque discreto em azul-petróleo e endereço IP:porta visível por participante.
-- Novo ícone vetorial próprio, usado no aplicativo, no cabeçalho e nos pacotes Mac/Windows.
+Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote. No repositório, ele está em [docs/SONOCRAFT-SOURCES.md](docs/SONOCRAFT-SOURCES.md).
 
-Nesta versão, a remoção é **manual e local**. Não expulsa alguém do grupo inteiro nem bloqueia seu IP. A substituição automática de clientes reconectados ainda não faz parte desta versão.
+- Configure entrada, saída principal e escuta em **Áudio e saídas → Escuta e saídas**.
+- Em **Fontes**, escolha uma aba ou aplicativo e marque seus destinos.
+- Para ouvir tudo e compartilhar apenas a seleção, deixe **Enviar também todo o áudio recebido** desligado.
+- Use a mesma versão em todos os dispositivos conectados.
 
-## Mudanças
+## Novidades desta prévia
 
-- Nome, identificadores de plugins e pasta de configurações próprios.
-- Proteção contra informação de tempo ausente no processamento de áudio.
-- Buffer interno do receptor AOO cresce para o bloco efetivamente recebido, evitando sobreposição de canais e acesso fora da memória reservada.
-- Buffer remoto dimensionado para o bloco efetivamente recebido, inclusive quando o tamanho muda antes de estabilizar.
-- Convite de conexão não confirma antecipadamente que o participante respondeu.
-- Desconexão manual cancela a recuperação automática pendente.
-- Falha imediata de reconexão libera o estado pendente para permitir nova tentativa.
-- Conexão adiada usa referência segura à interface e uma cópia dos dados da tentativa.
-- Atualizador do SonoBus desativado nesta derivação.
-- Ajuste de captura de janela do JUCE para compilação com SDK macOS 15 ou superior; captura somente a área interna da janela nesse caminho.
-
-Os nomes internos das classes e alvos de compilação continuam os originais. O ícone e parte dos textos herdados ainda são do SonoBus. Não há novo serviço público SonoCraft nem relay de áudio.
+- Controles genéricos de escuta e saída para aplicativos, sem associar funções a um sistema ou finalidade.
+- Fontes organizadas por seleção local, destinos e seleções recebidas.
+- Seleção independente de uma aba do Chrome/Edge ou aplicativo inteiro, além da entrada completa e dos pads.
+- Indicação corrigida de entrada/saída desativada na tela de dispositivos.
+- Eventos de conexões temporárias ou antigas não desligam a recepção ativa.
+- Guia atualizado incluído nos pacotes.
 
 ## Compilar
 
@@ -44,19 +35,10 @@ ctest --test-dir build -C Release --output-on-failure
 O nome interno do alvo é `SonoBus_Standalone`; o produto se chama SonoCraft.
 No Windows, use o gerador Visual Studio instalado. A compilação e o teste de áudio UDP local foram executados com sucesso no Windows x64 e no macOS. A validação entre dois computadores e com dispositivos físicos ainda é necessária.
 
-## Primeiro ensaio Mac → Windows
+## Limites
 
-1. Abra apenas uma instância por computador durante o primeiro teste.
-2. No Windows, copie o endereço completo **IP:porta** exibido na conexão direta. Não presuma que a porta permaneceu em 11000.
-3. No Mac, selecione a entrada de áudio correta, confirme atividade no medidor de entrada e informe o endereço completo do Windows.
-4. No Windows, confirme a saída correta e o recebimento habilitado.
-5. Verifique se o aplicativo está autorizado na rede privada pelo Firewall do Windows. Não é necessário desligar o firewall.
-6. Compare cabo e Wi-Fi, mantendo as demais opções iguais. Registre codec, buffer, taxa de amostragem e contadores de perda durante as interrupções.
+Uma seleção de aba/aplicativo por dispositivo de cada vez. Captura nativa de aplicativos requer sistema compatível e permissão. A captura não começa automaticamente.
 
-A configuração do SonoCraft é independente. É necessário selecionar os dispositivos de áudio novamente. Compatibilidade com SonoBus é esperada pelo protocolo preservado, mas precisa ser confirmada entre os dois aparelhos.
+Os testes com UDP local e fontes sintéticas não substituem o teste com dispositivos físicos e aplicativos de destino. Captura nativa e uso prolongado ainda precisam de validação real. Grupo/senha depende do serviço de conexão existente; não há novo servidor público ou relay SonoCraft.
 
-## Limites desta prévia
-
-Uma compilação e um teste local não demonstram que as falhas Mac/Windows foram eliminadas. Grupo/senha depende do servidor de conexão e da troca de eventos; ainda requer reprodução com o servidor e a rede usados no problema. Não houve alteração do algoritmo de senha nem comprovação de defeito nele.
-
-O motor ainda contém alocações e bloqueios no processamento de áudio, e o ajuste automático de buffer precisa ser medido sob perdas e variação de rede. Não foram prometidos áudio sem interrupções, baixa latência específica ou correção de bloqueios externos ao aplicativo.
+Mac universal com assinatura ad hoc, sem notarização. Windows x64 portátil com WASAPI, sem ASIO e sem assinatura comercial. O cabo virtual é instalado separadamente.

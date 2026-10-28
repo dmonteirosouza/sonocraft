@@ -636,6 +636,14 @@ private:
             auto* currentDevice = setup.manager->getCurrentAudioDevice();
             auto index = type.getIndexOfDevice (currentDevice, isInput);
 
+            // A duplex device can report the input's name for a disabled output.
+            // Respect the configured direction instead of showing a device that
+            // is not actually opened (notably CoreAudio input-only devices).
+            const auto config = setup.manager->getAudioDeviceSetup();
+            if (type.hasSeparateInputsAndOutputs()
+                && (isInput ? config.inputDeviceName : config.outputDeviceName).isEmpty())
+                index = -1;
+
             box->setSelectedId (index < 0 ? index : index + 1, dontSendNotification);
 
             if (testButton != nullptr && ! isInput)

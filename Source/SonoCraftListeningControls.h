@@ -15,31 +15,31 @@ public:
                 &instructions, &role, &roleLabel, &inputDevices, &inputLabel, &mainDevices, &mainLabel,
                 &apply, &routingStatus, &configure, &receive, &micMute, &includeReceived, &headphonesLabel })
             addAndMakeVisible(item);
-        instructions.setText(juce::String::fromUTF8("Escolha a função deste computador e clique em Aplicar. O áudio para a reunião e o áudio dos seus fones têm destinos separados. Ouvir nos fones não deve interromper o envio à reunião."), juce::dontSendNotification);
-        roleLabel.setText(juce::String::fromUTF8("1. O que este computador faz?"), juce::dontSendNotification);
-        role.addItem(juce::String::fromUTF8("Participo da reunião aqui (voz + pads)"), 1);
-        role.addItem("Envio sons para outro computador", 2);
+        instructions.setText(juce::String::fromUTF8("Escolha a entrada e o destino principal. A escuta permite ouvir os sons recebidos e os pads; a saída para aplicativos entrega uma mistura separada, que pode ser usada como microfone."), juce::dontSendNotification);
+        roleLabel.setText(juce::String::fromUTF8("1. Como usar a saída principal?"), juce::dontSendNotification);
+        role.addItem(juce::String::fromUTF8("Saída para aplicativos (microfone virtual)"), 1);
+        role.addItem(juce::String::fromUTF8("Saída para escuta (fone ou alto-falante)"), 2);
         role.setSelectedId(processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMeetingMode)->load() > 0 ? 1 : 2, juce::dontSendNotification);
         role.onChange = [this] { updateRoleLabels(); };
-        apply.setButtonText(juce::String::fromUTF8("Aplicar configuração neste computador"));
+        apply.setButtonText(juce::String::fromUTF8("Aplicar dispositivos e saída"));
         apply.onClick = [this] { applySetup(); };
         configure.setButtonText(juce::String::fromUTF8("Dispositivos e opções avançadas…"));
         configure.onClick = [this] { if (onChooseAudio) onChooseAudio(); };
-        receive.setButtonText(juce::String::fromUTF8("Receber sons dos outros computadores"));
+        receive.setButtonText(juce::String::fromUTF8("Receber áudio dos conectados"));
         receive.onClick = [this] { setParameter(SonobusAudioProcessor::paramMainRecvMute, receive.getToggleState() ? 0 : 1); };
         micMute.setButtonText("Silenciar minha entrada (mantendo os pads)");
         micMuteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMainInMute, micMute);
-        includeReceived.setButtonText(juce::String::fromUTF8("Incluir também músicas, vídeos e voz recebidos na reunião"));
-        includeReceived.setTooltip(juce::String::fromUTF8("Desmarcado: sua voz e os pads identificados. Marcado: inclui todos os sons recebidos dos outros computadores. Os fones continuam ouvindo tudo."));
+        includeReceived.setButtonText(juce::String::fromUTF8("Enviar também todo o áudio recebido"));
+        includeReceived.setTooltip(juce::String::fromUTF8("Afeta somente a saída para aplicativos. Desligado: microfone local, pads e fontes autorizadas em Fontes. Ligado: inclui também todo o áudio recebido. A escuta continua independente."));
         includeReceivedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingIncludeReceived, includeReceived);
-        headphonesLabel.setText(juce::String::fromUTF8("4. Onde eu ouço (sem retorno da minha voz)"), juce::dontSendNotification);
-        enabled.setButtonText("Ouvir sons recebidos e pads nos meus fones");
+        headphonesLabel.setText(juce::String::fromUTF8("4. Escuta independente (sem sua própria voz)"), juce::dontSendNotification);
+        enabled.setButtonText(juce::String::fromUTF8("Ouvir áudio recebido e pads"));
         devices.setTextWhenNothingSelected("Escolha o headset ou alto-falante");
-        devices.setTitle(juce::String::fromUTF8("Fones físicos, sem minha voz"));
+        devices.setTitle(juce::String::fromUTF8("Dispositivo de escuta"));
         refresh.setButtonText("Atualizar"); refresh.onClick = [this] { scan(); scanMainDevices(); };
         volume.setRange(0, 1, 0.01); volume.setSliderStyle(juce::Slider::LinearHorizontal);
         volume.setTextBoxStyle(juce::Slider::TextBoxRight, false, 54, 24);
-        volume.setTitle("Volume somente nos meus fones");
+        volume.setTitle("Volume da escuta");
         volume.setValue(processor.getPadMonitor().getVolume(), juce::dontSendNotification);
         volume.onValueChange = [this] { processor.getPadMonitor().setVolume(float(volume.getValue())); };
         for (auto* label : { &instructions, &roleLabel, &inputLabel, &mainLabel, &headphonesLabel, &routingStatus, &hint }) {
@@ -50,7 +50,7 @@ public:
         enabled.onClick = [this] {
             if (!enabled.getToggleState()) { processor.getPadMonitor().stop(); showHint(); return; }
             const int index = devices.getSelectedId()-1;
-            if (!juce::isPositiveAndBelow(index, outputs.size())) { enabled.setToggleState(false, juce::dontSendNotification); hint.setText("Escolha primeiro seus fones na lista.", juce::dontSendNotification); return; }
+            if (!juce::isPositiveAndBelow(index, outputs.size())) { enabled.setToggleState(false, juce::dontSendNotification); hint.setText("Escolha primeiro o dispositivo de escuta.", juce::dontSendNotification); return; }
             const auto error = processor.startListeningOutput(outputs[index]);
             if (error.isNotEmpty()) { enabled.setToggleState(false, juce::dontSendNotification); hint.setText(error, juce::dontSendNotification); return; }
             auto& state = processor.getValueTreeState().state;
@@ -105,8 +105,8 @@ private:
     }
     void updateRoleLabels() {
         const bool meeting = role.getSelectedId() == 1;
-        inputLabel.setText(juce::String::fromUTF8(meeting ? "2. Minha voz: microfone do headset (não CABLE Output)" : "2. Som que envio: VB-Cable ou um microfone"), juce::dontSendNotification);
-        mainLabel.setText(juce::String::fromUTF8(meeting ? "3. Para a reunião: CABLE Input (não o headset)" : "3. Onde ouço aqui: fone ou alto-falante físico"), juce::dontSendNotification);
+        inputLabel.setText(juce::String::fromUTF8(meeting ? "2. Entrada de voz (microfone físico ou sem entrada)" : "2. Entrada de áudio (microfone ou cabo virtual)"), juce::dontSendNotification);
+        mainLabel.setText(juce::String::fromUTF8(meeting ? "3. Cabo virtual de saída para aplicativos" : "3. Saída local (ou Sem saída para só transmitir)"), juce::dontSendNotification);
         applyError.clear(); updateStatus();
     }
     void scanMainDevices() {
@@ -117,8 +117,8 @@ private:
         const auto setup = manager->getAudioDeviceSetup();
         inputs = type->getDeviceNames(true); mainOutputs = type->getDeviceNames(false);
         inputDevices.clear(juce::dontSendNotification); mainDevices.clear(juce::dontSendNotification);
-        mainDevices.addItem(juce::String::fromUTF8("Sem saída (apenas enviar)"), 1);
-        inputDevices.addItem("Sem entrada (somente pads)", 1);
+        mainDevices.addItem(juce::String::fromUTF8("Sem saída principal (só transmitir)"), 1);
+        inputDevices.addItem("Sem entrada (pads e fontes selecionadas)", 1);
         for (int i = 0; i < inputs.size(); ++i) inputDevices.addItem(inputs[i], i+2);
         inputDevices.setSelectedId(inputs.indexOf(setup.inputDeviceName)+2, juce::dontSendNotification);
         if (setup.inputDeviceName.isEmpty()) inputDevices.setSelectedId(1, juce::dontSendNotification);
@@ -135,10 +135,10 @@ private:
         const auto output = juce::isPositiveAndBelow(outputIndex, mainOutputs.size()) ? mainOutputs[outputIndex] : juce::String();
         const bool meeting = role.getSelectedId() == 1;
         if (input.isEmpty() && output.isEmpty()) applyError = juce::String::fromUTF8("Escolha uma entrada ou saída para manter o áudio dos pads em funcionamento.");
-        else if (SonoCraftAudioRouting::feedsBack(input, output)) applyError = juce::String::fromUTF8("Entrada e saída estão no mesmo cabo virtual: isso devolve o som para a entrada e causa repetição. Use a entrada do microfone no computador da reunião; no computador que envia, escolha uma saída física.");
-        else if (meeting && SonoCraftAudioRouting::isVirtualCable(input)) applyError = juce::String::fromUTF8("CABLE Output é o microfone do Teams. Aqui no SonoCraft, escolha o microfone físico do headset ou Sem entrada.");
-        else if (meeting && !SonoCraftAudioRouting::isVirtualCable(output)) applyError = juce::String::fromUTF8("Para a reunião, escolha CABLE Input como saída principal. O headset fica no campo Onde eu ouço abaixo. Se o cabo não aparece, instale o VB-CABLE e atualize a lista.");
-        else if (!meeting && SonoCraftAudioRouting::isVirtualCable(output)) applyError = juce::String::fromUTF8("Neste computador que envia sons, escolha um fone ou alto-falante como saída. O cabo virtual pode ficar somente na entrada para capturar músicas e vídeos.");
+        else if (SonoCraftAudioRouting::feedsBack(input, output)) applyError = juce::String::fromUTF8("Entrada e saída usam o mesmo cabo virtual e podem causar repetição. Se o cabo captura o áudio do sistema, escolha Sem saída principal ou uma saída física.");
+        else if (meeting && SonoCraftAudioRouting::isVirtualCable(input)) applyError = juce::String::fromUTF8("Para usar a saída como microfone, escolha uma entrada física ou Sem entrada. A ponta de gravação do cabo virtual deve ser selecionada no aplicativo que receberá o som.");
+        else if (meeting && !SonoCraftAudioRouting::isVirtualCable(output)) applyError = juce::String::fromUTF8("Escolha a ponta de reprodução do cabo virtual, por exemplo CABLE Input. No aplicativo de destino, selecione a ponta de gravação, por exemplo CABLE Output. Os fones ficam em Escuta independente.");
+        else if (!meeting && SonoCraftAudioRouting::isVirtualCable(output)) applyError = juce::String::fromUTF8("Para escuta, escolha um fone, alto-falante ou Sem saída principal. Para entregar som a um cabo virtual de saída, escolha Saída para aplicativos.");
         else applyError.clear();
         if (applyError.isNotEmpty()) { updateStatus(); return; }
         if (!meeting || output.equalsIgnoreCase(processor.getPadMonitor().getDeviceName())) processor.getPadMonitor().stop();
@@ -163,15 +163,15 @@ private:
         const auto text = applyError.isNotEmpty() ? applyError : blocked
             ? juce::String::fromUTF8("Saída principal pausada para evitar repetição: entrada e saída usam o mesmo cabo virtual. Corrija os destinos acima e clique em Aplicar. O envio pela rede continua ativo.")
             : processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMeetingMode)->load() > 0
-                ? juce::String::fromUTF8("Reunião: sua voz + pads locais e recebidos. No Teams, microfone = CABLE Output; alto-falante = headset. Ative a escuta abaixo para ouvir os pads também.")
-                : juce::String::fromUTF8("Envio: entrada e pads vão aos conectados. Os sons recebidos tocam na saída física escolhida. Sua própria entrada não retorna para você.");
+                ? juce::String::fromUTF8("Saída para aplicativos: microfone local + pads + fontes autorizadas em Fontes. No aplicativo de destino, escolha a ponta de gravação do cabo como microfone. A escuta abaixo recebe todos os sons.")
+                : juce::String::fromUTF8("Entrada e pads são enviados aos conectados conforme os controles da mesa. A saída local reproduz o áudio recebido. Escolher uma fonte adicional não substitui a entrada completa.");
         routingStatus.setText(text, juce::dontSendNotification);
         routingStatus.setColour(juce::Label::textColourId, applyError.isNotEmpty() || blocked ? juce::Colour(0xffa02a23) : SonoCraftTheme::secondary());
     }
     void showHint() {
         hint.setText(juce::String::fromUTF8(processor.getPadMonitor().isActive()
-            ? "Escuta ligada: recebidos + pads. O envio para a reunião continua independente, sem retorno da sua voz."
-            : "Esta opção só liga seus fones. Ela não liga nem desliga o envio à reunião. Use fones físicos, nunca o cabo virtual."), juce::dontSendNotification);
+            ? "Escuta ligada: áudio recebido + pads, sem sua própria voz. O envio aos conectados e a saída para aplicativos continuam independentes."
+            : "A escuta não altera nenhum envio. Escolha fones ou alto-falantes físicos; o cabo virtual é outro destino."), juce::dontSendNotification);
     }
     void scan() {
         const auto previous = devices.getText(); outputs = processor.getPadMonitor().devices(); devices.clear(juce::dontSendNotification);

@@ -1,71 +1,72 @@
-# Ouvir o Mac inteiro e escolher o que entra na reunião
+# Ouvir tudo e escolher o que compartilhar
 
-Há dois caminhos independentes:
+O SonoCraft separa quatro caminhos. Os nomes são os mesmos em qualquer sistema:
 
-| Destino no Windows | Sons |
+| Caminho | Para que serve |
 | --- | --- |
-| Fone ou alto-falante | Áudio completo recebido do Mac e os pads. |
-| Microfone virtual da reunião | Microfone físico do Windows, pads e somente a aba/aplicativo que você incluir. |
+| Entrada | Recebe um microfone ou o som do sistema por um cabo virtual. Essa entrada pode ser enviada aos conectados. |
+| Escuta | Reproduz o áudio recebido e os pads nos seus fones ou alto-falantes, sem sua própria voz. |
+| Envio aos conectados | Leva a entrada, os pads habilitados e uma fonte selecionada aos participantes da conexão ou grupo. |
+| Saída para aplicativos | Entrega uma mistura separada a um cabo virtual. Outro aplicativo pode usá-la como microfone. |
 
-Escolher uma aba não interrompe o áudio completo do Mac. A faixa selecionada é transmitida separadamente para o Windows poder incluí-la na reunião. Quando existe uma faixa identificada de áudio completo, a seleção não é reproduzida novamente nos fones: ela já está dentro do áudio completo.
+Escolher uma fonte não substitui a entrada completa. Por exemplo: você continua ouvindo todos os sons enviados por uma conexão e inclui somente uma aba específica na saída para aplicativos. Quando a seleção já faz parte de uma entrada identificada como áudio completo, ela não toca duas vezes na escuta.
 
-## Dispositivos no Mac que envia
+## 1. Enviar todo o som de um dispositivo
 
-Para manter o caminho por cabo virtual que já funciona:
+- Nas configurações de som do sistema, escolha o cabo virtual como saída. Aplicativos que usam uma saída própria também precisam usar esse cabo para fazer parte da entrada completa.
+- No SonoCraft, escolha o cabo virtual como **entrada**.
+- Em **Áudio e saídas → Escuta e saídas**, escolha **Saída para escuta** e **Sem saída principal (só transmitir)**; clique em **Aplicar dispositivos e saída**. Uma saída física também é possível quando desejar reprodução local.
+- Mantenha a entrada ativa e conecte por IP ou grupo.
+- Para enviar os pads, ative **Enviar pads a todos os conectados** na mesa de sons.
 
-1. No macOS, direcione o som dos aplicativos para **VB-Cable**. Aplicativos com saída própria também devem usar esse destino para fazer parte dessa escuta completa.
-2. No SonoCraft, use **VB-Cable** como entrada e **Sem saída/Nenhum** como saída principal. Isso impede o retorno do som recebido para o cabo.
-3. Em **Reunião e fones**, a função desse Mac é **Envio sons para outro computador**.
-4. Deixe a entrada ativa para continuar ouvindo o Mac inteiro no Windows. Silenciar essa entrada silencia a escuta completa; não é necessário silenciá-la para compartilhar uma seleção.
-5. No Soundboard, ative **Enviar pads a todos os conectados**.
+Não use o mesmo cabo na entrada e na saída principal do SonoCraft: isso pode fazer o áudio voltar à entrada. A proteção do aplicativo pausa essa saída quando identifica o mesmo cabo; a transmissão continua.
 
-## Dispositivos no Windows da reunião
+## 2. Ouvir tudo e usar uma mistura como microfone
 
-Em **Áudio e reunião → Reunião e fones**, escolha **Participo da reunião aqui**:
+No dispositivo que terá a saída para aplicativos:
 
-- Entrada do SonoCraft: **microfone físico do headset**.
-- Saída principal: **CABLE Input**.
-- Escuta independente: **headset físico**, com **Ouvir sons recebidos e pads nos meus fones** ligado.
-- No Teams: microfone **CABLE Output**; alto-falante **headset**.
+1. Em **Escuta e saídas**, escolha **Saída para aplicativos (microfone virtual)**.
+2. Entrada: seu **microfone físico**, ou **Sem entrada** se não quiser incluir sua voz.
+3. Saída principal: ponta de reprodução do cabo virtual, por exemplo **CABLE Input**.
+4. Clique em **Aplicar dispositivos e saída** e mantenha **Receber áudio dos conectados** ligado.
+5. Em **Escuta independente**, escolha seus fones ou alto-falantes e ative **Ouvir áudio recebido e pads**.
+6. No aplicativo que receberá o som, escolha a ponta de gravação do cabo como microfone, por exemplo **CABLE Output**. Para ouvir esse aplicativo, use os fones físicos.
 
-O CABLE Output é a entrada do Teams, não a entrada do SonoCraft. No Windows, deixe desligado **Escutar este dispositivo** do cabo virtual, para não ouvir sua própria voz.
+Os nomes Input e Output pertencem ao driver: CABLE Input recebe a saída do SonoCraft; CABLE Output entrega esse som à entrada de outro aplicativo. Não escolha CABLE Output como entrada do SonoCraft nesse cenário.
 
-## Uma aba só para escuta e outra também na reunião
+Deixe desligado o recurso do sistema de escutar o próprio cabo virtual, para não ouvir sua voz. A escuta independente já permite ouvir os sons compartilhados.
 
-No Mac:
+## 3. Escolher uma aba ou aplicativo adicional
 
-1. Abra **Fontes → Uma aba do navegador**.
-2. Marque **Enviar seleção separada ao outro computador**.
-3. Clique em **Escolher uma aba no navegador**. A página auxiliar deve ser usada no Chrome ou Edge.
-4. Com essa página em primeiro plano, clique em **Escolher uma aba**, selecione a aba desejada e compartilhe com áudio.
-5. Mantenha a página auxiliar aberta. Só essa aba entra na faixa selecionada. As demais continuam chegando pelo áudio completo, para sua escuta.
+A escolha é feita onde a fonte está tocando. Quem recebe decide se inclui essa seleção na saída para aplicativos; não há seleção remota das abas do outro dispositivo.
 
-No Windows, marque **Na reunião, incluir a seleção recebida do Mac/PC** para que a aba escolhida entre no microfone virtual. Desmarque para deixá-la apenas na escuta completa. **Parar captura** interrompe a seleção, mantendo o áudio completo do Mac e os pads.
+Em **Fontes**:
 
-O navegador pede autorização sobre o conteúdo da aba, mas o SonoCraft encaminha somente amostras de áudio. Nenhum vídeo é encaminhado ou gravado pelo recurso. A seleção da aba precisa ser confirmada pelo usuário no navegador.
+1. Escolha **Uma aba do navegador** ou **Um aplicativo inteiro**. O aplicativo inteiro inclui todas as janelas e abas dele.
+2. Marque **Enviar esta fonte aos conectados** para encaminhar a seleção separadamente. Para usá-la diretamente no cabo de saída local, marque **Usar esta fonte na saída para aplicativos**.
+3. Clique no botão de captura. Para uma aba, use a página auxiliar no Chrome/Edge, escolha a aba com áudio e mantenha a página aberta. Para um aplicativo, escolha-o na lista e inicie a captura.
+4. No destino, marque **Usar fontes recebidas na saída para aplicativos**.
 
-## Aplicativos e fontes do próprio Windows
+A fonte selecionada segue em faixa separada, além da entrada completa e dos pads. **Parar captura** interrompe apenas essa seleção. Cada dispositivo pode capturar uma seleção de cada vez. Nenhuma captura começa automaticamente ao abrir o aplicativo.
 
-Escolha **Um aplicativo inteiro**, selecione um aplicativo aberto e clique em **Capturar aplicativo selecionado**. Inclui o áudio de todas as janelas desse aplicativo. Para separar abas de um navegador, use o modo de aba.
+Se a fonte for local, mantenha sua reprodução original nos fones do sistema: o SonoCraft não reproduz uma segunda cópia local. Se ela vier de uma conexão, a escuta independente permite ouvi-la.
 
-No próprio Windows, marque **Incluir esta seleção na reunião deste computador**. Continue reproduzindo o aplicativo no headset normal do Windows: você o ouve por sua reprodução original, enquanto uma cópia segue para o cabo virtual. Essa captura não é reproduzida novamente pela escuta independente, evitando duplicação.
+O navegador solicita autorização sobre o conteúdo da aba; o recurso encaminha somente áudio, sem enviar vídeo ou gravá-lo em arquivo. Evite capturar o aplicativo que está recebendo essa mesma saída para não criar retorno.
 
-Cada computador pode manter uma seleção de aba/aplicativo de cada vez, além de sua entrada e dos pads. Nenhuma seleção é capturada automaticamente ao abrir o SonoCraft.
+## 4. O que entra na saída para aplicativos
 
-Captura de aplicativo: macOS 13+ com permissão de áudio/tela; Windows com loopback por processo (build 20348+, normalmente Windows 11). A captura de abas pelo Chrome/Edge é uma alternativa separada. Não capture o aplicativo ou a aba da própria reunião para reenviá-la à mesma reunião.
+Por padrão: **microfone físico local + pads locais e recebidos + fontes que você autorizar em Fontes**.
 
-## O que é enviado à reunião
+Deixe **Enviar também todo o áudio recebido** desligado para manter o restante dos sons apenas na escuta. Ao ligá-lo, a saída para aplicativos recebe também o áudio completo das conexões.
 
-Por padrão, o áudio geral do cabo virtual recebido do Mac fica fora da reunião. Só entram os pads, o microfone físico local e as seleções que você marcar. A opção avançada de incluir todos os demais sons recebidos envia também o áudio completo; deixe-a desligada quando quiser escolher somente uma aba/aplicativo.
+A entrada virtual local continua disponível para envio aos conectados, mas não é somada automaticamente à saída para aplicativos como se fosse sua voz. Silenciar a entrada não silencia os pads nem a seleção adicional.
 
-O microfone físico não é confundido com a entrada de um cabo virtual. A entrada virtual local serve à escuta completa, não é somada automaticamente ao microfone da reunião. O envio dos pads preserva canais separados mesmo quando havia uma preferência mono/estéreo antiga.
+## Compatibilidade e validação
 
-A saída principal é pausada quando entrada e saída pertencem ao mesmo cabo virtual, para evitar retorno. O painel explica a correção; a transmissão pela rede continua. A escuta independente rejeita cabos virtuais e o uso duplicado do mesmo destino principal.
+Atualize os dois lados para a mesma versão. Captura de aplicativo: macOS 13+ com permissão de áudio/tela; Windows com loopback por processo (build 20348+, normalmente Windows 11). Captura de abas pelo Chrome/Edge é uma alternativa separada. Instale o driver de cabo virtual à parte.
 
-## Validação
+Os testes automatizados verificam os caminhos separados, pads com escuta ligada/desligada, proteção contra retorno e preservação do áudio completo ao iniciar/parar uma seleção. Um teste manual com duas abas sintéticas confirmou o isolamento de uma aba no Chrome do Mac. Isso não substitui a validação dos dispositivos físicos, do cabo virtual, da captura nativa de aplicativos e do aplicativo de destino.
 
-A regressão verifica pads com escuta ligada/desligada, prevenção de retorno ao cabo, áudio completo nos fones enquanto a seleção entra separadamente na reunião, ausência de duplicação da seleção nos fones, interrupção da seleção sem interromper a escuta completa e preservação do microfone físico. Um teste manual com duas abas sintéticas verificou o isolamento da aba escolhida no Chrome do Mac. Não substitui teste com headset, VB-CABLE, Teams e captura nativa de aplicativos no equipamento real.
-
-A página auxiliar usa somente 127.0.0.1, chave aleatória por sessão e verificação de origem. Não há serviço externo de captura, envio de vídeo ou gravação em arquivo pelo recurso.
+A página auxiliar usa apenas 127.0.0.1, chave aleatória por sessão e verificação de origem. Não usa serviço externo de captura.
 
 Referências: [Apple ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit), [Microsoft loopback por aplicativo](https://learn.microsoft.com/en-us/samples/microsoft/windows-classic-samples/applicationloopbackaudio-sample/), [Chrome: seleção de abas](https://developer.chrome.com/docs/web-platform/screen-sharing-controls).

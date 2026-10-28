@@ -21,9 +21,9 @@ inline bool feedsBack(const juce::String& input, const juce::String& output) {
 }
 inline juce::String listeningError(const juce::String& headphones, const juce::String& mainOutput) {
     if (isVirtualCable(headphones))
-        return juce::String::fromUTF8("Para ouvir, escolha o headset ou alto-falante físico. O cabo virtual é usado para enviar à reunião.");
+        return juce::String::fromUTF8("Para escutar, escolha fones ou alto-falantes físicos. O cabo virtual entrega som a outros aplicativos.");
     if (headphones.isNotEmpty() && headphones.equalsIgnoreCase(mainOutput))
-        return juce::String::fromUTF8("Os fones e a saída principal são o mesmo dispositivo. Para ouvir e enviar à reunião, escolha CABLE Input como saída principal e o headset aqui.");
+        return juce::String::fromUTF8("A escuta e a saída principal usam o mesmo dispositivo. Para escutar e enviar a aplicativos, use um cabo virtual como saída principal e fones físicos aqui.");
     return {};
 }
 }
