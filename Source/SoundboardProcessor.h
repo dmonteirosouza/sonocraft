@@ -213,7 +213,7 @@ protected:
     /**
      * List of all available/known soundboards.
      */
-    std::vector<Soundboard> soundboards;
+    std::deque<Soundboard> soundboards;
 
     /**
      * Index of the currently selected soundboard.
@@ -265,7 +265,7 @@ protected:
      * @param vectorToSort The vector that must be sorted.
      * @return A vector containing the original indices of the elements in the sorted vector.
      */
-    static std::vector<size_t> sortIndexPreview(const std::vector<Soundboard>& vectorToSort)
+    static std::vector<size_t> sortIndexPreview(const std::deque<Soundboard>& vectorToSort)
     {
         // Original index locations.
         std::vector<size_t> originalIndices(vectorToSort.size());

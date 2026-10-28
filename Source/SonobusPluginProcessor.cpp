@@ -3589,8 +3589,8 @@ int32_t SonobusAudioProcessor::handleSourceEvents(const aoo_event ** events, int
                             DBG("Invite to echo source adding sink " << e->id);
                         }
                         else if (auto * latpeer = findRemotePeerByLatencyId(es, sourceId)) {
-                            echopeer->latencysource->add_sink(es, e->id, endpoint_send);                                                        
-                            echopeer->latencysource->start();
+                            latpeer->latencysource->add_sink(es, e->id, endpoint_send);                                                        
+                            latpeer->latencysource->start();
                             DBG("Invite to our latency source adding sink " << e->id);
                         }
                         else {
@@ -3614,17 +3614,23 @@ int32_t SonobusAudioProcessor::handleSourceEvents(const aoo_event ** events, int
             // accepts uninvites
             if (true){
                 EndpointState * es = (EndpointState *)e->endpoint;
-                int32_t dummyid;
-
-                
-                RemotePeer * peer = findRemotePeerByRemoteSinkId(es, e->id);
+                int32_t dummyid = AOO_ID_NONE;
+                if (mAooDummySource->get_id(dummyid) && sourceId == dummyid) {
+                    // The bootstrap source and the live source can share the
+                    // remote sink ID. A late bootstrap uninvite must never
+                    // remove sinks from the established audio source.
+                    mAooDummySource->remove_sink(es, e->id);
+                    break;
+                }
+                RemotePeer * peer = findRemotePeer(es, sourceId);
+                if (peer && peer->remoteSinkId != e->id) peer = nullptr;
                 
                 if (peer) {
                     int ourid = AOO_ID_NONE;
                     {
                         const ScopedReadLock sl (mCoreLock);        
                         ourid = peer->ourId;
-                        peer->oursource->remove_all();
+                        peer->oursource->remove_sink(es, e->id);
                         //peer->oursink->uninvite_all(); // ??
                         //peer->connected = false;
                         peer->sendActive = false;
@@ -3646,8 +3652,8 @@ int32_t SonobusAudioProcessor::handleSourceEvents(const aoo_event ** events, int
                     DBG("UnInvite to echo source adding sink " << e->id);
                 }
                 else if (auto * latpeer = findRemotePeerByLatencyId(es, sourceId)) {
-                    echopeer->latencysource->remove_sink(es, e->id);
-                    echopeer->latencysource->stop();
+                    latpeer->latencysource->remove_sink(es, e->id);
+                    latpeer->latencysource->stop();
                     DBG("UnInvite to latency source adding sink " << e->id);
                 }
 
@@ -7165,13 +7171,9 @@ void SonobusAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
             }
         }
 
-        // reset all incoming by toggling muting
-        if (!mMainRecvMute.get()) {
-            DBG("Toggling main recv mute");
-            mState.getParameter(paramMainRecvMute)->setValueNotifyingHost(1.0f);
-            mPendingUnmuteAtStamp = Time::getMillisecondCounter() + 250;
-            mPendingUnmute = true;
-        }
+        // Device/format setup already resets the AOO buffers. Do not uninvite
+        // live peers or alter the user's receive permissions while reopening
+        // an audio device; delayed teardown packets can otherwise stop audio.
 
         mPrevSampleRate = sampleRate;
     }

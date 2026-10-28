@@ -1,5 +1,7 @@
 SonoCraft 0.3 — duas saídas para reunião e fones.
 
+- Estabilidade ao criar mesas e reutilizar sons no Windows, preservando as referências dos pads.
+- Correção de uma condição em que o encerramento da negociação temporária interrompia o fluxo de áudio já conectado.
 - **Fones:** áudio recebido dos participantes (incluindo o Mac) e pads locais, sem sua própria voz.
 - **Reunião:** seu microfone, áudio recebido e pads locais na saída principal, que pode ser conectada ao Teams por VB-CABLE.
 - Nova área **Áudio e reunião → Reunião e fones**, com instruções, resumo dos dispositivos e seleção independente dos fones.

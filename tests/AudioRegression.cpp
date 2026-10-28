@@ -133,6 +133,17 @@ int main()
         if (block % 100 == 0)
             std::cout << "Processing block " << block << ", samples=" << samples
                       << ", elapsed=" << (juce::Time::getMillisecondCounterHiRes() - startedAt) << " ms" << std::endl;
+        if (block == 950) {
+            // Each fresh test peer owns sink 1. Simulate a delayed teardown of
+            // source 0 (bootstrap), targeting that same remote sink. It must
+            // not stop the negotiated source or subsequent unmute audio.
+            aoo_sink_event bootstrapClose {};
+            bootstrapClose.type = AOO_UNINVITE_EVENT;
+            bootstrapClose.endpoint = sender.findOrAddEndpoint("127.0.0.1", receiver.getUdpLocalPort());
+            bootstrapClose.id = 1;
+            const aoo_event* events[] = { reinterpret_cast<const aoo_event*>(&bootstrapClose) };
+            sender.handleSourceEvents(events, 1, 0);
+        }
         if (block == 1000 || block == 1100) {
             const auto id = receiver.getRemotePeerConnectionId(0);
             receiver.setMixerChannelMute(id, block == 1000);
@@ -341,6 +352,9 @@ int main()
         source->setButtonColour(0x3366cc);
         boards.editSoundSample(*source);
         boards.addSoundboard("B destino", true);
+        if (&boards.getSoundboard(0).getSamples()[0] != source) {
+            std::cerr << "FAIL: adding a board invalidated existing sound pointers\n"; return 1;
+        }
         if (!boards.addExistingSample(*source, 1) || boards.addExistingSample(*source, 1)
             || boards.addExistingSample(*source, -1) || boards.addExistingSample(*source, 99)) {
             std::cerr << "FAIL: reuse destination/duplicate validation\n"; return 1;
