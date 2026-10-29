@@ -2,6 +2,9 @@
 #import <AppKit/AppKit.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 #import <CoreMedia/CoreMedia.h>
+#import <CoreAudio/CoreAudio.h>
+#import <CoreGraphics/CoreGraphics.h>
+#include <libproc.h>
 #include "SonoCraftApplicationAudioState.h"
 
 API_AVAILABLE(macos(13.0))
@@ -56,6 +59,11 @@ public:
     ~MacApplicationAudio() override { stop(); }
     void start(const SonoCraftApplicationAudio::Application& app, uint64_t generation) override {
         if (@available(macOS 13.0, *)) {
+            if (!CGPreflightScreenCaptureAccess()) {
+                state->permissionRequired=true;
+                state->setStatus(juce::String::fromUTF8("Permissão não reconhecida para esta instalação. Clique em Autorizar captura."));
+                return;
+            }
             const auto shared = state; const auto handle = session; const auto pid = app.processId;
             // Content enumeration is asynchronous and can request the system's
             // screen/system-audio permission. No image output is registered.
@@ -65,7 +73,7 @@ public:
                     if (error || content.displays.count == 0) { shared->setStatus(juce::String::fromUTF8("Permita gravar áudio/tela nos Ajustes do macOS e tente novamente. ") + juce::String::fromUTF8(error.localizedDescription.UTF8String)); return; }
                     SCRunningApplication* selected = nil;
                     for (SCRunningApplication* running in content.applications) if (running.processID == pid) { selected = running; break; }
-                    if (!selected) { shared->setStatus("O aplicativo foi fechado ou deixou de estar disponivel."); return; }
+                    if (!selected) { shared->setStatus(juce::String::fromUTF8("O aplicativo foi fechado ou deixou de estar disponível.")); return; }
                     auto* filter = [[SCContentFilter alloc] initWithDisplay:content.displays.firstObject includingApplications:@[selected] exceptingWindows:@[]];
                     auto* config = [[SCStreamConfiguration alloc] init]; config.capturesAudio = YES; config.excludesCurrentProcessAudio = YES;
                     config.sampleRate = 48000; config.channelCount = 2; config.width = 2; config.height = 2;
@@ -100,7 +108,55 @@ juce::Array<SonoCraftApplicationAudio::Application> listSonoCraftAudioApplicatio
     juce::Array<SonoCraftApplicationAudio::Application> result;
     for (NSRunningApplication* application in NSWorkspace.sharedWorkspace.runningApplications) {
         if (application.processIdentifier == NSProcessInfo.processInfo.processIdentifier || application.activationPolicy != NSApplicationActivationPolicyRegular) continue;
-        result.add({juce::String::fromUTF8(application.localizedName.UTF8String), uint32_t(application.processIdentifier)});
+        result.add({juce::String::fromUTF8(application.localizedName.UTF8String), uint32_t(application.processIdentifier),juce::String::fromUTF8(application.bundleIdentifier.UTF8String)});
     }
     return result;
+}
+
+bool requestSonoCraftCapturePermission() {
+    if (@available(macOS 10.15, *)) {
+        if (CGPreflightScreenCaptureAccess()) return true;
+        // Only explicit user actions reach here; discovery never requests access.
+        static std::atomic<bool> asked{false};
+        if (!asked.exchange(true)) CGRequestScreenCaptureAccess();
+        else juce::URL("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture").launchInDefaultBrowser();
+        return CGPreflightScreenCaptureAccess();
+    }
+    return false;
+}
+SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
+    @autoreleasepool {
+        SonoCraftApplicationAudio::Discovery result;
+        if (@available(macOS 14.2, *)) {
+            AudioObjectPropertyAddress list{kAudioHardwarePropertyProcessObjectList,kAudioObjectPropertyScopeGlobal,kAudioObjectPropertyElementMain};
+            UInt32 size=0;
+            if (AudioObjectGetPropertyDataSize(kAudioObjectSystemObject,&list,0,nullptr,&size)!=noErr) {
+                result.message=juce::String::fromUTF8("Não foi possível consultar os aplicativos com áudio."); return result;
+            }
+            std::vector<AudioObjectID> objects(size/sizeof(AudioObjectID));
+            if (size && AudioObjectGetPropertyData(kAudioObjectSystemObject,&list,0,nullptr,&size,objects.data())!=noErr) return result;
+            const auto apps=listSonoCraftAudioApplications();
+            for (const auto object:objects) {
+                AudioObjectPropertyAddress address{kAudioProcessPropertyIsRunningOutput,kAudioObjectPropertyScopeGlobal,kAudioObjectPropertyElementMain};
+                UInt32 active=0; size=sizeof(active);
+                if (AudioObjectGetPropertyData(object,&address,0,nullptr,&size,&active)!=noErr || !active) continue;
+                address.mSelector=kAudioProcessPropertyPID; pid_t pid=0;size=sizeof(pid);
+                if (AudioObjectGetPropertyData(object,&address,0,nullptr,&size,&pid)!=noErr) continue;
+                // Browser audio lives in a helper process. Resolve its owning GUI app.
+                for (int depth=0;pid>1 && depth<16;++depth) {
+                    if (pid==getpid()) break;
+                    const SonoCraftApplicationAudio::Application* match=nullptr;
+                    for (const auto& app:apps) if (app.processId==uint32_t(pid)) {match=&app;break;}
+                    if (match) {
+                        bool known=false;for(const auto& app:result.applications)known|=app.processId==match->processId;
+                        if (!known) result.applications.add(*match); break;
+                    }
+                    proc_bsdinfo info{};
+                    if (proc_pidinfo(pid,PROC_PIDTBSDINFO,0,&info,sizeof(info))!=sizeof(info) || info.pbi_ppid==pid) break;
+                    pid=pid_t(info.pbi_ppid);
+                }
+            }
+        } else result.message=juce::String::fromUTF8("Detecção automática requer macOS 14.2+. Use Adicionar fonte neste sistema.");
+        return result;
+    }
 }

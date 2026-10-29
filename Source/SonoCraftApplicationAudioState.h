@@ -5,7 +5,7 @@
 
 struct SonoCraftApplicationAudioState {
     SonoCraftPadMonitorQueue queue;
-    std::atomic<bool> active {false}, reset {true}, requested {false};
+    std::atomic<bool> active {false}, reset {true}, requested {false}, permissionRequired {false};
     std::atomic<uint64_t> generation {0};
     std::atomic<double> rate {48000.0};
     std::atomic<float> peak {0};
@@ -25,3 +25,6 @@ public:
 };
 std::unique_ptr<SonoCraftApplicationAudioBackend> createSonoCraftApplicationAudioBackend(std::shared_ptr<SonoCraftApplicationAudioState>);
 juce::Array<SonoCraftApplicationAudio::Application> listSonoCraftAudioApplications();
+
+SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications();
+bool requestSonoCraftCapturePermission();

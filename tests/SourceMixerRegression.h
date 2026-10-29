@@ -63,9 +63,33 @@ static bool testSourceMixer() {
     juce::ValueTree storedApp("SourceMixer"), app("Source");
     app.setProperty("name","Chrome",nullptr);app.setProperty("application","Google Chrome",nullptr);app.setProperty("tab",false,nullptr);storedApp.addChild(app,-1,nullptr);
     mixer.restore(storedApp);
-    if(mixer.addTab().error.isEmpty() || mixer.addApplication({"Google Chrome",123456}).error.isEmpty()) {
-        std::cerr << "FAIL: whole-browser/app overlap accepted\n";return false;
+    if(mixer.addApplication({"Google Chrome",123456}).error.isEmpty()) {
+        std::cerr << "FAIL: duplicate application accepted\n";return false;
     }
+    const auto browserChannel=mixer.views()[0].id;
+    mixer.setSend(browserChannel,true);
+    const auto separateTab=mixer.addTab();
+    if(separateTab.id.isEmpty() || mixer.views()[0].sending || !mixer.views()[0].blockedByTabs) {
+        std::cerr << "FAIL: whole browser not suspended for individual tabs\n";return false;
+    }
+    mixer.setSend(browserChannel,true);
+    if(mixer.views()[0].sending)return false;
+    mixer.restore({});mixer.useCompleteInput();
+    juce::Array<SonoCraftApplicationAudio::Application> detected;detected.add({"Chrome",101,"browser"});detected.add({juce::String::fromUTF8("Música"),202,"music"});
+    mixer.updateDiscovered(detected);const auto automatic=mixer.views();
+    if(automatic.size()!=2 || mixer.usesIndividualSources() || automatic[0].sending || automatic[0].requested || !automatic[0].producing || !automatic[0].automatic)return false;
+    mixer.setGain(automatic[1].id,0.35f);mixer.setSend(automatic[1].id,true);
+    mixer.updateDiscovered(detected);
+    if(mixer.views().size()!=2 || mixer.views()[1].id!=automatic[1].id || mixer.views()[1].gain!=0.35f || !mixer.views()[1].sending)return false;
+    auto restarted=detected;restarted.getReference(1).processId=303;mixer.updateDiscovered(restarted);
+    if(mixer.views()[1].sending || mixer.views()[1].requested || mixer.views()[1].gain!=0.35f)return false;
+    mixer.remove(automatic[0].id);mixer.updateDiscovered(detected);
+    if(mixer.views().size()!=1)return false;
+    mixer.updateDiscovered({});mixer.updateDiscovered(detected);
+    if(mixer.views().size()!=2)return false;
+    const auto automaticSaved=mixer.save();mixer.restore(automaticSaved);
+    for(const auto& view:mixer.views())if(!view.automatic || view.requested || view.sending)return false;
+    std::cout << "PASS: automatic discovery preserves mode, gains, stable channels and requires opt-in after app restart" << std::endl;
     std::cout << "PASS: concurrent sources, independent gains/send/mute, application overlap prevention, safe restore/removal" << std::endl;
     return true;
 }

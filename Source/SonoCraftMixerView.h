@@ -242,6 +242,7 @@ public:
         bufferTime.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 24);
         bufferTime.onValueChange = [this] { applyBuffer(); };
         inspector.setFont(juce::Font(13.0f));
+        processor.getSourceMixer().startDiscovery();
         refresh(); startTimerHz(24);
     }
     ~SonoCraftMixerView() override { stopTimer(); viewport.setViewedComponent(nullptr, false); }
@@ -322,10 +323,10 @@ public:
             auto empty = viewport.getBounds().reduced(12);
             g.setColour(panel().withAlpha(0.7f)); g.fillRoundedRectangle(empty.toFloat(), 8);
             g.setColour(text()); g.setFont(juce::Font(empty.getWidth() < 250 ? 14.0f : 18.0f, juce::Font::bold));
-            g.drawText(juce::String::fromUTF8("Sua sessão começa aqui"), empty.withHeight(30).withY(empty.getCentreY() - 40), juce::Justification::centred);
+            g.drawText(juce::String::fromUTF8("Reproduza um som para começar"), empty.withHeight(30).withY(empty.getCentreY() - 40), juce::Justification::centred);
             g.setColour(secondary()); g.setFont(13.0f);
-            g.drawText("Conecte por IP ou entre em um grupo.", empty.withHeight(24).withY(empty.getCentreY()), juce::Justification::centred);
-            g.drawText(juce::String::fromUTF8("Use Adicionar fonte para montar sua mesa."), empty.withHeight(24).withY(empty.getCentreY() + 24), juce::Justification::centred);
+            g.drawText(juce::String::fromUTF8("Os aplicativos com áudio aparecerão aqui."), empty.withHeight(24).withY(empty.getCentreY()), juce::Justification::centred);
+            g.drawText(juce::String::fromUTF8("Use Adicionar fonte para escolher uma aba."), empty.withHeight(24).withY(empty.getCentreY() + 24), juce::Justification::centred);
         }
     }
 private:
@@ -356,6 +357,7 @@ private:
     }
     void refresh()
     {
+        processor.getSourceMixer().pollDiscovery();
         const auto sourcesState = processor.getSourceMixer().views();
         bool sourcesChanged = sourcesState.size() != sourceStrips.size();
         if (!sourcesChanged) for (int i=0;i<sourcesState.size();++i) sourcesChanged |= sourcesState[i].id != sourceStrips[i]->sourceId();
@@ -372,7 +374,10 @@ private:
         sourceRouting.setText(juce::String::fromUTF8(virtualInput
             ? (individual ? "Fontes individuais: a entrada completa do sistema fica fora do envio."
                           : "Entrada completa: o sistema inteiro pode ser enviado. Fontes individuais desligadas.")
-            : "Fontes: ajuste o volume enviado aos conectados. O volume original dos aplicativos não muda."),juce::dontSendNotification);
+            : "Aplicativos com áudio aparecem automaticamente. Ative Enviar nos canais que deseja compartilhar."),juce::dontSendNotification);
+        const auto discoveryStatus=processor.getSourceMixer().discoveryStatus();
+        sourceRouting.setTooltip(discoveryStatus.isEmpty()?juce::String::fromUTF8("A detecção automática não captura nem envia áudio. Abas são escolhidas em Adicionar fonte."):discoveryStatus);
+        if(discoveryStatus.isNotEmpty())sourceRouting.setText(discoveryStatus,juce::dontSendNotification);
         if (sourcesChanged || modeVisibilityChanged) resized();
         auto states = processor.getMixerChannelStates();
         bool changed = states.size() != strips.size();

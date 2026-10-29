@@ -9,16 +9,16 @@ O SonoCraft reproduz áudio localmente e transmite para outros participantes do 
 Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote. No repositório, ele está em [docs/SONOCRAFT-SOURCES.md](docs/SONOCRAFT-SOURCES.md).
 
 - Configure entrada e saída física em **Áudio e saídas → Escuta e saídas**.
-- Use **Adicionar fonte** na mesa para criar canais de aplicativos ou abas. Cada canal tem volume, medidor, Enviar e Silenciar.
+- Aplicativos com áudio aparecem automaticamente na mesa. Use **Adicionar fonte** para abas ou adição manual. Cada canal tem volume, medidor, Enviar e Silenciar.
 - Ative **Enviar** somente nas fontes que deseja compartilhar com os conectados. O volume original do programa não muda.
 - Uma entrada completa do sistema por cabo virtual fica fora do envio enquanto o modo de fontes individuais está ativo. Para voltar, escolha **Usar entrada completa**.
 - Use a mesma versão nos dispositivos conectados.
 
 ## Novidades desta prévia
 
-- Até 8 fontes simultâneas, com controles independentes e nomes editáveis na mesa principal.
+- Até 32 fontes simultâneas, com controles independentes e nomes editáveis na mesa principal.
 - Seletores curtos de aplicativo/aba substituem a antiga aba Fontes nos Ajustes.
-- Bloqueio de aplicativo repetido e de navegador inteiro junto com abas; modos completo/individual exclusivos para evitar sobreposição.
+- Aplicativos detectados automaticamente, com volume preservado nas pausas e captura iniciada somente ao enviar. Bloqueio de aplicativo repetido e de navegador inteiro junto com abas; modos completo/individual exclusivos para evitar sobreposição.
 - Canais e volumes salvos. Ao reabrir, as capturas e os envios ficam desligados.
 - Saídas virtuais conhecidas continuam bloqueadas, inclusive quando restauradas por configurações antigas.
 
@@ -37,7 +37,7 @@ No Windows, use o gerador Visual Studio instalado. A compilação e o teste de �
 
 ## Limites
 
-Até 8 fontes por dispositivo. Captura nativa de aplicativos requer sistema compatível e permissão. Abas usam Chrome/Edge com página auxiliar aberta; adicione cada aba uma única vez, pois o navegador não fornece identificação estável para reconhecer repetições. No destinatário, as fontes chegam como uma mistura estéreo; os controles individuais ficam na origem.
+Até 32 fontes por dispositivo. A detecção automática usa sessões de áudio no Windows e requer macOS 14.2+; versões anteriores mantêm a adição manual. Captura nativa de aplicativos requer sistema compatível e permissão. Abas usam Chrome/Edge com página auxiliar aberta; adicione cada aba uma única vez, pois o navegador não fornece identificação estável para reconhecer repetições. No destinatário, as fontes chegam como uma mistura estéreo; os controles individuais ficam na origem.
 
 Os testes com UDP local e fontes sintéticas não substituem o teste com dispositivos físicos e aplicativos de destino. Captura nativa e uso prolongado ainda precisam de validação real. Grupo/senha depende do serviço de conexão existente; não há novo servidor público ou relay SonoCraft.
 

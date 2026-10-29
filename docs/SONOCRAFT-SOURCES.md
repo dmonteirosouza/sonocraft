@@ -27,13 +27,17 @@ No computador que recebe:
 
 ## Mixer de fontes
 
-Na mesa principal, clique em **Adicionar fonte** e escolha **Aplicativo inteiro** ou **Uma aba do navegador**. Cada fonte cria um canal; a aba Fontes foi retirada dos Ajustes. É possível manter até **8 canais** de aplicativos/abas ao mesmo tempo.
+Os aplicativos com reprodução de áudio aparecem **automaticamente na mesa**, sem precisar cadastrá-los. A detecção consulta sessões de saída ativas no Windows e processos de áudio no macOS 14.2+. Não grava áudio nem solicita permissão de captura. Uma sessão ativa pode estar momentaneamente silenciosa, como acontece no mixer do sistema.
+
+Cada canal aparece com o envio desligado. Ajuste o volume e ative **Enviar** para iniciar a captura e compartilhar com os conectados. Canais que pausam permanecem na mesa, preservando os ajustes. Ao reiniciar um aplicativo, o envio volta desligado para não capturar outro processo sem querer. Se remover um canal automático, ele permanece oculto até a reprodução parar e começar novamente.
+
+Use **Adicionar fonte** para escolher uma aba ou antecipar um aplicativo que ainda não começou a tocar. É possível manter até **32 canais**. A aba Fontes foi retirada dos Ajustes. Em macOS anterior a 14.2, use a adição manual.
 
 | Controle do canal | Efeito |
 | --- | --- |
 | Volume (0–200%) | Ajusta o áudio desta fonte enviado aos conectados. Não muda o volume original do programa no sistema. |
-| Medidor | Mostra se a captura está recebendo áudio, mesmo com o envio desligado. |
-| Enviar | Inclui somente este canal na transmissão do SonoCraft. Começa desligado. |
+| Medidor | Mostra o nível após iniciar a captura. Antes disso, “COM ÁUDIO” indica a atividade detectada pelo sistema. |
+| Enviar | Inicia a captura quando necessário e inclui somente este canal na transmissão. Começa desligado. |
 | Silenciar | Suspende o áudio enviado por este canal sem perder seu volume. |
 | Parar / Iniciar captura | Libera ou reabre a captura. Ao reiniciar, o envio começa desligado. |
 | Remover | Retira o canal da mesa. Não exclui arquivos nem fecha o programa de origem. |
@@ -43,13 +47,13 @@ Os volumes, nomes e canais são salvos; ao reabrir o SonoCraft, as capturas fica
 
 Para uma aba, abra a página auxiliar no **Chrome ou Edge**, escolha a aba e marque **Compartilhar áudio da aba**. Mantenha a página auxiliar aberta. Não são enviados vídeo nem microfone pela captura. **Adicione cada aba apenas uma vez:** o navegador não expõe uma identificação estável que permita detectar a mesma aba escolhida novamente. Essa limitação está indicada no seletor e na página auxiliar.
 
-O aplicativo inteiro inclui todas as janelas/abas dele. O SonoCraft bloqueia aplicativo repetido e a combinação de navegador inteiro com canais de abas. Para mudar entre essas duas opções, remova primeiro os canais sobrepostos. A restrição entre navegador e abas é conservadora e vale mesmo que sejam navegadores diferentes.
+O aplicativo inteiro inclui todas as janelas/abas dele. O SonoCraft bloqueia aplicativo repetido. Adicionar uma aba desliga a captura/envio do navegador inteiro; o canal do navegador continua visível, mas fica bloqueado enquanto houver abas configuradas. Para voltar ao navegador inteiro, remova os canais de abas. Essa restrição é conservadora e vale mesmo que sejam navegadores diferentes.
 
 ## Evitar áudio duplicado
 
 Quando a entrada é um cabo virtual com o sistema completo, a mesa oferece dois modos:
 
-- **Fontes individuais:** transmite os aplicativos/abas habilitados; a entrada completa do sistema fica fora do envio. Adicionar uma fonte ou habilitar Enviar seleciona este modo.
+- **Fontes individuais:** transmite os aplicativos/abas habilitados; a entrada completa do sistema fica fora do envio. Adicionar manualmente uma fonte ou habilitar Enviar seleciona este modo. A detecção automática não altera o modo.
 - **Entrada completa:** transmite a entrada do sistema e desliga o envio de todos os canais individuais. Escolha **Usar entrada completa** para voltar a esse modo.
 
 Desligar Enviar, parar uma captura ou remover o último canal **não reativa automaticamente a entrada completa**. Isso evita enviar outros programas por acidente. A detecção da entrada completa usa os nomes conhecidos de cabos virtuais; interfaces de loopback renomeadas ou desconhecidas não são identificadas automaticamente.
@@ -73,3 +77,9 @@ Em **Áudio e saídas → Escuta e saídas**, **Copiar diagnóstico de áudio** 
 Captura de aplicativo: macOS 13+ com permissão de áudio/tela; Windows com loopback por processo (build 20348+, normalmente Windows 11). Captura de abas pelo Chrome/Edge é uma alternativa separada. Um driver de cabo virtual só é necessário para a captura completa por essa entrada.
 
 Os testes cobrem transmissão UDP, silenciamento de participantes, pads, fontes simultâneas com volume/envio/silêncio independentes, alternância dos modos completo/individual, escuta física, remoção de parâmetros antigos e bloqueio de saída virtual. Dispositivos físicos e uso prolongado continuam exigindo validação real.
+
+## Permissão no macOS
+
+O aplicativo consulta a autorização antes de abrir a captura. Quando a permissão não é reconhecida, mostra **Autorizar captura**; a detecção automática e as atualizações da mesa não repetem solicitações. O botão solicita acesso uma vez por execução; tentativas seguintes levam aos Ajustes do sistema.
+
+Use uma única instalação em um caminho fixo, por exemplo `/Applications/SonoCraft.app`, substituindo-a ao atualizar. As prévias usam assinatura ad hoc: a identidade de assinatura muda entre compilações, portanto uma autorização antiga pode não valer para a nova versão, mesmo que “SonoCraft” apareça habilitado nos Ajustes. Pode ser necessário atualizar a autorização e reabrir o aplicativo. Sem certificado Developer ID, não há garantia de preservar essas autorizações entre versões. O SonoCraft não altera nem remove as permissões do macOS.

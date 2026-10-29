@@ -5,7 +5,7 @@ SonoCraftApplicationAudio::SonoCraftApplicationAudio() : state(std::make_shared<
 SonoCraftApplicationAudio::~SonoCraftApplicationAudio() { stop(); }
 juce::Array<SonoCraftApplicationAudio::Application> SonoCraftApplicationAudio::applications() { return listSonoCraftAudioApplications(); }
 void SonoCraftApplicationAudio::start(const Application& application) {
-    stop();
+    stop(); state->permissionRequired=false;
     { const juce::ScopedLock lock(state->textLock); state->name = application.name; }
     state->requested = true; state->reset = true; state->setStatus(juce::String::fromUTF8("Iniciando captura do aplicativo…"));
     backend->start(application, state->generation.load());
@@ -27,8 +27,12 @@ void SonoCraftApplicationAudio::render(juce::AudioBuffer<float>& output, int sam
 }
 
 juce::String SonoCraftApplicationAudio::startBrowserTab() {
-    stop();
+    stop(); state->permissionRequired=false;
     { const juce::ScopedLock lock(state->textLock); state->name = "Aba do navegador"; }
     state->requested = true; state->reset = true; state->setStatus(juce::String::fromUTF8("Escolha a aba na página aberta no Chrome ou Edge e ative Compartilhar áudio."));
     return browserBridge->start(state->generation.load());
 }
+
+SonoCraftApplicationAudio::Discovery SonoCraftApplicationAudio::applicationsWithAudio() {return discoverSonoCraftAudioApplications();}
+bool SonoCraftApplicationAudio::requestCapturePermission() {return requestSonoCraftCapturePermission();}
+bool SonoCraftApplicationAudio::needsCapturePermission() const {return state->permissionRequired.load();}

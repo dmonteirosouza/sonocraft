@@ -2,6 +2,18 @@
 #include "SonoCraftTheme.h"
 class SonoCraftFaderLookAndFeel final : public juce::LookAndFeel_V4 {
 public:
+    SonoCraftFaderLookAndFeel() {
+        setColourScheme(getLightColourScheme());
+        setColour(juce::Slider::textBoxTextColourId,SonoCraftTheme::text());
+        setColour(juce::Slider::textBoxBackgroundColourId,SonoCraftTheme::panel());
+        setColour(juce::Slider::textBoxOutlineColourId,SonoCraftTheme::border());
+        setColour(juce::Slider::textBoxHighlightColourId,SonoCraftTheme::selection());
+        setColour(juce::Label::textColourId,SonoCraftTheme::text());
+        setColour(juce::Label::textWhenEditingColourId,SonoCraftTheme::text());
+        setColour(juce::TextEditor::textColourId,SonoCraftTheme::text());
+        setColour(juce::TextEditor::highlightedTextColourId,SonoCraftTheme::text());
+        setColour(juce::TextEditor::highlightColourId,SonoCraftTheme::selection());
+    }
     void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
                           float position, float, float, juce::Slider::SliderStyle, juce::Slider&) override
     {

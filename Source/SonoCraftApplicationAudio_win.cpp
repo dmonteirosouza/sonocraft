@@ -15,6 +15,9 @@
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <audiopolicy.h>
+#include <tlhelp32.h>
+#include <map>
 #include <audioclientactivationparams.h>
 #include <wrl.h>
 #include <set>
@@ -46,7 +49,7 @@ public:
     ~WindowsApplicationAudio() override { stop(); }
     void start(const SonoCraftApplicationAudio::Application& app, uint64_t value) override {
         stop(); processId = app.processId; token = value;
-        if (processId == GetCurrentProcessId()) { state->setStatus("O SonoCraft nao pode capturar a propria saida."); return; }
+        if (processId == GetCurrentProcessId()) { state->setStatus(juce::String::fromUTF8("O SonoCraft não pode capturar a própria saída.")); return; }
         startThread();
     }
     void stop() override { signalThreadShouldExit(); stopThread(3000); }
@@ -138,20 +141,73 @@ BOOL CALLBACK collectApplication(HWND window, LPARAM context) {
     if (!process) return TRUE;
     wchar_t path[4096] {}; DWORD length = 4096;
     const bool named = QueryFullProcessImageNameW(process, 0, path, &length) != FALSE; CloseHandle(process);
-    if (named) apps.result.add({juce::File(juce::String(path)).getFileNameWithoutExtension(), uint32_t(pid)});
+    if (named) apps.result.add({juce::File(juce::String(path)).getFileNameWithoutExtension(), uint32_t(pid),juce::String(path).toLowerCase()});
     return TRUE;
 }
 }
 std::unique_ptr<SonoCraftApplicationAudioBackend> createSonoCraftApplicationAudioBackend(std::shared_ptr<SonoCraftApplicationAudioState> state) { return std::make_unique<WindowsApplicationAudio>(std::move(state)); }
 juce::Array<SonoCraftApplicationAudio::Application> listSonoCraftAudioApplications() { AppList apps; EnumWindows(collectApplication, reinterpret_cast<LPARAM>(&apps)); return apps.result; }
+
+bool requestSonoCraftCapturePermission() {return true;}
+SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
+    SonoCraftApplicationAudio::Discovery result;
+    struct ComScope { HRESULT value=CoInitializeEx(nullptr,COINIT_MULTITHREADED); ~ComScope(){if(SUCCEEDED(value))CoUninitialize();} } com;
+    if(FAILED(com.value) && com.value!=RPC_E_CHANGED_MODE)return result;
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    if(FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator),nullptr,CLSCTX_ALL,IID_PPV_ARGS(&enumerator))))return result;
+    ComPtr<IMMDeviceCollection> devices;
+    if(FAILED(enumerator->EnumAudioEndpoints(eRender,DEVICE_STATE_ACTIVE,&devices)))return result;
+    const auto apps=listSonoCraftAudioApplications();
+    std::map<DWORD,DWORD> parents;
+    HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+    if(snapshot!=INVALID_HANDLE_VALUE) {
+        PROCESSENTRY32W entry{};entry.dwSize=sizeof(entry);
+        if(Process32FirstW(snapshot,&entry))do {parents[entry.th32ProcessID]=entry.th32ParentProcessID;}while(Process32NextW(snapshot,&entry));
+        CloseHandle(snapshot);
+    }
+    UINT count=0;devices->GetCount(&count);
+    for(UINT deviceIndex=0;deviceIndex<count;++deviceIndex) {
+        ComPtr<IMMDevice> device;ComPtr<IAudioSessionManager2> manager;ComPtr<IAudioSessionEnumerator> sessions;
+        if(FAILED(devices->Item(deviceIndex,&device)) || FAILED(device->Activate(__uuidof(IAudioSessionManager2),CLSCTX_ALL,nullptr,reinterpret_cast<void**>(manager.GetAddressOf())))
+            || FAILED(manager->GetSessionEnumerator(&sessions)))continue;
+        int sessionCount=0;sessions->GetCount(&sessionCount);
+        for(int i=0;i<sessionCount;++i) {
+            ComPtr<IAudioSessionControl> control;ComPtr<IAudioSessionControl2> session;AudioSessionState state=AudioSessionStateInactive;DWORD pid=0;
+            if(FAILED(sessions->GetSession(i,&control)) || FAILED(control->GetState(&state)) || state!=AudioSessionStateActive
+                || FAILED(control.As(&session)) || session->IsSystemSoundsSession()==S_OK || FAILED(session->GetProcessId(&pid)) || !pid)continue;
+            SonoCraftApplicationAudio::Application selected;
+            DWORD current=pid;bool own=false;
+            for(int depth=0;current && depth<24;++depth) {
+                if(current==GetCurrentProcessId()){own=true;break;}
+                for(const auto& app:apps)if(app.processId==current){selected=app;break;}
+                if(selected.processId)break;
+                const auto found=parents.find(current);if(found==parents.end() || found->second==current)break;
+                current=found->second;
+            }
+            if(own)continue;
+            if(!selected.processId) {
+                HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);if(!process)continue;
+                wchar_t path[4096]{};DWORD length=4096;
+                const bool named=QueryFullProcessImageNameW(process,0,path,&length)!=FALSE;CloseHandle(process);
+                if(!named)continue;
+                selected={juce::File(juce::String(path)).getFileNameWithoutExtension(),uint32_t(pid),juce::String(path).toLowerCase()};
+            }
+            bool known=false;for(const auto& app:result.applications)known|=app.identifier==selected.identifier;
+            if(!known)result.applications.add(selected);
+        }
+    }
+    return result;
+}
 #elif !JUCE_MAC
 class UnsupportedApplicationAudio final : public SonoCraftApplicationAudioBackend {
 public:
     explicit UnsupportedApplicationAudio(std::shared_ptr<SonoCraftApplicationAudioState> value) : state(std::move(value)) {}
-    void start(const SonoCraftApplicationAudio::Application&, uint64_t) override { state->setStatus("Captura por aplicativo disponivel no macOS 13+ e Windows compativel."); }
+    void start(const SonoCraftApplicationAudio::Application&, uint64_t) override { state->setStatus(juce::String::fromUTF8("Captura por aplicativo disponível no macOS 13+ e Windows compatível.")); }
     void stop() override {}
 private: std::shared_ptr<SonoCraftApplicationAudioState> state;
 };
 std::unique_ptr<SonoCraftApplicationAudioBackend> createSonoCraftApplicationAudioBackend(std::shared_ptr<SonoCraftApplicationAudioState> state) { return std::make_unique<UnsupportedApplicationAudio>(std::move(state)); }
 juce::Array<SonoCraftApplicationAudio::Application> listSonoCraftAudioApplications() { return {}; }
+bool requestSonoCraftCapturePermission(){return false;}
+SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications(){return {{},juce::String::fromUTF8("Detecção automática indisponível neste sistema.")};}
 #endif

@@ -59,7 +59,7 @@ private:
         const bool tab=kind.getSelectedId()==2; apps.setVisible(!tab); refresh.setVisible(!tab);
         add.setButtonText(tab?"Adicionar aba e escolher no navegador":"Adicionar aplicativo");
         help.setText(juce::String::fromUTF8(tab
-            ? "Escolha a aba no Chrome ou Edge e mantenha a página auxiliar aberta. Adicione cada aba só uma vez: o navegador não identifica repetições. O envio começa desligado."
+            ? "Escolha a aba no Chrome ou Edge e mantenha a página auxiliar aberta. Adicione cada aba só uma vez. O envio do navegador inteiro será desligado para evitar áudio duplicado."
             : "Cada aplicativo ganha um canal com volume e envio próprios. O envio começa desligado. O volume original do aplicativo não muda."),juce::dontSendNotification);
     }
 };
@@ -78,26 +78,30 @@ public:
         level.setTextBoxStyle(juce::Slider::TextBoxBelow,false,76,24);level.setTextValueSuffix("%");level.setTitle("Volume de envio da fonte");
         level.onValueChange=[this]{processor.getSourceMixer().setGain(id,float(level.getValue())/100.0f);};
         send.setButtonText("Enviar");send.setTooltip("Enviar este canal aos conectados no SonoCraft");
-        send.onClick=[this]{processor.getSourceMixer().setSend(id,send.getToggleState());};
+        send.onClick=[this]{
+            actionError.clear();
+            if(send.getToggleState() && !requested && !beginCapture()) {send.setToggleState(false,juce::dontSendNotification);return;}
+            processor.getSourceMixer().setSend(id,send.getToggleState());
+        };
         mute.setButtonText("Silenciar");mute.onClick=[this]{processor.getSourceMixer().setMute(id,mute.getToggleState());};
         remove.setButtonText("Remover");remove.onClick=[this]{processor.getSourceMixer().remove(id);};
         capture.onClick=[this]{
             actionError.clear();
-            if(requested) processor.getSourceMixer().stop(id);
-            else {
-                const auto result=processor.getSourceMixer().restart(id);
-                actionError=result.error;
-                if(result.url.isNotEmpty()) juce::URL(result.url).launchInDefaultBrowser();
-            }
+            if(permissionRequired){
+                if(SonoCraftApplicationAudio::requestCapturePermission())beginCapture();
+                else actionError=juce::String::fromUTF8("Autorize esta instalação nos Ajustes do sistema e reabra o SonoCraft se solicitado.");
+            } else if(requested) processor.getSourceMixer().stop(id);
+            else beginCapture();
         };
     }
     ~SonoCraftSourceStrip() override {level.setLookAndFeel(nullptr);}
     const juce::String& sourceId() const {return id;}
     void sync(const SonoCraftSourceMixer::View& s) {
         if(!name.isBeingEdited())name.setText(s.name,juce::dontSendNotification);
-        type.setText(s.tab?"ABA DO NAVEGADOR":"APLICATIVO",juce::dontSendNotification);
-        requested=s.requested;capture.setButtonText(requested?"Parar captura":"Iniciar captura");
-        status.setText(actionError.isNotEmpty() ? actionError : s.active ? (s.sending ? (s.muted ? juce::String("Envio silenciado") : juce::String("Enviando aos conectados")) : juce::String::fromUTF8("Capturando · envio desligado")) : s.status,juce::dontSendNotification);
+        type.setText(s.tab?juce::String("ABA DO NAVEGADOR"):juce::String::fromUTF8(s.producing?"APLICATIVO · COM ÁUDIO":"APLICATIVO"),juce::dontSendNotification);
+        requested=s.requested;permissionRequired=s.permissionRequired;capture.setButtonText(permissionRequired?"Autorizar captura":requested?"Parar captura":"Iniciar captura");
+        capture.setEnabled(!s.blockedByTabs);send.setEnabled(!s.blockedByTabs);
+        status.setText(s.blockedByTabs ? juce::String::fromUTF8("Abas individuais em uso. Remova as abas para enviar o navegador inteiro.") : actionError.isNotEmpty() ? actionError : s.automatic && !s.requested ? juce::String::fromUTF8(s.producing?"Áudio detectado. Ative Enviar para compartilhar.":"Sem áudio agora. Seus ajustes foram mantidos.") : s.active ? (s.sending ? (s.muted ? juce::String("Envio silenciado") : juce::String("Enviando aos conectados")) : juce::String::fromUTF8("Capturando · envio desligado")) : s.status,juce::dontSendNotification);
         status.setTooltip(s.status);
         if(!level.isMouseButtonDown())level.setValue(s.gain*100,juce::dontSendNotification);
         send.setToggleState(s.sending,juce::dontSendNotification);mute.setToggleState(s.muted,juce::dontSendNotification);
@@ -125,5 +129,10 @@ private:
     juce::ToggleButton send,mute;
     juce::TextButton capture,remove;
     juce::Rectangle<float> meter;
-    float peak=0;bool requested=false;
+    float peak=0;bool requested=false,permissionRequired=false;
+    bool beginCapture(){
+        const auto result=processor.getSourceMixer().restart(id);actionError=result.error;
+        if(result.url.isNotEmpty())juce::URL(result.url).launchInDefaultBrowser();
+        return result.error.isEmpty();
+    }
 };
