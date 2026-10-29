@@ -39,7 +39,7 @@ static bool testSourceMixer() {
             if(block%8==0 && (!sendBrowserFrame(a,2,packetA,sizeof(packetA)) || !sendBrowserFrame(b,2,packetB,sizeof(packetB)))) return false;
             mixer.render(mixed,128,48000);
             if(block>48) {measured+=mixed.getRMSLevel(0,0,128);++observed;}
-            deadline+=128*1000.0/48000.0;waitForAudioDeadline(deadline);
+            advanceAudioClock(deadline,128);
         }
         measured/=observed;
         if(std::abs(measured-expected[phase])>0.02) {

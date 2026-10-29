@@ -29,6 +29,18 @@ static void waitForAudioDeadline(double deadline)
         juce::Thread::yield();
 }
 
+static void advanceAudioClock(double& deadline, int samples)
+{
+    const double period = samples * 1000.0 / 48000.0;
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    // A suspended device callback cannot replay its missed ticks in a burst.
+    // Even 20 ms of catch-up overruns a small queue and starves the socket
+    // workers. Apply this to every fixture, including browser capture and pads.
+    if (now - deadline > period) deadline = now;
+    deadline += period;
+    waitForAudioDeadline(deadline);
+}
+
 // A callback-driven physical-output substitute: the processor still runs its
 // real FIFO/open/start/stop path while tests observe both destinations.
 class TestListeningDevice final : public juce::AudioIODevice {
@@ -298,14 +310,7 @@ int main()
         // callback cannot catch up by sending hundreds of blocks instantly:
         // that starves the UDP worker and invalidates the recovery windows.
         // Rebase only after a scheduler stall; preserve real audio assertions.
-        const auto callbackNow = juce::Time::getMillisecondCounterHiRes();
-        if (callbackNow - nextCallbackAt > 100.0) {
-            std::cout << "Audio clock rebased after scheduler stall of "
-                      << callbackNow - nextCallbackAt << " ms" << std::endl;
-            nextCallbackAt = callbackNow;
-        }
-        nextCallbackAt += samples * 1000.0 / 48000.0;
-        waitForAudioDeadline(nextCallbackAt);
+        advanceAudioClock(nextCallbackAt, samples);
     }
     if (mutedEnergy > 0.000001 || resumedEnergy <= 0.001 || playbackRemoteEnergy <= 0.001
         || listeningVoiceLeak > 0.000001 || listeningRemoteEnergy <= 0.001
@@ -464,8 +469,7 @@ int main()
         juce::AudioBuffer<float> source(2,128),destination(2,128);source.clear();destination.clear();
         sender.processBlock(source,midi);receiver.processBlock(destination,midi);
         audibleBlocks=receiver.getRemotePeerRecvActive(0) && destination.getMagnitude(0,128)>0.001f ? audibleBlocks+1 : 0;
-        const auto now=juce::Time::getMillisecondCounterHiRes();if(now-resumeClock>100)resumeClock=now;
-        resumeClock+=128*1000.0/48000.0;waitForAudioDeadline(resumeClock);
+        advanceAudioClock(resumeClock,128);
     }
     if(audibleBlocks<24){std::cerr<<"FAIL: UDP audio did not recover after reopening within 5 seconds\n";return 1;}
     std::cout<<"PASS: UDP audio recovered after engine reopen before headphone-toggle measurements"<<std::endl;
@@ -492,10 +496,7 @@ int main()
             auto value = destination.getSample(0, sample);
             remotePadEnergy += value * value;
         }
-        const auto padNow = juce::Time::getMillisecondCounterHiRes();
-        if (padNow - padDeadline > 100.0) padDeadline = padNow;
-        padDeadline += 128 * 1000.0 / 48000.0;
-        waitForAudioDeadline(padDeadline);
+        advanceAudioClock(padDeadline,128);
     }
     if (remotePlaybackWithEars <= 0.001 || remotePlaybackWithoutEars <= 0.001 || remoteHeadphoneEnergy <= 0.001) { std::cerr << "FAIL: remote pad lost when toggling headphones or restoring mono settings: on=" << remotePlaybackWithEars << " off=" << remotePlaybackWithoutEars << " ears=" << remoteHeadphoneEnergy << " recvChannels=" << receiver.getRemotePeerRecvChannelCount(0) << " sendChannels=" << sender.getRemotePeerActualSendChannelCount(0) << " active=" << receiver.getRemotePeerRecvActive(0) << "\n"; return 1; }
     if (remotePadEnergy <= 0.001
@@ -570,7 +571,7 @@ int main()
         }
         if (block>440) { fullPlaybackAfterStop+=remote.getRMSLevel(0,0,128); fullListeningAfterStop+=ears.getRMSLevel(0,0,128); }
         const auto tabNow=juce::Time::getMillisecondCounterHiRes(); if (tabNow-tabDeadline>100) tabDeadline=tabNow;
-        tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
+        advanceAudioClock(tabDeadline,128);
     }
     const auto selectedLeak=2*std::hypot(selectedReal[0],selectedImag[0])/selectedSamples;
     const auto selectedTone=2*std::hypot(selectedReal[1],selectedImag[1])/selectedSamples;
@@ -608,7 +609,7 @@ int main()
             switchListeningEnergy[phase]+=ears.getRMSLevel(0,0,128);
         }
         const auto now=juce::Time::getMillisecondCounterHiRes(); if (now-tabDeadline>100) tabDeadline=now;
-        tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
+        advanceAudioClock(tabDeadline,128);
     }
     for (int phase=0;phase<5;++phase) {
         if (switchListeningEnergy[phase]<0.05
@@ -635,7 +636,7 @@ int main()
         sender.processBlock(local,midi); receiver.processBlock(remote,midi);
         if (block>150) selectedOnlyPlayback+=remote.getRMSLevel(0,0,128);
         const auto now=juce::Time::getMillisecondCounterHiRes(); if (now-tabDeadline>100) tabDeadline=now;
-        tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
+        advanceAudioClock(tabDeadline,128);
     }
     receiver.getPadMonitor().stop(); browser.close(); sender.getSourceMixer().stop(tabChannel.id);
     // No supported virtual output can receive physical input or any mix.
