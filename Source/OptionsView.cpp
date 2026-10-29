@@ -473,7 +473,7 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
                                                                                   minNumOutputs, maxNumOutputs,
                                                                                   false, // show MIDI input
                                                                                   false,
-                                                                                  false, false);
+                                                                                  false, false, [](const String& name) { return !SonoCraftAudioRouting::isVirtualCable(name); });
 
 #if JUCE_IOS || JUCE_ANDROID
             mAudioDeviceSelector->setItemHeight(44);
@@ -501,14 +501,14 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
     mRecordOptionsViewport->setViewedComponent(mRecOptionsComponent.get(), false);
 
     mSettingsTab->addTab(TRANS("Recording"),SonoCraftTheme::canvas(), mRecordOptionsViewport.get(), false);
-    mMeetingControls = std::make_unique<SonoCraftListeningControls>(processor, true, [this] { return getAudioDeviceManager ? getAudioDeviceManager() : nullptr; });
-    mMeetingControls->setSize(480, 930);
-    mMeetingControls->onChooseAudio = [this] { showAudioTab(); };
-    mMeetingViewport = std::make_unique<Viewport>();
-    mMeetingViewport->setViewedComponent(mMeetingControls.get(), false);
-    mSettingsTab->addTab(juce::String::fromUTF8("Escuta e saídas"), SonoCraftTheme::canvas(), mMeetingViewport.get(), false);
+    mListeningControls = std::make_unique<SonoCraftListeningControls>(processor, true, [this] { return getAudioDeviceManager ? getAudioDeviceManager() : nullptr; });
+    mListeningControls->setSize(480, 790);
+    mListeningControls->onChooseAudio = [this] { showAudioTab(); };
+    mListeningViewport = std::make_unique<Viewport>();
+    mListeningViewport->setViewedComponent(mListeningControls.get(), false);
+    mSettingsTab->addTab(juce::String::fromUTF8("Escuta e saídas"), SonoCraftTheme::canvas(), mListeningViewport.get(), false);
     mSourceControls = std::make_unique<SonoCraftSourceControls>(processor);
-    mSourceControls->setSize(480,920);
+    mSourceControls->setSize(480,740);
     mSourceViewport = std::make_unique<Viewport>(); mSourceViewport->setViewedComponent(mSourceControls.get(),false);
     mSettingsTab->addTab(juce::String::fromUTF8("Fontes"),SonoCraftTheme::canvas(),mSourceViewport.get(),false);
 
@@ -959,8 +959,8 @@ void OptionsView::resized()  {
     mainBox.performLayout(getLocalBounds().reduced(2, 2));
 
     auto innerbounds = mSettingsTab->getLocalBounds();
-    if (mMeetingControls) mMeetingControls->setSize(jmax(280, innerbounds.getWidth()-16), 930);
-    if (mSourceControls) mSourceControls->setSize(jmax(280,innerbounds.getWidth()-16),920);
+    if (mListeningControls) mListeningControls->setSize(jmax(280, innerbounds.getWidth()-16), 790);
+    if (mSourceControls) mSourceControls->setSize(jmax(280,innerbounds.getWidth()-16),740);
 
     if (mAudioDeviceSelector) {
         mAudioDeviceSelector->setBounds(Rectangle<int>(0,0,innerbounds.getWidth() - 10,mAudioDeviceSelector->getHeight()));
@@ -991,7 +991,7 @@ void OptionsView::showAudioTab()
     }
 }
 
-void OptionsView::showMeetingTab()
+void OptionsView::showListeningTab()
 {
     mSettingsTab->setCurrentTabIndex(mSettingsTab->getNumTabs()-2);
 }

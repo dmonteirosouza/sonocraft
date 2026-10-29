@@ -5,22 +5,17 @@
 #include "SonoCraftTheme.h"
 
 // Headphone playback is an additional destination. It never changes the
-// processor's meeting mix or takes ownership of the primary device.
+// network send or takes ownership of the primary device.
 class SonoCraftListeningControls final : public juce::Component, private juce::Timer {
 public:
     using DeviceManagerProvider = std::function<juce::AudioDeviceManager*()>;
     SonoCraftListeningControls(SonobusAudioProcessor& p, bool fullPage = false, DeviceManagerProvider provider = {})
         : processor(p), full(fullPage), managerProvider(std::move(provider)) {
         for (auto* item : std::initializer_list<juce::Component*> { &enabled, &devices, &refresh, &volume, &hint,
-                &instructions, &role, &roleLabel, &inputDevices, &inputLabel, &mainDevices, &mainLabel,
-                &apply, &routingStatus, &configure, &diagnostic, &receive, &micMute, &includeReceived, &headphonesLabel })
+                &instructions, &inputDevices, &inputLabel, &mainDevices, &mainLabel,
+                &apply, &routingStatus, &configure, &diagnostic, &receive, &micMute, &headphonesLabel })
             addAndMakeVisible(item);
-        instructions.setText(juce::String::fromUTF8("Escolha a entrada e o destino principal. A escuta permite ouvir os sons recebidos e os pads; a saída para aplicativos entrega uma mistura separada, que pode ser usada como microfone."), juce::dontSendNotification);
-        roleLabel.setText(juce::String::fromUTF8("1. Como usar a saída principal?"), juce::dontSendNotification);
-        role.addItem(juce::String::fromUTF8("Saída para aplicativos (microfone virtual)"), 1);
-        role.addItem(juce::String::fromUTF8("Saída para escuta (fone ou alto-falante)"), 2);
-        role.setSelectedId(processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMeetingMode)->load() > 0 ? 1 : 2, juce::dontSendNotification);
-        role.onChange = [this] { updateRoleLabels(); };
+        instructions.setText(juce::String::fromUTF8("Escolha a entrada para transmitir aos conectados e uma saída física para ouvir. Pads e fontes são compartilhados somente entre usuários do SonoCraft."), juce::dontSendNotification);
         apply.setButtonText(juce::String::fromUTF8("Aplicar dispositivos e saída"));
         apply.onClick = [this] { applySetup(); };
         configure.setButtonText(juce::String::fromUTF8("Dispositivos e opções avançadas…"));
@@ -35,10 +30,7 @@ public:
         receive.onClick = [this] { setParameter(SonobusAudioProcessor::paramMainRecvMute, receive.getToggleState() ? 0 : 1); };
         micMute.setButtonText("Silenciar minha entrada (mantendo os pads)");
         micMuteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMainInMute, micMute);
-        includeReceived.setButtonText(juce::String::fromUTF8("Enviar também todo o áudio recebido"));
-        includeReceived.setTooltip(juce::String::fromUTF8("Afeta somente a saída para aplicativos. Desligado: microfone local, pads e fontes autorizadas em Fontes. Ligado: inclui também todo o áudio recebido. A escuta continua independente."));
-        includeReceivedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingIncludeReceived, includeReceived);
-        headphonesLabel.setText(juce::String::fromUTF8("4. Escuta independente (sem sua própria voz)"), juce::dontSendNotification);
+        headphonesLabel.setText(juce::String::fromUTF8("3. Escuta adicional (opcional, sem sua própria voz)"), juce::dontSendNotification);
         enabled.setButtonText(juce::String::fromUTF8("Ouvir áudio recebido e pads"));
         devices.setTextWhenNothingSelected("Escolha o headset ou alto-falante");
         devices.setTitle(juce::String::fromUTF8("Dispositivo de escuta"));
@@ -48,7 +40,7 @@ public:
         volume.setTitle("Volume da escuta");
         volume.setValue(processor.getPadMonitor().getVolume(), juce::dontSendNotification);
         volume.onValueChange = [this] { processor.getPadMonitor().setVolume(float(volume.getValue())); };
-        for (auto* label : { &instructions, &roleLabel, &inputLabel, &mainLabel, &headphonesLabel, &routingStatus, &hint }) {
+        for (auto* label : { &instructions, &inputLabel, &mainLabel, &headphonesLabel, &routingStatus, &hint }) {
             label->setMinimumHorizontalScale(1); label->setFont(13.0f);
             label->setJustificationType(juce::Justification::topLeft);
         }
@@ -73,12 +65,11 @@ public:
     std::function<void()> onChooseAudio;
     void resized() override {
         auto box = getLocalBounds().reduced(full ? 14 : 0);
-        for (auto* item : std::initializer_list<juce::Component*> { &instructions, &role, &roleLabel, &inputDevices,
+        for (auto* item : std::initializer_list<juce::Component*> { &instructions, &inputDevices,
                 &inputLabel, &mainDevices, &mainLabel, &apply, &routingStatus, &configure, &receive, &micMute,
-                &includeReceived, &headphonesLabel, &diagnostic }) item->setVisible(full);
+                &headphonesLabel, &diagnostic }) item->setVisible(full);
         if (full) {
             instructions.setBounds(box.removeFromTop(76));
-            roleLabel.setBounds(box.removeFromTop(24)); role.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
             inputLabel.setBounds(box.removeFromTop(24)); inputDevices.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
             mainLabel.setBounds(box.removeFromTop(24)); mainDevices.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
             apply.setBounds(box.removeFromTop(36)); box.removeFromTop(8);
@@ -86,7 +77,6 @@ public:
             configure.setBounds(box.removeFromTop(32)); box.removeFromTop(6);
             diagnostic.setBounds(box.removeFromTop(32)); box.removeFromTop(12);
             receive.setBounds(box.removeFromTop(28)); micMute.setBounds(box.removeFromTop(28));
-            includeReceived.setBounds(box.removeFromTop(38)); box.removeFromTop(12);
             headphonesLabel.setBounds(box.removeFromTop(24));
         }
         enabled.setBounds(box.removeFromTop(28));
@@ -97,17 +87,17 @@ private:
     SonobusAudioProcessor& processor;
     const bool full;
     DeviceManagerProvider managerProvider;
-    juce::ToggleButton enabled, receive, micMute, includeReceived;
-    juce::ComboBox role, inputDevices, mainDevices, devices;
+    juce::ToggleButton enabled, receive, micMute;
+    juce::ComboBox inputDevices, mainDevices, devices;
     juce::TextButton apply, refresh, configure, diagnostic;
     juce::Slider volume;
-    juce::Label instructions, roleLabel, inputLabel, mainLabel, routingStatus, headphonesLabel, hint;
+    juce::Label instructions, inputLabel, mainLabel, routingStatus, headphonesLabel, hint;
     juce::Array<SonoCraftPadMonitor::Device> outputs;
     juce::StringArray inputs, mainOutputs;
     juce::String applyError;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> micMuteAttachment, includeReceivedAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> micMuteAttachment;
     juce::String audioDiagnostic() {
-        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 1\n";
+        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 2\n";
         const auto line = [&text](const char* key, const juce::String& value) { text += juce::String(key) + ": " + value + "\n"; };
         const auto flag = [this,&line](const char* key, const juce::String& parameter) {
             line(key, processor.getValueTreeState().getRawParameterValue(parameter)->load()>0.5f ? "on" : "off");
@@ -128,16 +118,12 @@ private:
         }
         line("engine_input",processor.getStandaloneInputName());
         line("engine_output",processor.getStandaloneOutputName());
-        line("loop_protection",processor.isStandaloneOutputBlocked() ? "blocked" : "clear");
+        line("virtual_output_protection",processor.isStandaloneOutputBlocked() ? "blocked" : "clear");
         flag("input_muted",SonobusAudioProcessor::paramMainInMute);
         flag("network_send_muted",SonobusAudioProcessor::paramMainSendMute);
         flag("network_receive_muted",SonobusAudioProcessor::paramMainRecvMute);
-        flag("application_output_mode",SonobusAudioProcessor::paramMeetingMode);
-        flag("include_all_received",SonobusAudioProcessor::paramMeetingIncludeReceived);
         flag("pads_to_connections",SonobusAudioProcessor::paramSendSoundboardAudio);
         flag("selected_source_to_connections",SonobusAudioProcessor::paramSendApplicationAudio);
-        flag("local_source_to_output",SonobusAudioProcessor::paramApplicationToMeeting);
-        flag("received_sources_to_output",SonobusAudioProcessor::paramReceivedApplicationsToMeeting);
         line("local_capture_active",processor.getApplicationAudio().isActive() ? "yes" : "no");
         auto& monitor = processor.getPadMonitor();
         line("listening_active",monitor.isActive() ? "yes" : "no");
@@ -165,9 +151,8 @@ private:
         parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
     }
     void updateRoleLabels() {
-        const bool meeting = role.getSelectedId() == 1;
-        inputLabel.setText(juce::String::fromUTF8(meeting ? "2. Entrada de voz (microfone físico ou sem entrada)" : "2. Entrada de áudio (microfone ou cabo virtual)"), juce::dontSendNotification);
-        mainLabel.setText(juce::String::fromUTF8(meeting ? "3. Cabo virtual de saída para aplicativos" : "3. Saída local (ou Sem saída para só transmitir)"), juce::dontSendNotification);
+        inputLabel.setText(juce::String::fromUTF8("1. Entrada (microfone ou captura do sistema)"), juce::dontSendNotification);
+        mainLabel.setText(juce::String::fromUTF8("2. Saída local (fone, alto-falante ou Sem saída)"), juce::dontSendNotification);
         applyError.clear(); updateStatus();
     }
     void scanMainDevices() {
@@ -183,8 +168,10 @@ private:
         for (int i = 0; i < inputs.size(); ++i) inputDevices.addItem(inputs[i], i+2);
         inputDevices.setSelectedId(inputs.indexOf(setup.inputDeviceName)+2, juce::dontSendNotification);
         if (setup.inputDeviceName.isEmpty()) inputDevices.setSelectedId(1, juce::dontSendNotification);
+        for (int i = mainOutputs.size(); --i >= 0;)
+            if (SonoCraftAudioRouting::isVirtualCable(mainOutputs[i])) mainOutputs.remove(i);
         for (int i = 0; i < mainOutputs.size(); ++i) mainDevices.addItem(mainOutputs[i], i+2);
-        mainDevices.setSelectedId(mainOutputs.indexOf(setup.outputDeviceName)+2, juce::dontSendNotification);
+        mainDevices.setSelectedId(mainOutputs.contains(setup.outputDeviceName) ? mainOutputs.indexOf(setup.outputDeviceName)+2 : 0, juce::dontSendNotification);
         if (setup.outputDeviceName.isEmpty()) mainDevices.setSelectedId(1, juce::dontSendNotification);
     }
     void applySetup() {
@@ -194,15 +181,11 @@ private:
         if (mainDevices.getSelectedId() == 0) { applyError = juce::String::fromUTF8("Escolha a saída principal antes de aplicar."); updateStatus(); return; }
         const auto input = juce::isPositiveAndBelow(inputIndex, inputs.size()) ? inputs[inputIndex] : juce::String();
         const auto output = juce::isPositiveAndBelow(outputIndex, mainOutputs.size()) ? mainOutputs[outputIndex] : juce::String();
-        const bool meeting = role.getSelectedId() == 1;
         if (input.isEmpty() && output.isEmpty()) applyError = juce::String::fromUTF8("Escolha uma entrada ou saída para manter o áudio dos pads em funcionamento.");
-        else if (SonoCraftAudioRouting::feedsBack(input, output)) applyError = juce::String::fromUTF8("Entrada e saída usam o mesmo cabo virtual e podem causar repetição. Se o cabo captura o áudio do sistema, escolha Sem saída principal ou uma saída física.");
-        else if (meeting && SonoCraftAudioRouting::isVirtualCable(input)) applyError = juce::String::fromUTF8("Para usar a saída como microfone, escolha uma entrada física ou Sem entrada. A ponta de gravação do cabo virtual deve ser selecionada no aplicativo que receberá o som.");
-        else if (meeting && !SonoCraftAudioRouting::isVirtualCable(output)) applyError = juce::String::fromUTF8("Escolha a ponta de reprodução do cabo virtual, por exemplo CABLE Input. No aplicativo de destino, selecione a ponta de gravação, por exemplo CABLE Output. Os fones ficam em Escuta independente.");
-        else if (!meeting && SonoCraftAudioRouting::isVirtualCable(output)) applyError = juce::String::fromUTF8("Para escuta, escolha um fone, alto-falante ou Sem saída principal. Para entregar som a um cabo virtual de saída, escolha Saída para aplicativos.");
+        else if (SonoCraftAudioRouting::isVirtualCable(output)) applyError = juce::String::fromUTF8("Escolha fones, alto-falantes ou Sem saída. O SonoCraft não envia áudio para microfones virtuais.");
         else applyError.clear();
         if (applyError.isNotEmpty()) { updateStatus(); return; }
-        if (!meeting || output.equalsIgnoreCase(processor.getPadMonitor().getDeviceName())) processor.getPadMonitor().stop();
+        if (output.equalsIgnoreCase(processor.getPadMonitor().getDeviceName())) processor.getPadMonitor().stop();
         auto setup = manager->getAudioDeviceSetup();
         setup.inputDeviceName = input; setup.outputDeviceName = output;
         setup.useDefaultInputChannels = input.isNotEmpty(); if (input.isEmpty()) setup.inputChannels.clear();
@@ -210,29 +193,25 @@ private:
         applyError = manager->setAudioDeviceSetup(setup, true);
         if (applyError.isNotEmpty()) { updateStatus(); return; }
         processor.setStandaloneAudioDevices(input, output);
-        setParameter(SonobusAudioProcessor::paramMeetingMode, meeting ? 1 : 0);
         setParameter(SonobusAudioProcessor::paramMainRecvMute, 0);
         setParameter(SonobusAudioProcessor::paramDry, 0);
         setParameter(SonobusAudioProcessor::paramSendSoundboardAudio, 1);
         setParameter(SonobusAudioProcessor::paramMainSendMute, 0);
-        if (!meeting && SonoCraftAudioRouting::isVirtualCable(input)) setParameter(SonobusAudioProcessor::paramMainInMute, 0);
         updateStatus(); showHint();
     }
     void updateStatus() {
         if (!full) return;
         const bool blocked = processor.isStandaloneOutputBlocked();
         const auto text = applyError.isNotEmpty() ? applyError : blocked
-            ? juce::String::fromUTF8("Saída principal pausada para evitar repetição: entrada e saída usam o mesmo cabo virtual. Corrija os destinos acima e clique em Aplicar. O envio pela rede continua ativo.")
-            : processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMeetingMode)->load() > 0
-                ? juce::String::fromUTF8("Saída para aplicativos: microfone local + pads + fontes autorizadas em Fontes. No aplicativo de destino, escolha a ponta de gravação do cabo como microfone. A escuta abaixo recebe todos os sons.")
-                : juce::String::fromUTF8("Entrada e pads são enviados aos conectados conforme os controles da mesa. A saída local reproduz o áudio recebido. Escolher uma fonte adicional não substitui a entrada completa.");
+            ? juce::String::fromUTF8("A saída virtual salva foi bloqueada. Escolha fones, alto-falantes ou Sem saída e clique em Aplicar. A transmissão entre usuários do SonoCraft continua disponível.")
+            : juce::String::fromUTF8("A entrada, os pads e as fontes habilitadas são enviados aos conectados no SonoCraft. A saída local reproduz os sons para você.");
         routingStatus.setText(text, juce::dontSendNotification);
         routingStatus.setColour(juce::Label::textColourId, applyError.isNotEmpty() || blocked ? juce::Colour(0xffa02a23) : SonoCraftTheme::secondary());
     }
     void showHint() {
         hint.setText(juce::String::fromUTF8(processor.getPadMonitor().isActive()
-            ? "Escuta ligada: áudio recebido + pads, sem sua própria voz. O envio aos conectados e a saída para aplicativos continuam independentes."
-            : "A escuta não altera nenhum envio. Escolha fones ou alto-falantes físicos; o cabo virtual é outro destino."), juce::dontSendNotification);
+            ? "Escuta ligada: áudio recebido + pads, sem sua própria voz. O envio aos conectados continua independente."
+            : "A escuta não altera o envio aos conectados. Escolha uma saída física diferente da saída principal para evitar reprodução duplicada."), juce::dontSendNotification);
     }
     void scan() {
         const auto previous = devices.getText(); outputs = processor.getPadMonitor().devices(); devices.clear(juce::dontSendNotification);

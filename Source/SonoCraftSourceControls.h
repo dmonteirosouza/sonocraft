@@ -8,8 +8,8 @@
 class SonoCraftSourceControls final : public juce::Component, private juce::Timer {
 public:
     explicit SonoCraftSourceControls(SonobusAudioProcessor& value) : processor(value) {
-        for (auto* item : std::initializer_list<juce::Component*> { &intro,&mode,&applications,&refresh,&begin,&end,&network,&meeting,&received,&status,&explanation,&inputNotice,&sourceHeading,&destinationsHeading,&receivedHeading }) addAndMakeVisible(item);
-        intro.setText(juce::String::fromUTF8("O áudio completo da entrada continua chegando aos conectados. Escolha abaixo uma fonte adicional para usar na saída para aplicativos, sem mudar o que você escuta."), juce::dontSendNotification);
+        for (auto* item : std::initializer_list<juce::Component*> { &intro,&mode,&applications,&refresh,&begin,&end,&network,&status,&explanation,&inputNotice,&sourceHeading,&destinationsHeading }) addAndMakeVisible(item);
+        intro.setText(juce::String::fromUTF8("Escolha uma aba ou aplicativo para enviar aos conectados no SonoCraft. A entrada e os pads continuam com seus próprios controles de envio."), juce::dontSendNotification);
         mode.addItem("Uma aba do navegador",1);
         mode.addItem("Um aplicativo inteiro (todas as janelas dele)",2);
         mode.setSelectedId(1,juce::dontSendNotification);
@@ -17,25 +17,18 @@ public:
         refresh.setButtonText("Atualizar aplicativos"); refresh.onClick = [this] { scan(); };
         end.setButtonText("Parar captura"); end.onClick = [this] { actionError.clear(); processor.getApplicationAudio().stop(); };
         network.setButtonText(juce::String::fromUTF8("Enviar esta fonte aos conectados"));
-        meeting.setButtonText(juce::String::fromUTF8("Usar esta fonte na saída para aplicativos"));
-        received.setButtonText(juce::String::fromUTF8("Usar fontes recebidas na saída para aplicativos"));
         sourceHeading.setText(juce::String::fromUTF8("1. Fonte local (uma seleção por vez)"),juce::dontSendNotification);
-        destinationsHeading.setText(juce::String::fromUTF8("2. Destinos desta fonte"),juce::dontSendNotification);
-        receivedHeading.setText(juce::String::fromUTF8("3. Fontes selecionadas pelos conectados"),juce::dontSendNotification);
-        network.setTooltip(juce::String::fromUTF8("Envia esta seleção em faixa separada, além da entrada completa e dos pads. Cada destino decide se a inclui na saída para aplicativos."));
-        meeting.setTooltip(juce::String::fromUTF8("Inclui a seleção local no cabo virtual de saída. Sua reprodução original continua no dispositivo de escuta do sistema."));
-        received.setTooltip(juce::String::fromUTF8("Inclui as seleções enviadas pelos conectados no cabo virtual de saída. O restante do áudio recebido continua apenas na escuta."));
-        for (auto* label : {&sourceHeading,&destinationsHeading,&receivedHeading}) {
+        destinationsHeading.setText(juce::String::fromUTF8("2. Envio desta fonte"),juce::dontSendNotification);
+        network.setTooltip(juce::String::fromUTF8("Envia esta seleção aos participantes da conexão ou grupo do SonoCraft, além da entrada e dos pads habilitados."));
+        for (auto* label : {&sourceHeading,&destinationsHeading}) {
             label->setFont(juce::Font(14.0f,juce::Font::bold));
             label->setMinimumHorizontalScale(1);
         }
         networkAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(),SonobusAudioProcessor::paramSendApplicationAudio,network);
-        meetingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(),SonobusAudioProcessor::paramApplicationToMeeting,meeting);
-        receivedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(),SonobusAudioProcessor::paramReceivedApplicationsToMeeting,received);
         begin.onClick = [this] {
             actionError.clear();
-            if (!network.getToggleState() && !meeting.getToggleState()) {
-                showError(juce::String::fromUTF8("Marque primeiro um destino: conectados ou saída para aplicativos.")); return;
+            if (!network.getToggleState()) {
+                showError(juce::String::fromUTF8("Marque Enviar esta fonte aos conectados antes de iniciar.")); return;
             }
             if (mode.getSelectedId()==2 && !juce::isPositiveAndBelow(applications.getSelectedId()-1,apps.size())) {
                 showError("Escolha um aplicativo na lista."); return;
@@ -45,7 +38,7 @@ public:
                 const bool inputMuted = processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMainInMute)->load() > 0.5f;
                 inputNotice.setText(juce::String::fromUTF8(inputMuted
                     ? "Sua entrada continua silenciada. A fonte selecionada e os pads são independentes desse controle. Para voltar a enviar o áudio completo da entrada, desative Silenciar minha entrada."
-                    : "A entrada virtual continua enviando o áudio completo. Esta fonte segue separadamente e só entra na saída para aplicativos quando autorizada no destino."),juce::dontSendNotification);
+                    : "A entrada virtual continua enviando o áudio completo. Esta fonte segue separadamente para os conectados no SonoCraft."),juce::dontSendNotification);
             }
             if (mode.getSelectedId()==1) {
                 const auto url=processor.getApplicationAudio().startBrowserTab();
@@ -71,20 +64,19 @@ public:
         auto row=box.removeFromTop(36); end.setBounds(row.removeFromRight(124)); row.removeFromRight(8); begin.setBounds(row);
         box.removeFromTop(12); explanation.setBounds(box.removeFromTop(108));
         destinationsHeading.setBounds(box.removeFromTop(30));
-        network.setBounds(box.removeFromTop(32)); meeting.setBounds(box.removeFromTop(32));
-        box.removeFromTop(12); receivedHeading.setBounds(box.removeFromTop(30)); received.setBounds(box.removeFromTop(38));
+        network.setBounds(box.removeFromTop(32));
         box.removeFromTop(12); status.setBounds(box.removeFromTop(96)); inputNotice.setBounds(box.removeFromTop(100));
     }
 private:
     SonobusAudioProcessor& processor;
-    juce::Label intro,status,explanation,inputNotice,sourceHeading,destinationsHeading,receivedHeading;
+    juce::Label intro,status,explanation,inputNotice,sourceHeading,destinationsHeading;
     juce::ComboBox mode,applications;
     juce::TextButton refresh,begin,end;
-    juce::ToggleButton network,meeting,received;
+    juce::ToggleButton network;
     juce::Array<SonoCraftApplicationAudio::Application> apps;
     juce::String actionError;
     void showError(const juce::String& text) { actionError=text; status.setText(text,juce::dontSendNotification); }
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> networkAttachment,meetingAttachment,receivedAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> networkAttachment;
     void updateMode() {
         const bool tab=mode.getSelectedId()==1; applications.setVisible(!tab); refresh.setVisible(!tab); resized();
         begin.setButtonText(tab ? "Escolher uma aba no navegador" : "Capturar aplicativo selecionado");
@@ -103,8 +95,6 @@ private:
         auto text=audio.status();
         if (actionError.isNotEmpty()) { status.setText(actionError,juce::dontSendNotification); return; }
         if (audio.isActive()) text=audio.sourceName()+" · "+(audio.level()>0.001f ? juce::String::fromUTF8("recebendo áudio") : juce::String::fromUTF8("aguardando som"))+"\n"+text;
-        if ((meeting.getToggleState()||received.getToggleState()) && processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMeetingMode)->load()<0.5f)
-            text+=juce::String::fromUTF8("\nPara usar estas fontes na saída local, ative Saída para aplicativos em Escuta e saídas.");
         status.setText(text,juce::dontSendNotification);
     }
 };

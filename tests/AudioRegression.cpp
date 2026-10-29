@@ -140,7 +140,6 @@ int main()
         set(SonobusAudioProcessor::paramWet, 1);
         set(SonobusAudioProcessor::paramMainSendMute, 0);
         set(SonobusAudioProcessor::paramMainRecvMute, 0);
-        set(SonobusAudioProcessor::paramMeetingMode, 0);
         set(SonobusAudioProcessor::paramMetEnabled, 0);
         set(SonobusAudioProcessor::paramMainReverbEnabled, 0);
         processor.setInputGroupCount(1);
@@ -194,17 +193,10 @@ int main()
     juce::MidiBuffer midi;
     double phase = 0.0;
     double receivedEnergy = 0.0, mutedEnergy = 0.0, resumedEnergy = 0.0;
-    double meetingRemoteEnergy = 0.0, meetingVoiceEnergy = 0.0, privateAudioLeak = 0.0;
+    double playbackRemoteEnergy = 0.0;
     double listeningVoiceLeak = 0.0, listeningRemoteEnergy = 0.0;
-    double receiverMeetingSum = 0.0;
-    int receiverMeetingSamples = 0;
-    auto setMeeting = [](SonobusAudioProcessor& processor, bool enabled) {
-        auto* parameter = processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingMode);
-        parameter->setValueNotifyingHost(enabled ? 1.0f : 0.0f);
-    };
-    // Legacy remote-audio test explicitly opts into sharing general received audio.
-    sender.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingIncludeReceived)->setValueNotifyingHost(1);
-    receiver.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingIncludeReceived)->setValueNotifyingHost(1);
+    double receiverPlaybackSum = 0.0;
+    int receiverPlaybackSamples = 0;
     const int blockSizes[] = {128, 1024, 64, 256, 512, 128};
     const auto startedAt = juce::Time::getMillisecondCounterHiRes();
     auto nextCallbackAt = startedAt;
@@ -267,19 +259,9 @@ int main()
                 return 1;
             }
         }
-        if (block == 1200 || block == 1300) {
-            setMeeting(sender, block == 1200);
-            setMeeting(receiver, block == 1200);
-        }
-        if (block == 1230 || block == 1260)
-            receiver.getValueTreeState().getParameter(SonobusAudioProcessor::paramMeetingIncludeReceived)->setValueNotifyingHost(block == 1260 ? 1 : 0);
         sender.processBlock(input, midi);
-        if (block > 1220 && block < 1280)
-            for (int channel = 0; channel < input.getNumChannels(); ++channel)
-                for (int sample = 0; sample < samples; ++sample)
-                    meetingVoiceEnergy += input.getSample(channel, sample) * input.getSample(channel, sample);
-        // Windows microphone is distinct from the remote sine: a DC signal
-        // lets us verify the meeting mix contains it while listening does not.
+        // Physical input is transmitted, but does not enter local listening
+        // with input monitoring disabled.
         if (block >= 1250 && block < 1300)
             for (int channel = 0; channel < 2; ++channel)
                 for (int sample = 0; sample < samples; ++sample) output.setSample(channel, sample, 0.02f);
@@ -289,7 +271,7 @@ int main()
             const float remoteListening = receiver.getListeningMeterSource().getMaxLevel(0);
             if (block < 1245) listeningVoiceLeak += localListening * localListening;
             listeningRemoteEnergy += remoteListening * remoteListening;
-            if (block > 1260) for (int sample = 0; sample < samples; ++sample) { receiverMeetingSum += output.getSample(0, sample); ++receiverMeetingSamples; }
+            if (block > 1260) for (int sample = 0; sample < samples; ++sample) { receiverPlaybackSum += output.getSample(0, sample); ++receiverPlaybackSamples; }
         }
         for (int channel = 0; channel < output.getNumChannels(); ++channel)
             for (int sample = 0; sample < samples; ++sample)
@@ -303,8 +285,7 @@ int main()
                 receivedEnergy += value * value;
                 if (block > 1020 && block < 1080) mutedEnergy += value * value;
                 if (block > 1120 && block < 1180) resumedEnergy += value * value;
-                if (block > 1220 && block < 1280) meetingRemoteEnergy += value * value;
-                if (block > 1240 && block < 1250) privateAudioLeak += value * value;
+                if (block > 1220 && block < 1280) playbackRemoteEnergy += value * value;
             }
         // Model an audio device clock, rather than adding a relative sleep to
         // processing time. macOS CI can coalesce nanosleep by tens of ms, which
@@ -322,19 +303,18 @@ int main()
         nextCallbackAt += samples * 1000.0 / 48000.0;
         waitForAudioDeadline(nextCallbackAt);
     }
-    if (privateAudioLeak > 0.000001 || mutedEnergy > 0.000001 || resumedEnergy <= 0.001
-        || meetingRemoteEnergy <= 0.001 || meetingVoiceEnergy <= 0.001
+    if (mutedEnergy > 0.000001 || resumedEnergy <= 0.001 || playbackRemoteEnergy <= 0.001
         || listeningVoiceLeak > 0.000001 || listeningRemoteEnergy <= 0.001
-        || receiverMeetingSamples == 0 || std::abs(receiverMeetingSum/receiverMeetingSamples - 0.02) > 0.005) {
+        || receiverPlaybackSamples == 0 || std::abs(receiverPlaybackSum/receiverPlaybackSamples) > 0.005) {
         std::cerr << "FAIL: mute=" << mutedEnergy << ", unmute=" << resumedEnergy
-                  << ", meeting remote=" << meetingRemoteEnergy << ", meeting voice=" << meetingVoiceEnergy << ", total=" << receivedEnergy << "\n";
+                  << ", playback=" << playbackRemoteEnergy << ", total=" << receivedEnergy << "\n";
         for (auto& state : receiver.getMixerChannelStates())
             std::cerr << "receiver muted=" << state.muted << ", solo=" << state.soloed << ", gain=" << state.gain
                       << ", connected=" << state.connected << ", packets=" << receiver.getRemotePeerPacketsReceived(0)
                       << ", active=" << receiver.getRemotePeerRecvActive(0) << ", channels=" << receiver.getRemotePeerRecvChannelCount(0) << "\n";
         return 1;
     }
-    std::cout << "PASS: immediate participant mute, unmute recovery, separate listening and meeting mixes, private remote audio blocked until opted in, local voice excluded from listening" << std::endl;
+    std::cout << "PASS: immediate participant mute, unmute recovery, remote playback and local voice excluded from listening" << std::endl;
     std::cout << "Audio loop completed; releasing resources" << std::endl;
     sender.releaseResources();
     receiver.releaseResources();
@@ -392,7 +372,7 @@ int main()
         std::cerr << "FAIL: stale mixer control recreated a removed channel\n";
         return 1;
     }
-    // Play a real pad file into the meeting mix with no microphone signal.
+    // Play a real pad through local playback, then reject a saved virtual output.
     // This exercises the Soundboard path rather than synthesising its output.
     auto fixturePath = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("sonocraft-pad-test", ".wav");
     juce::TemporaryFile padFile(fixturePath.withFileExtension("unused"), fixturePath);
@@ -410,9 +390,23 @@ int main()
     SoundSample pad("Regression pad", juce::URL(padFile.getFile()));
     auto player = roster->getSoundboardProcessor()->loadSample(pad);
     if (!player) { std::cerr << "FAIL: could not load pad fixture\n"; return 1; }
-    setMeeting(*roster, true);
+    // Reload a preset from a version that supported virtual microphone mixing.
+    auto legacy = roster->getValueTreeState().copyState();
+    for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting" }) {
+        juce::ValueTree parameter("PARAM"); parameter.setProperty("id", id, nullptr); parameter.setProperty("value", 1.0f, nullptr);
+        legacy.addChild(parameter, -1, nullptr); legacy.setProperty(id, true, nullptr);
+    }
+    const auto legacyXml = legacy.toXmlString();
+    roster->setStateInformationWithOptions(legacyXml.toRawUTF8(), int(legacyXml.getNumBytesAsUTF8()), false, false, true);
+    const auto restoredState = roster->getValueTreeState().copyState();
+    for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting" }) {
+        if (roster->getValueTreeState().getParameter(id) != nullptr || restoredState.hasProperty(id)
+            || restoredState.getChildWithProperty("id", id).isValid()) { std::cerr << "FAIL: removed microphone routing survived preset reload\n"; return 1; }
+    }
+    std::cout << "PASS: legacy virtual microphone parameters removed on preset reload" << std::endl;
+    roster->getSoundboardProcessor()->setMonitorGain(1.0f);
     (*player)->play();
-    double padEnergy = 0, listeningOnMeetingEnergy = 0, listeningOffMeetingEnergy = 0, headphonePadEnergy = 0;
+    double padEnergy = 0, listeningOnPlaybackEnergy = 0, listeningOffPlaybackEnergy = 0, headphonePadEnergy = 0;
     TestListeningDevice* localHeadphones = nullptr;
     for (int block = 0; block < 100; ++block) {
         juce::AudioBuffer<float> padOutput(2, 128);
@@ -422,12 +416,12 @@ int main()
             if (roster->getPadMonitor().startWithDevice(std::move(device), {"Regression", "Headset fixture"}).isNotEmpty()) return 1;
         }
         if (block == 60) { roster->getPadMonitor().stop(); localHeadphones = nullptr; }
-        if (block == 70) roster->setStandaloneAudioDevices("VB-Cable", "VB-Cable");
+        if (block == 70) roster->setStandaloneAudioDevices("Headset microphone", "CABLE Input (VB-Audio Virtual Cable)");
         if (block == 80) roster->setStandaloneAudioDevices("VB-Cable", "Headset");
         roster->processBlock(padOutput, midi);
-        if (block >= 70 && block < 80 && padOutput.getMagnitude(0, 128) != 0) { std::cerr << "FAIL: virtual cable fed its own capture input\n"; return 1; }
-        if (block > 40 && block < 55) listeningOnMeetingEnergy += padOutput.getRMSLevel(0,0,128);
-        if (block > 10 && block < 25) listeningOffMeetingEnergy += padOutput.getRMSLevel(0,0,128);
+        if (block >= 70 && block < 80 && padOutput.getMagnitude(0, 128) != 0) { std::cerr << "FAIL: pad entered a virtual microphone output\n"; return 1; }
+        if (block > 40 && block < 55) listeningOnPlaybackEnergy += padOutput.getRMSLevel(0,0,128);
+        if (block > 10 && block < 25) listeningOffPlaybackEnergy += padOutput.getRMSLevel(0,0,128);
         if (localHeadphones) { juce::AudioBuffer<float> ears(2,128); localHeadphones->render(ears); headphonePadEnergy += ears.getRMSLevel(0,0,128); }
         for (int channel = 0; channel < 2; ++channel)
             for (int sample = 0; sample < 128; ++sample)
@@ -437,10 +431,10 @@ int main()
     if (roster->getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
         std::cerr << "FAIL: local pad missing from headphone mix\n"; return 1;
     }
-    if (listeningOnMeetingEnergy <= 0.001 || listeningOffMeetingEnergy <= 0.001 || headphonePadEnergy <= 0.001) { std::cerr << "FAIL: headphone toggle interrupted meeting audio\n"; return 1; }
-    if (padEnergy <= 0.001) { std::cerr << "FAIL: no Soundboard in meeting output\n"; return 1; }
-    std::cout << "PASS: local pad reaches meeting with headphones on/off; virtual cable loop output is blocked" << std::endl;
-    // Real source pad -> UDP receiver -> meeting output and listening bus.
+    if (listeningOnPlaybackEnergy <= 0.001 || listeningOffPlaybackEnergy <= 0.001 || headphonePadEnergy <= 0.001) { std::cerr << "FAIL: headphone toggle interrupted local playback\n"; return 1; }
+    if (padEnergy <= 0.001) { std::cerr << "FAIL: no Soundboard in local playback\n"; return 1; }
+    std::cout << "PASS: local pads play with headphones on/off; physical input cannot feed a virtual output" << std::endl;
+    // Real source pad -> UDP receiver -> physical output and listening bus.
     // Muting the source microphone must not suppress its Soundboard stream.
     sender.prepareToPlay(48000, 128); receiver.prepareToPlay(48000, 128);
     auto setParameter = [](SonobusAudioProcessor& processor, const juce::String& id, float value) {
@@ -453,21 +447,18 @@ int main()
     setParameter(sender, SonobusAudioProcessor::paramSendChannels, 1);
     sender.setRemotePeerOverrideSendChannelCount(-1, 1);
     setParameter(sender, SonobusAudioProcessor::paramSendSoundboardAudio, 1);
-    setMeeting(receiver, true);
-    setParameter(receiver, SonobusAudioProcessor::paramMeetingIncludeReceived, 0);
     SoundSample remotePad("Remote pad", juce::URL(padFile.getFile()), SoundSample::LOOP_AT_END);
     auto remotePlayer = sender.getSoundboardProcessor()->loadSample(remotePad);
     if (!remotePlayer) return 1;
     (*remotePlayer)->play();
-    double remotePadEnergy = 0, remotePadMean = 0, remoteMeetingWithEars = 0, remoteMeetingWithoutEars = 0, remoteHeadphoneEnergy = 0;
+    double remotePadEnergy = 0, remotePlaybackWithEars = 0, remotePlaybackWithoutEars = 0, remoteHeadphoneEnergy = 0;
     TestListeningDevice* remoteHeadphones = nullptr;
     auto padDeadline = juce::Time::getMillisecondCounterHiRes();
     for (int block = 0; block < 480; ++block) {
         juce::AudioBuffer<float> source(2,128), destination(2,128);
         for (int channel = 0; channel < 2; ++channel)
             for (int sample = 0; sample < 128; ++sample) source.setSample(channel, sample, 0.6f);
-        // Unmute the source voice while its pad keeps playing: the receiver
-        // must still forward only pad channels, not the general input stream.
+        // All source audio remains available to the physical listening output.
         if (block == 240) setParameter(sender, SonobusAudioProcessor::paramMainInMute, 0);
         destination.clear();
         if (block == 120) {
@@ -476,22 +467,22 @@ int main()
         }
         if (block == 300) { receiver.getPadMonitor().stop(); remoteHeadphones = nullptr; }
         sender.processBlock(source, midi); receiver.processBlock(destination, midi);
-        if (block > 180 && block < 230) remoteMeetingWithEars += destination.getRMSLevel(0,0,128);
-        if (block > 330 && block < 380) remoteMeetingWithoutEars += destination.getRMSLevel(0,0,128);
+        if (block > 180 && block < 230) remotePlaybackWithEars += destination.getRMSLevel(0,0,128);
+        if (block > 330 && block < 380) remotePlaybackWithoutEars += destination.getRMSLevel(0,0,128);
         if (remoteHeadphones) { juce::AudioBuffer<float> ears(2,128); remoteHeadphones->render(ears); remoteHeadphoneEnergy += ears.getRMSLevel(0,0,128); }
         if (block > 300) for (int sample = 0; sample < 128; ++sample) {
             auto value = destination.getSample(0, sample);
-            remotePadEnergy += value * value; remotePadMean += value;
+            remotePadEnergy += value * value;
         }
         const auto padNow = juce::Time::getMillisecondCounterHiRes();
         if (padNow - padDeadline > 100.0) padDeadline = padNow;
         padDeadline += 128 * 1000.0 / 48000.0;
         waitForAudioDeadline(padDeadline);
     }
-    if (remoteMeetingWithEars <= 0.001 || remoteMeetingWithoutEars <= 0.001 || remoteHeadphoneEnergy <= 0.001) { std::cerr << "FAIL: remote pad lost when toggling headphones or restoring mono settings: on=" << remoteMeetingWithEars << " off=" << remoteMeetingWithoutEars << " ears=" << remoteHeadphoneEnergy << " recvChannels=" << receiver.getRemotePeerRecvChannelCount(0) << " sendChannels=" << sender.getRemotePeerActualSendChannelCount(0) << " active=" << receiver.getRemotePeerRecvActive(0) << "\n"; return 1; }
-    if (remotePadEnergy <= 0.001 || std::abs(remotePadMean/(179*128)) > 0.01
+    if (remotePlaybackWithEars <= 0.001 || remotePlaybackWithoutEars <= 0.001 || remoteHeadphoneEnergy <= 0.001) { std::cerr << "FAIL: remote pad lost when toggling headphones or restoring mono settings: on=" << remotePlaybackWithEars << " off=" << remotePlaybackWithoutEars << " ears=" << remoteHeadphoneEnergy << " recvChannels=" << receiver.getRemotePeerRecvChannelCount(0) << " sendChannels=" << sender.getRemotePeerActualSendChannelCount(0) << " active=" << receiver.getRemotePeerRecvActive(0) << "\n"; return 1; }
+    if (remotePadEnergy <= 0.001
         || receiver.getListeningMeterSource().getMaxLevel(0) <= 0.001f) {
-        std::cerr << "FAIL: remote pad/mic-mute/listening routing: energy=" << remotePadEnergy << " mean=" << remotePadMean/(179*128) << "\n"; return 1;
+        std::cerr << "FAIL: remote pad/mic-mute/listening routing: energy=" << remotePadEnergy << "\n"; return 1;
     }
     (*remotePlayer)->unload();
     sender.getSoundboardProcessor()->clearPlayback(); remotePlayer.reset();
@@ -520,15 +511,12 @@ int main()
     const auto activationDeadline=juce::Time::getMillisecondCounterHiRes()+3000;
     while (!sender.getApplicationAudio().isActive() && juce::Time::getMillisecondCounterHiRes()<activationDeadline) juce::Thread::sleep(1);
     if (!sender.getApplicationAudio().isActive()) { std::cerr << "FAIL: authenticated tab capture did not activate\n"; return 1; }
-    setMeeting(sender,true); setMeeting(receiver,true);
     sender.setStandaloneAudioDevices("VB-Cable",{});
     // The complete Mac feed must remain available to headphones while the
-    // chosen tab travels in a separate, meeting-selectable source.
+    // chosen tab travels in a separate network source.
     setParameter(sender,SonobusAudioProcessor::paramMainInMute,0);
     setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,1);
-    setParameter(sender,SonobusAudioProcessor::paramApplicationToMeeting,1);
-    setParameter(receiver,SonobusAudioProcessor::paramReceivedApplicationsToMeeting,0);
-    double privateTabLeak=0, sharedTabEnergy=0, tabInHeadphones=0, stoppedTabEnergy=0, localTabMeetingEnergy=0, aggregateLeak=0, fullListeningAfterStop=0, duplicateSelectedAudio=0;
+    double completeFeedPlayback=0, tabInHeadphones=0, fullPlaybackAfterStop=0, fullListeningAfterStop=0, duplicateSelectedAudio=0;
     auto earsDevice=std::make_unique<TestListeningDevice>(); auto* tabEars=earsDevice.get();
     receiver.getPadMonitor().startWithDevice(std::move(earsDevice),{"Regression","Headset fixture"});
     double tabPhase=0, fullPhase=0; auto tabDeadline=juce::Time::getMillisecondCounterHiRes();
@@ -538,7 +526,6 @@ int main()
             for (int i=0;i<1024;++i) { packet[i*2]=packet[i*2+1]=float(0.12*std::sin(tabPhase)); tabPhase+=2*3.141592653589793*660/48000; }
             if (!sendBrowserFrame(browser,2,packet,sizeof(packet))) return 1;
         }
-        if (block==160) setParameter(receiver,SonobusAudioProcessor::paramReceivedApplicationsToMeeting,1);
         if (block==320) setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,0);
         juce::AudioBuffer<float> local(2,128), remote(2,128), ears(2,128); local.clear(); remote.clear();
         for (int sample=0;sample<128;++sample) {
@@ -549,10 +536,9 @@ int main()
             for (int ch=0;ch<2;++ch) local.setSample(ch,sample,full);
         }
         sender.processBlock(local,midi); receiver.processBlock(remote,midi); tabEars->render(ears);
-        if (block>80 && block<130) { privateTabLeak+=remote.getRMSLevel(0,0,128); tabInHeadphones+=ears.getRMSLevel(0,0,128); }
-        if (block>230 && block<280) { sharedTabEnergy+=remote.getRMSLevel(0,0,128); localTabMeetingEnergy+=local.getRMSLevel(0,0,128); for (int sample=0;sample<128;++sample) aggregateLeak+=local.getSample(0,sample)/(49*128); }
+        if (block>80 && block<130) { completeFeedPlayback+=remote.getRMSLevel(0,0,128); tabInHeadphones+=ears.getRMSLevel(0,0,128); }
         if (block>300 && block<320) duplicateSelectedAudio+=ears.getRMSLevel(0,0,128);
-        if (block>440) { stoppedTabEnergy+=remote.getRMSLevel(0,0,128); fullListeningAfterStop+=ears.getRMSLevel(0,0,128); }
+        if (block>440) { fullPlaybackAfterStop+=remote.getRMSLevel(0,0,128); fullListeningAfterStop+=ears.getRMSLevel(0,0,128); }
         const auto tabNow=juce::Time::getMillisecondCounterHiRes(); if (tabNow-tabDeadline>100) tabDeadline=tabNow;
         tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
     }
@@ -564,7 +550,7 @@ int main()
     auto padDuringTabSwitch = sender.getSoundboardProcessor()->loadSample(remotePad);
     if (!padDuringTabSwitch) return 1;
     (*padDuringTabSwitch)->play();
-    double switchPadEnergy[5] {}, switchListeningEnergy[5] {}, mutedVoiceMean[5] {};
+    double switchListeningEnergy[5] {};
     tabDeadline=juce::Time::getMillisecondCounterHiRes();
     for (int block=0;block<900;++block) {
         const int phase=block/180;
@@ -580,40 +566,60 @@ int main()
         }
         sender.processBlock(local,midi); receiver.processBlock(remote,midi); tabEars->render(ears);
         if (block%180>120) {
-            switchPadEnergy[phase]+=remote.getRMSLevel(0,0,128);
+            if (remote.getMagnitude(0,128) != 0) { std::cerr << "FAIL: network audio entered a blocked virtual output\n"; return 1; }
             switchListeningEnergy[phase]+=ears.getRMSLevel(0,0,128);
-            for (int sample=0;sample<128;++sample) mutedVoiceMean[phase]+=remote.getSample(0,sample)/(59*128);
         }
         const auto now=juce::Time::getMillisecondCounterHiRes(); if (now-tabDeadline>100) tabDeadline=now;
         tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
     }
     for (int phase=0;phase<5;++phase) {
-        if (switchPadEnergy[phase]<0.05 || switchListeningEnergy[phase]<0.05 || std::abs(mutedVoiceMean[phase])>0.015
+        if (switchListeningEnergy[phase]<0.05
             || receiver.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMainInMute)->load()<0.5f) {
             std::cerr << "FAIL: tab send toggle interrupted pads or unmuted input: phase=" << phase
-                      << " pads=" << switchPadEnergy[phase] << " ears=" << switchListeningEnergy[phase]
-                      << " voice=" << mutedVoiceMean[phase] << "\n"; return 1;
+                      << " ears=" << switchListeningEnergy[phase] << "\n"; return 1;
         }
     }
     (*padDuringTabSwitch)->unload(); sender.getSoundboardProcessor()->clearPlayback(); padDuringTabSwitch.reset();
-    std::cout << "PASS: live tab send on/off preserves pads in both outputs and keeps physical input muted" << std::endl;
+    std::cout << "PASS: tab send toggles preserve physical listening while virtual output stays silent" << std::endl;
+    // A selected tab on its own still reaches normal SonoCraft playback.
+    sender.setStandaloneAudioDevices("Headset microphone", "Headset");
+    receiver.setStandaloneAudioDevices("Headset microphone", "Headset");
+    setParameter(sender,SonobusAudioProcessor::paramMainInMute,1);
+    setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,1);
+    double selectedOnlyPlayback=0;
+    for (int block=0;block<240;++block) {
+        if (block%8==0) {
+            float packet[2048];
+            for (int i=0;i<1024;++i) { packet[i*2]=packet[i*2+1]=float(0.12*std::sin(tabPhase)); tabPhase+=2*3.141592653589793*660/48000; }
+            if (!sendBrowserFrame(browser,2,packet,sizeof(packet))) return 1;
+        }
+        juce::AudioBuffer<float> local(2,128), remote(2,128); local.clear(); remote.clear();
+        sender.processBlock(local,midi); receiver.processBlock(remote,midi);
+        if (block>150) selectedOnlyPlayback+=remote.getRMSLevel(0,0,128);
+        const auto now=juce::Time::getMillisecondCounterHiRes(); if (now-tabDeadline>100) tabDeadline=now;
+        tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
+    }
     receiver.getPadMonitor().stop(); browser.close(); sender.getApplicationAudio().stop();
-    {
-        juce::AudioBuffer<float> aggregate(2,128);
-        for (int ch=0;ch<2;++ch) for (int i=0;i<128;++i) aggregate.setSample(ch,i,0.4f);
-        sender.processBlock(aggregate,midi);
-        if (aggregate.getMagnitude(0,128)>0.00001f) { std::cerr << "FAIL: complete virtual input entered local meeting output\n"; return 1; }
-        sender.setStandaloneAudioDevices("Headset microphone","CABLE Input");
-        for (int ch=0;ch<2;++ch) for (int i=0;i<128;++i) aggregate.setSample(ch,i,0.4f);
-        sender.processBlock(aggregate,midi);
-        if (aggregate.getRMSLevel(0,0,128)<0.1f) { std::cerr << "FAIL: virtual-input protection muted a physical microphone\n"; return 1; }
+    // No supported virtual output can receive physical input or any mix.
+    setParameter(sender,SonobusAudioProcessor::paramDry,1);
+    setParameter(sender,SonobusAudioProcessor::paramMainInMute,0);
+    for (const auto* name : { "CABLE Input (VB-Audio Virtual Cable)", "BlackHole 2ch", "VB-Cable", "Voicemeeter Input", "Loopback Audio" }) {
+        sender.setStandaloneAudioDevices("Headset microphone",name);
+        juce::AudioBuffer<float> output(2,128);
+        for (int ch=0;ch<2;++ch) for (int i=0;i<128;++i) output.setSample(ch,i,0.4f);
+        sender.processBlock(output,midi);
+        if (!sender.isStandaloneOutputBlocked() || output.getMagnitude(0,128)!=0) { std::cerr << "FAIL: audio reached virtual output " << name << "\n"; return 1; }
+        if (sender.getPadMonitor().startWithDevice(std::make_unique<TestListeningDevice>(),{"Regression",name}).isEmpty()) {
+            std::cerr << "FAIL: virtual independent listening accepted\n"; return 1;
+        }
     }
-    if (privateTabLeak>0.00001 || sharedTabEnergy<=0.01 || tabInHeadphones<=0.01 || stoppedTabEnergy>0.00001 || localTabMeetingEnergy<=0.01 || std::abs(aggregateLeak)>0.01 || fullListeningAfterStop<=0.01 || duplicateSelectedAudio>0.005) {
-        std::cerr << "FAIL: selected tab destination routing: private=" << privateTabLeak << " meeting=" << sharedTabEnergy << " headphones=" << tabInHeadphones << " stopped=" << stoppedTabEnergy << " local=" << localTabMeetingEnergy << " fullAfterStop=" << fullListeningAfterStop << " duplicate=" << duplicateSelectedAudio << "\n"; return 1;
+    if (completeFeedPlayback<=0.01 || tabInHeadphones<=0.01 || fullPlaybackAfterStop<=0.01 || fullListeningAfterStop<=0.01 || duplicateSelectedAudio>0.005 || selectedOnlyPlayback<=0.01) {
+        std::cerr << "FAIL: network source listening: full=" << completeFeedPlayback << " ears=" << tabInHeadphones
+                  << " afterStop=" << fullPlaybackAfterStop << " duplicate=" << duplicateSelectedAudio << " selectedOnly=" << selectedOnlyPlayback << "\n"; return 1;
     }
-    std::cout << "PASS: complete Mac feed stays in headphones; selected sources enter meeting independently without duplicate listening" << std::endl;
+    std::cout << "PASS: full feeds and isolated selected tabs remain audible without duplicate playback; virtual outputs reject audio" << std::endl;
     sender.releaseResources(); receiver.releaseResources();
-    std::cout << "PASS: remote pads reach meeting and headphones while unmuted remote voice stays private" << std::endl;
+    std::cout << "PASS: remote pads and audio remain available to physical playback" << std::endl;
     const auto reuseDir = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("pad-reuse-test", "", false);
     if (reuseDir.createDirectory().failed()) return 1;
     {

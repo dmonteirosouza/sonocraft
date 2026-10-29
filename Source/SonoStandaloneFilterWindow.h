@@ -669,7 +669,7 @@ private:
                               minAudioOutputChannels, maxAudioOutputChannels,
                               false, // show MIDI input
                               (pluginHolder.processor.get() != nullptr && pluginHolder.processor->producesMidi()),
-                              false, false),
+                              false, false, [](const String& name) { return !SonoCraftAudioRouting::isVirtualCable(name); }),
               shouldMuteLabel  ("Feedback Loop:", "Feedback Loop:"),
               shouldMuteButton ("Mute audio input")
         {

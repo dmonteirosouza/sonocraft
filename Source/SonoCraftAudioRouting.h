@@ -8,7 +8,9 @@ inline bool isVirtualCable(const juce::String& name) {
     return text.contains("vb-cable") || text.contains("vb-audio") || text.contains("v-cable")
         || text.contains("blackhole") || text.contains("soundflower")
         || text.contains("cable input") || text.contains("cable output")
-        || text.contains("voicemeeter") || text.contains("virtual cable");
+        || text.contains("voicemeeter") || text.contains("virtual cable")
+        || text.contains("virtual audio") || text.contains("vb-matrix")
+        || text.contains("loopback") || text.contains("sonar");
 }
 inline juce::String cableIdentity(juce::String name) {
     name = name.toLowerCase().replace("input", "").replace("output", "")
@@ -21,9 +23,9 @@ inline bool feedsBack(const juce::String& input, const juce::String& output) {
 }
 inline juce::String listeningError(const juce::String& headphones, const juce::String& mainOutput) {
     if (isVirtualCable(headphones))
-        return juce::String::fromUTF8("Para escutar, escolha fones ou alto-falantes físicos. O cabo virtual entrega som a outros aplicativos.");
+        return juce::String::fromUTF8("Escolha fones ou alto-falantes físicos. Saídas de áudio virtual não são permitidas.");
     if (headphones.isNotEmpty() && headphones.equalsIgnoreCase(mainOutput))
-        return juce::String::fromUTF8("A escuta e a saída principal usam o mesmo dispositivo. Para escutar e enviar a aplicativos, use um cabo virtual como saída principal e fones físicos aqui.");
+        return juce::String::fromUTF8("A saída principal já reproduz os sons nesse dispositivo. Escolha outra saída física para a escuta adicional.");
     return {};
 }
 }

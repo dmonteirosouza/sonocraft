@@ -1,5 +1,6 @@
 #pragma once
 #include "JuceHeader.h"
+#include "SonoCraftAudioRouting.h"
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -70,7 +71,8 @@ public:
         for (auto* type : types) {
             if (type->getTypeName().containsIgnoreCase("exclusive")) continue;
             type->scanForDevices();
-            for (auto& name : type->getDeviceNames(false)) result.add({type->getTypeName(), name});
+            for (auto& name : type->getDeviceNames(false))
+                if (!SonoCraftAudioRouting::isVirtualCable(name)) result.add({type->getTypeName(), name});
         }
         return result;
     }
@@ -85,7 +87,10 @@ public:
     }
     // Custom output backends use the same open/start/capture path as native devices.
     juce::String startWithDevice(std::unique_ptr<juce::AudioIODevice> output, const Device& selected) {
-        stop(); device = std::move(output);
+        stop();
+        if (SonoCraftAudioRouting::isVirtualCable(selected.name) || (output && SonoCraftAudioRouting::isVirtualCable(output->getName())))
+            return juce::String::fromUTF8("Escolha uma saída física para escutar.");
+        device = std::move(output);
         if (!device) return "Saida de audio nao encontrada.";
         const auto rates = device->getAvailableSampleRates();
         const double rate = rates.contains(sourceRate.load()) ? sourceRate.load() : rates.contains(48000.0) ? 48000.0 : rates.getFirst();

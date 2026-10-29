@@ -1,11 +1,9 @@
-# Configuração de áudio
+# Uso durante chamadas
 
-Na prévia 0.4, use o passo a passo de [Fontes e destinos de áudio](SONOCRAFT-SOURCES.md). A função do computador, o microfone e a saída principal são escolhidos diretamente em **Áudio e reunião → Reunião e fones**.
+A função de enviar uma mistura do SonoCraft como microfone virtual foi removida na versão 0.4.0-preview.6.
 
-## Mesas e pads
+No aplicativo de chamada, escolha o microfone físico e os fones. No SonoCraft, escolha uma saída física para ouvir os pads e o áudio recebido. Consulte [Entrada, escuta e transmissão](SONOCRAFT-SOURCES.md).
 
-A organização continua no seletor de mesas e no menu existentes. Use o card **+** para adicionar um som. O card inteiro usa a cor escolhida, com texto em contraste. No menu **⋮** do pad, **Reutilizar em outra mesa** conserva arquivo, nome, cor e volume, com ajustes independentes. Mesas que já contêm o arquivo ficam desabilitadas nesse menu.
+Os antigos controles de saída para aplicativos não estão mais disponíveis. Seus parâmetros salvos são descartados. Saídas virtuais reconhecidas são bloqueadas, independentemente das opções de supressão de ruído ou fidelidade do aplicativo de chamada.
 
-## Validação
-
-A regressão utiliza duas instâncias por UDP local e arquivos WAV reais para verificar: retomada após silenciamento, mistura de microfone e recebidos na saída da reunião, ausência do microfone local na escuta independente, pads locais e recebidos, envio de pads mesmo com voz remota ativa sem incluí-la na reunião, bloqueio e inclusão opcional do áudio geral recebido e persistência da reutilização de sons. O funcionamento com dispositivos físicos, Teams e uso prolongado ainda requer teste no equipamento real.
+Isso não impede captura externa do áudio do sistema, compartilhamento de tela com som ou captação acústica pelos microfones.

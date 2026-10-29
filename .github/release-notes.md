@@ -1,13 +1,13 @@
-SonoCraft 0.4 — captura respeita a entrada silenciada e diagnóstico dos caminhos de áudio.
+SonoCraft 0.4.0-preview.6 — escuta local e transmissão entre usuários, sem mistura para microfone virtual.
 
-- Corrigido um comportamento da tela Fontes que reativava uma entrada virtual silenciada ao iniciar uma captura de aba/aplicativo. Agora a seleção respeita o silêncio escolhido pelo usuário.
-- Novo botão **Copiar diagnóstico de áudio** em **Áudio e saídas → Escuta e saídas**: reúne dispositivos, controles, canais e medidores para investigar configurações reais. Não grava áudio, não copia nomes de abas ou endereços de conexões e não envia dados automaticamente.
-- Nova regressão: pad recebido continua na saída principal e nos fones ao ligar/desligar repetidamente o envio de uma aba, com a entrada física local silenciada.
+- Removidos o modo **Saída para apps**, sua mistura de áudio e todos os controles de inclusão de pads, recebidos e fontes em microfone virtual.
+- Mantidos os pads, a captura de abas/aplicativos, a transmissão por IP/grupo, a gravação e a escuta física.
+- Saídas virtuais reconhecidas são ocultadas nos seletores principal, avançado e de escuta adicional. Uma saída virtual salva anteriormente recebe silêncio, mesmo com uma entrada física.
+- Parâmetros antigos da função removida são descartados ao carregar configurações ou presets.
+- Textos, diagnóstico e guia dos pacotes atualizados para os caminhos restantes.
 
-Esta atualização corrige o acionamento indevido da entrada; não é uma confirmação de correção do corte de pads no Teams. O cenário real ainda exige diagnóstico no dispositivo afetado. Não altera a supressão de ruído de outros aplicativos.
+Após atualizar: no SonoCraft, escolha seus fones/alto-falantes como saída local. No Teams ou outro aplicativo de chamada, escolha o microfone físico do headset. As configurações de outros aplicativos não são alteradas automaticamente.
 
-Mantidos os caminhos separados: entrada completa para escuta; microfone físico, pads e fontes autorizadas para a saída virtual. Uma seleção de aba/aplicativo por dispositivo de cada vez. Atualize os dois lados e consulte **COMO-USAR-FONTES.md**, incluído nos pacotes.
+O bloqueio usa nomes conhecidos de dispositivos virtuais. Não controla drivers renomeados/desconhecidos, captura externa do áudio do sistema, compartilhamento de tela com som nem áudio de alto-falantes captado pelo microfone.
 
-Prévia experimental. Pacotes liberados após compilação e testes de áudio UDP local nos dois sistemas. Captura nativa, dispositivos físicos e uso prolongado ainda precisam de validação real.
-
-Mac universal Apple Silicon/Intel com assinatura ad hoc, sem notarização. Windows x64 portátil, WASAPI, sem ASIO e sem assinatura comercial. Driver de cabo virtual instalado à parte. GPLv3 e exceção de lojas preservadas.
+Prévia experimental. Pacotes publicados após compilação e testes em macOS e Windows. Mac universal com assinatura ad hoc, sem notarização; Windows x64 portátil, WASAPI, sem ASIO e sem assinatura comercial. GPLv3 e exceção de lojas preservadas.

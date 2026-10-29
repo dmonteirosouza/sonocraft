@@ -242,11 +242,7 @@ public:
     static String paramInMonitorMonoPan;
     static String paramInMonitorPan1;
     static String paramInMonitorPan2;
-    static String paramMeetingMode;
-    static String paramMeetingIncludeReceived;
     static String paramSendApplicationAudio;
-    static String paramApplicationToMeeting;
-    static String paramReceivedApplicationsToMeeting;
     static String paramDry;
     static String paramWet;
     static String paramSendChannels;
@@ -841,14 +837,14 @@ public:
         const ScopedLock lock(standaloneDevicesLock);
         standaloneInput = input; standaloneOutput = output;
         standaloneInputIsVirtual = SonoCraftAudioRouting::isVirtualCable(input);
-        standaloneOutputBlocked = SonoCraftAudioRouting::feedsBack(input, output);
+        standaloneOutputBlocked = SonoCraftAudioRouting::isVirtualCable(output);
         mNeedsUserLayout = true;
     }
     String getStandaloneInputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneInput; }
     String getStandaloneOutputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneOutput; }
     bool isStandaloneOutputBlocked() const { return standaloneOutputBlocked.load(); }
     String startListeningOutput(const SonoCraftPadMonitor::Device& selected) {
-        if (!mMeetingMode.get() && selected.name.equalsIgnoreCase(getStandaloneOutputName()))
+        if (selected.name.equalsIgnoreCase(getStandaloneOutputName()))
             return String::fromUTF8("Os sons já saem nesse dispositivo pela saída principal. Neste computador que envia sons, não é preciso ligar uma segunda escuta no mesmo fone.");
         const auto error = SonoCraftAudioRouting::listeningError(selected.name, getStandaloneOutputName());
         return error.isNotEmpty() ? error : padMonitor.start(selected);
@@ -1001,8 +997,6 @@ private:
     SonoCraftApplicationAudio applicationAudio;
     AudioSampleBuffer applicationBuffer;
     AudioSampleBuffer monitorBuffer;
-    AudioSampleBuffer receivedPadsBuffer;
-    AudioSampleBuffer receivedPadsWorkBuffer;
     AudioSampleBuffer receivedListeningWorkBuffer;
     AudioSampleBuffer sendWorkBuffer;
     AudioSampleBuffer inputPostBuffer;
@@ -1024,9 +1018,7 @@ private:
     Atomic<double>   mBufferTime     { 0.001 };
     Atomic<double>   mMaxBufferTime     { 1.0 };
     Atomic<bool>   mMainSendMute    {   false };
-    Atomic<bool>   mMeetingMode { false };
-    Atomic<bool>   mMeetingIncludeReceived { false };
-    Atomic<bool> mSendApplicationAudio { false }, mApplicationToMeeting { false }, mReceivedApplicationsToMeeting { false };
+    Atomic<bool> mSendApplicationAudio { false };
     Atomic<bool>   mMainRecvMute    {   false };
     Atomic<bool>   mMainInMute    {   false };
     Atomic<bool>   mMainMonitorSolo    {   false };

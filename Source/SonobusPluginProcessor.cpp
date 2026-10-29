@@ -42,11 +42,7 @@ typedef int socklen_t;
 #define PEER_PING_INTERVAL_MS 2000.0
 
 String SonobusAudioProcessor::paramInGain     ("ingain");
-String SonobusAudioProcessor::paramMeetingMode ("meetingmode");
-String SonobusAudioProcessor::paramMeetingIncludeReceived ("meetingincludereceived");
 String SonobusAudioProcessor::paramSendApplicationAudio ("sendapplicationaudio");
-String SonobusAudioProcessor::paramApplicationToMeeting ("applicationtomeeting");
-String SonobusAudioProcessor::paramReceivedApplicationsToMeeting ("receivedapplicationstomeeting");
 String SonobusAudioProcessor::paramDry     ("dry");
 String SonobusAudioProcessor::paramInMonitorMonoPan     ("inmonmonopan");
 String SonobusAudioProcessor::paramInMonitorPan1     ("inmonpan1");
@@ -352,7 +348,6 @@ struct SonobusAudioProcessor::RemotePeer {
 
     // channel groups
     SonoAudio::ChannelGroup chanGroups[MAX_CHANGROUPS];
-    SonoAudio::ChannelGroup::ProcessState meetingPanState[MAX_CHANGROUPS];
     int numChanGroups = 1;
     bool modifiedChanGroups = false;
     bool modifiedMultiChanGroups = false;
@@ -640,10 +635,6 @@ mState (*this, &mUndoManager, "SonoBusAoO",
     std::make_unique<AudioParameterChoice>(ParameterID(paramSendChannels, 1), TRANS ("Send Channels"), StringArray({ "Match # Inputs", "Send Mono", "Send Stereo"}), JUCEApplicationBase::isStandaloneApp() ? mSendChannels.get() : 0),
 
     std::make_unique<AudioParameterBool>(ParameterID(paramSendApplicationAudio, 1), "Selected application to connections", false),
-    std::make_unique<AudioParameterBool>(ParameterID(paramApplicationToMeeting, 1), "Selected application to meeting", false),
-    std::make_unique<AudioParameterBool>(ParameterID(paramReceivedApplicationsToMeeting, 1), "Received applications to meeting", false),
-    std::make_unique<AudioParameterBool>(ParameterID(paramMeetingMode, 1), "Meeting Mode", false),
-    std::make_unique<AudioParameterBool>(ParameterID(paramMeetingIncludeReceived, 1), "Include other received audio in meeting", false),
     std::make_unique<AudioParameterBool>(ParameterID(paramMetEnabled, 1), TRANS ("Metronome Enabled"), mMetEnabled.get()),
     std::make_unique<AudioParameterBool>(ParameterID(paramSendMetAudio, 1), TRANS ("Send Metronome Audio"), mSendMet.get()),
     std::make_unique<AudioParameterFloat>(ParameterID(paramMetGain, 1),     TRANS ("Metronome Gain"),    NormalisableRange<float>(0.0, 1.0, 0.0, 0.5), mMetGain.get(), "", AudioProcessorParameter::genericParameter,
@@ -705,11 +696,7 @@ mState (*this, &mUndoManager, "SonoBusAoO",
 })
 {
     mState.addParameterListener (paramInGain, this);
-    mState.addParameterListener (paramMeetingMode, this);
-    mState.addParameterListener (paramMeetingIncludeReceived, this);
     mState.addParameterListener (paramSendApplicationAudio, this);
-    mState.addParameterListener (paramApplicationToMeeting, this);
-    mState.addParameterListener (paramReceivedApplicationsToMeeting, this);
     mState.addParameterListener (paramDry, this);
     mState.addParameterListener (paramWet, this);
     mState.addParameterListener (paramInMonitorMonoPan, this);
@@ -6680,15 +6667,7 @@ void SonobusAudioProcessor::applyLayoutFormatToPeer(RemotePeer * remote, const V
 
 void SonobusAudioProcessor::parameterChanged (const String &parameterID, float newValue)
 {
-    if (parameterID == paramMeetingMode) {
-        mMeetingMode = newValue > 0.5f;
-    }
-    else if (parameterID == paramMeetingIncludeReceived) {
-        mMeetingIncludeReceived = newValue > 0.5f;
-    }
-    else if (parameterID == paramSendApplicationAudio) { mSendApplicationAudio = newValue > 0.5f; }
-    else if (parameterID == paramApplicationToMeeting) { mApplicationToMeeting = newValue > 0.5f; }
-    else if (parameterID == paramReceivedApplicationsToMeeting) { mReceivedApplicationsToMeeting = newValue > 0.5f; }
+    if (parameterID == paramSendApplicationAudio) { mSendApplicationAudio = newValue > 0.5f; }
     else if (parameterID == paramDry) {
         mDry = newValue;
     }
@@ -7421,8 +7400,6 @@ void SonobusAudioProcessor::ensureBuffers(int numSamples)
     if (applicationBuffer.getNumSamples() < numSamples) applicationBuffer.setSize(2,numSamples,false,false,true);
     if (monitorBuffer.getNumSamples() < numSamples || monitorBuffer.getNumChannels() != maxchans) {
         monitorBuffer.setSize(maxchans, numSamples, false, false, true);
-        receivedPadsBuffer.setSize(maxchans, numSamples, false, false, true);
-        receivedPadsWorkBuffer.setSize(MAX_PANNERS, numSamples, false, false, true);
         receivedListeningWorkBuffer.setSize(MAX_PANNERS, numSamples, false, false, true);
     }
     if (sendWorkBuffer.getNumSamples() < numSamples || sendWorkBuffer.getNumChannels() != maxworkbufchans) {
@@ -7953,7 +7930,6 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
         }
         
         tempBuffer.clear(0, numSamples);
-        receivedPadsBuffer.clear(0, numSamples);
         
         int rindex = 0;
         
@@ -8096,8 +8072,8 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
 
 
             // A complete system feed already contains the chosen app/tab. Use
-            // that complete feed for headphones and the extra track only for
-            // meeting selection, avoiding duplicate playback in headphones.
+            // that complete feed for playback, avoiding a duplicate of the
+            // separately transmitted selection in local listening.
             bool hasCompleteListening = false;
             for (int group=0;group<remote->origNumChanGroups;++group) {
                 const auto& source=remote->origChanParams[group];
@@ -8120,18 +8096,6 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
                     receivedListeningWorkBuffer.clear(ch,0,numSamples);
             }
 
-            // Meeting selection excludes complete listening feeds by default.
-            // Unknown/legacy mixed streams also remain outside the meeting.
-            receivedPadsWorkBuffer.clear(0, numSamples);
-            for (int group = 0; group < remote->origNumChanGroups; ++group) {
-                const auto& source = remote->origChanParams[group];
-                if (source.sourceRole != "pads" && !(mReceivedApplicationsToMeeting.get() && source.sourceRole == "application")) continue;
-                for (int ch = jmax(0, source.chanStartIndex);
-                     ch < jmin(source.chanStartIndex + source.numChannels,
-                               jmin(receivedPadsWorkBuffer.getNumChannels(), remote->workBuffer.getNumChannels())); ++ch)
-                    receivedPadsWorkBuffer.copyFrom(ch, 0, remote->workBuffer, ch, 0, numSamples);
-            }
-
             for (auto i = 0; i < remote->numChanGroups; ++i)
             {
                 // apply solo muting to the gain here
@@ -8140,7 +8104,6 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
                 int dstch = remote->chanGroups[i].params.panDestStartIndex;
                 int dstcnt = jmin(totalOutputChannels, remote->chanGroups[i].params.panDestChannels);
                 remote->chanGroups[i].processPan(receivedListeningWorkBuffer, remote->chanGroups[i].params.chanStartIndex, tempBuffer, dstch, dstcnt, numSamples, adjgain);
-                remote->chanGroups[i].processPan(receivedPadsWorkBuffer, remote->chanGroups[i].params.chanStartIndex, receivedPadsBuffer, dstch, dstcnt, numSamples, adjgain, &remote->meetingPanState[i]);
 
                 if (doreverb) {
                     remote->chanGroups[i].processReverbSend(receivedListeningWorkBuffer, remote->chanGroups[i].params.chanStartIndex, remote->chanGroups[i].params.numChannels, mainFxBuffer, 0, fxchannels, numSamples, mainReverbEnabled, false, adjgain);
@@ -8431,28 +8394,11 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     listeningMeterSource.measureBlock(monitorBuffer, 0, numSamples);
     padMonitor.capture(monitorBuffer, numSamples, 1.0f);
 
-    // Meeting output defaults to classified remote pads + local pads + voice.
-    // Other received audio is included only by an explicit user choice.
-    // Local pads are added once after selecting the received sources.
-    const bool meetingMode = mMeetingMode.get();
-    if (meetingMode) {
-        buffer.clear();
-        for (int channel = 0; channel < jmin(2, mainBusOutputChannels); ++channel) {
-            buffer.copyFrom(channel, 0, mMeetingIncludeReceived.get() ? tempBuffer : receivedPadsBuffer, channel, 0, numSamples);
-            if (!mMainInMute.get() && !standaloneInputIsVirtual.load() && channel < inputBuffer.getNumChannels())
-                buffer.addFrom(channel, 0, inputBuffer, channel, 0, numSamples);
-        }
-    }
-    if (meetingMode) {
-        soundboardChannelProcessor->addPadsToListeningMix(buffer, numSamples);
-        if (mApplicationToMeeting.get()) for (int ch=0;ch<jmin(2,mainBusOutputChannels);++ch)
-            buffer.addFrom(ch,0,applicationBuffer,ch,0,numSamples);
-    }
-    if (hassoundboarddata && !meetingMode) {
+    if (hassoundboarddata) {
         soundboardChannelProcessor->processMonitor(buffer, numSamples, totalOutputChannels);
     }
 
-    if (metenabled && !meetingMode) {
+    if (metenabled) {
         int dstch = mMetChannelGroup.params.monDestStartIndex;
         int dstcnt = jmin(totalOutputChannels, mMetChannelGroup.params.monDestChannels);
         auto fgain = mMetChannelGroup.params.gain;
@@ -8834,6 +8780,13 @@ void SonobusAudioProcessor::setStateInformationWithOptions (const void* data, in
     }
 
     if (tree.isValid()) {
+        // Old presets must not retain the removed virtual-microphone controls.
+        for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting" }) {
+            tree.removeProperty(id, nullptr);
+            for (int i = tree.getNumChildren(); --i >= 0;)
+                if (tree.getChild(i).getProperty("id").toString() == id)
+                    tree.removeChild(i, nullptr);
+        }
         mState.state = tree;
         
         DBG("SETSTATE: " << mState.state.toXmlString());

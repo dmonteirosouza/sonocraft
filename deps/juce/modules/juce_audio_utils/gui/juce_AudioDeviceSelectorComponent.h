@@ -57,6 +57,7 @@ public:
         @param showMidiOutputSelector   if true, the component will let the user choose a default midi output device
         @param showChannelsAsStereoPairs    if true, channels will be treated as pairs; if false, channels will be
                                         treated as a set of separate mono channels.
+        @param outputDeviceFilter        optional predicate restricting selectable output devices
         @param hideAdvancedOptionsWithButton    if true, only the minimum amount of UI components
                                         are shown, with an "advanced" button that shows the rest of them
     */
@@ -68,7 +69,8 @@ public:
                                   bool showMidiInputOptions,
                                   bool showMidiOutputSelector,
                                   bool showChannelsAsStereoPairs,
-                                  bool hideAdvancedOptionsWithButton);
+                                  bool hideAdvancedOptionsWithButton,
+                                  std::function<bool (const String&)> outputDeviceFilter = {});
 
     /** Destructor */
     ~AudioDeviceSelectorComponent() override;
@@ -105,6 +107,7 @@ private:
     const int minOutputChannels, maxOutputChannels, minInputChannels, maxInputChannels;
     const bool showChannelsAsStereoPairs;
     const bool hideAdvancedOptionsWithButton;
+    const std::function<bool (const String&)> outputDeviceFilter;
 
     class MidiInputSelectorComponentListBox;
     Array<MidiDeviceInfo> currentMidiOutputs;

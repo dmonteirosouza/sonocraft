@@ -217,6 +217,7 @@ struct AudioDeviceSetupDetails
     int minNumInputChannels, maxNumInputChannels;
     int minNumOutputChannels, maxNumOutputChannels;
     bool useStereoPairs;
+    std::function<bool (const String&)> outputDeviceFilter;
 };
 
 static String getNoDeviceString()   { return "<< " + TRANS ("none") + " >>"; }
@@ -644,6 +645,9 @@ private:
                 && (isInput ? config.inputDeviceName : config.outputDeviceName).isEmpty())
                 index = -1;
 
+            if (! isInput && setup.outputDeviceFilter && ! setup.outputDeviceFilter (config.outputDeviceName))
+                index = -1;
+
             box->setSelectedId (index < 0 ? index : index + 1, dontSendNotification);
 
             if (testButton != nullptr && ! isInput)
@@ -658,7 +662,8 @@ private:
         combo.clear (dontSendNotification);
 
         for (int i = 0; i < devs.size(); ++i)
-            combo.addItem (devs[i], i + 1);
+            if (isInputs || ! setup.outputDeviceFilter || setup.outputDeviceFilter (devs[i]))
+                combo.addItem (devs[i], i + 1);
 
         combo.addItem (getNoDeviceString(), -1);
         combo.setSelectedId (-1, dontSendNotification);
@@ -1103,7 +1108,8 @@ AudioDeviceSelectorComponent::AudioDeviceSelectorComponent (AudioDeviceManager& 
                                                             bool showMidiInputOptions,
                                                             bool showMidiOutputSelector,
                                                             bool showChannelsAsStereoPairsToUse,
-                                                            bool hideAdvancedOptionsWithButtonToUse)
+                                                            bool hideAdvancedOptionsWithButtonToUse,
+                                                            std::function<bool (const String&)> outputDeviceFilterToUse)
     : deviceManager (dm),
       itemHeight (24),
       minOutputChannels (minOutputChannelsToUse),
@@ -1111,7 +1117,8 @@ AudioDeviceSelectorComponent::AudioDeviceSelectorComponent (AudioDeviceManager& 
       minInputChannels (minInputChannelsToUse),
       maxInputChannels (maxInputChannelsToUse),
       showChannelsAsStereoPairs (showChannelsAsStereoPairsToUse),
-      hideAdvancedOptionsWithButton (hideAdvancedOptionsWithButtonToUse)
+      hideAdvancedOptionsWithButton (hideAdvancedOptionsWithButtonToUse),
+      outputDeviceFilter (std::move (outputDeviceFilterToUse))
 {
     jassert (minOutputChannels >= 0 && minOutputChannels <= maxOutputChannels);
     jassert (minInputChannels >= 0 && minInputChannels <= maxInputChannels);
@@ -1274,6 +1281,7 @@ void AudioDeviceSelectorComponent::updateAllControls()
             details.minNumOutputChannels = minOutputChannels;
             details.maxNumOutputChannels = maxOutputChannels;
             details.useStereoPairs = showChannelsAsStereoPairs;
+            details.outputDeviceFilter = outputDeviceFilter;
 
             audioDeviceSettingsComp = std::make_unique<AudioDeviceSettingsPanel> (*type, details, hideAdvancedOptionsWithButton, *this);
             addAndMakeVisible (audioDeviceSettingsComp.get());

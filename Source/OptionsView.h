@@ -65,7 +65,7 @@ public:
     void optionsTabChanged (int newCurrentTabIndex);
 
     void showAudioTab();
-    void showMeetingTab();
+    void showListeningTab();
     void showSourcesTab();
     void showOptionsTab();
     void showRecordingTab();
@@ -105,8 +105,8 @@ protected:
 
     std::unique_ptr<Viewport> mSourceViewport;
     std::unique_ptr<SonoCraftSourceControls> mSourceControls;
-    std::unique_ptr<Viewport> mMeetingViewport;
-    std::unique_ptr<SonoCraftListeningControls> mMeetingControls;
+    std::unique_ptr<Viewport> mListeningViewport;
+    std::unique_ptr<SonoCraftListeningControls> mListeningControls;
     std::unique_ptr<AudioDeviceSelectorComponent> mAudioDeviceSelector;
     std::unique_ptr<Viewport> mAudioOptionsViewport;
     std::unique_ptr<Viewport> mOtherOptionsViewport;

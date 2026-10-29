@@ -15,7 +15,7 @@ Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote.
 
 ## Novidades desta prévia
 
-- Controles genéricos de escuta e saída para aplicativos, sem associar funções a um sistema ou finalidade.
+- Escuta física e transmissão entre usuários, sem mistura para microfone virtual. Configurações antigas dessa função são descartadas.
 - Fontes organizadas por seleção local, destinos e seleções recebidas.
 - Seleção independente de uma aba do Chrome/Edge ou aplicativo inteiro, além da entrada completa e dos pads.
 - Indicação corrigida de entrada/saída desativada na tela de dispositivos.

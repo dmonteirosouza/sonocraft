@@ -97,9 +97,7 @@ public:
     }
     void syncLocal()
     {
-        const bool meetingMode = readParameter(SonobusAudioProcessor::paramMeetingMode) > 0;
-        solo.setEnabled(!meetingMode);
-        name.setText(role == input ? "Sua entrada" : meetingMode ? juce::String::fromUTF8("Saída apps") : "Master", juce::dontSendNotification);
+        name.setText(role == input ? "Sua entrada" : "Master", juce::dontSendNotification);
         subtitle.setText(role == input ? "ENVIO" : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
         auto& source = role == input ? processor.getInputMeterSource() : processor.getOutputMeterSource();
         source.decayIfNeeded();
@@ -197,7 +195,7 @@ public:
     {
         for (auto* c : std::initializer_list<juce::Component*> { &input, &master, &viewport, &session,
                          &brand, &connectIP, &connectGroup, &audio, &settings, &record, &metronome, &metEnabled, &metTempo, &metLevel, &metSend,
-                         &file, &routing, &effects, &sources, &chat, &soundboard, &play, &stop, &meeting, &meetingHelp, &disconnect, &inspector, &bufferMode, &bufferTime })
+                         &file, &routing, &effects, &sources, &chat, &soundboard, &play, &stop, &disconnect, &inspector, &bufferMode, &bufferTime })
             addAndMakeVisible(c);
         brand.setImage(juce::ImageCache::getFromMemory(BinaryData::sonocraft_icon_256_png, BinaryData::sonocraft_icon_256_pngSize));
         viewport.setViewedComponent(&channels, false);
@@ -207,17 +205,6 @@ public:
         connectIP.setButtonText("Conectar por IP"); connectGroup.setButtonText("Entrar em grupo");
         connectIP.setColour(juce::TextButton::buttonColourId, SonoCraftTheme::selection());
         audio.setButtonText(juce::String::fromUTF8("Áudio e saídas")); settings.setButtonText("Ajustes");
-        meeting.setButtonText(juce::String::fromUTF8("Saída para apps"));
-        meeting.setTooltip(juce::String::fromUTF8("Ativa a mistura de microfone local, pads e fontes autorizadas para um cabo virtual. Configure o dispositivo em Áudio e saídas."));
-        meeting.setClickingTogglesState(true);
-        meeting.setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
-        meetingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(), SonobusAudioProcessor::paramMeetingMode, meeting);
-        meeting.onClick = [this] { resized(); };
-        meetingHelp.setText(juce::String::fromUTF8("Saída para aplicativos: microfone local + pads + fontes autorizadas. Em Fontes, escolha o que incluir; em Áudio e saídas, escolha o cabo virtual e os fones. A escuta continua independente."), juce::dontSendNotification);
-        meetingHelp.setColour(juce::Label::textColourId, SonoCraftTheme::accent());
-        meetingHelp.setFont(juce::Font(12.5f));
-        meetingHelp.setMinimumHorizontalScale(1.0f);
-        meetingHelp.setJustificationType(juce::Justification::centredLeft);
         play.setButtonText("Reproduzir"); stop.setButtonText("Parar");
         play.onClick = [this] { if (onPlay) onPlay(); };
         stop.onClick = [this] { processor.getTransportSource().stop(); processor.getTransportSource().setPosition(0.0); };
@@ -288,8 +275,8 @@ public:
         const bool wrapTransport = bounds.getWidth() < 1020;
         auto transportArea = bounds.removeFromBottom(wrapTransport ? 82 : 44);
         auto transport = wrapTransport ? transportArea.removeFromTop(40) : transportArea;
-        for (auto* button : { &play, &stop, &record, &metronome, &file, &routing, &effects, &sources, &chat, &soundboard, &meeting }) {
-            const auto width = button == &meeting ? 124 : button == &soundboard ? 104 : button == &metronome || button == &routing ? 105 : 78;
+        for (auto* button : { &play, &stop, &record, &metronome, &file, &routing, &effects, &sources, &chat, &soundboard }) {
+            const auto width = button == &soundboard ? 104 : button == &metronome || button == &routing ? 105 : 78;
             if (wrapTransport && transport.getWidth() < width) transport = transportArea;
             button->setBounds(transport.removeFromLeft(width).reduced(3, 6));
         }
@@ -302,12 +289,6 @@ public:
             const int half = row.getWidth() / 2;
             metTempo.setBounds(row.removeFromLeft(half).reduced(6, 0));
             metLevel.setBounds(row.reduced(6, 0));
-            bounds.removeFromBottom(8);
-        }
-        const bool meetingActive = meeting.getToggleState();
-        meetingHelp.setVisible(meetingActive);
-        if (meetingActive) {
-            meetingHelp.setBounds(bounds.removeFromBottom(72).reduced(8, 4));
             bounds.removeFromBottom(8);
         }
         const bool showInspector = selectedId.isNotEmpty();
@@ -355,9 +336,8 @@ private:
     juce::Component channels;
     juce::OwnedArray<SonoCraftChannelStrip> strips;
     juce::ImageComponent brand;
-    juce::Label session, inspector, meetingHelp;
-    juce::TextButton connectIP, connectGroup, audio, settings, record, metronome, file, routing, effects, sources, chat, soundboard, play, stop, meeting, disconnect;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> meetingAttachment;
+    juce::Label session, inspector;
+    juce::TextButton connectIP, connectGroup, audio, settings, record, metronome, file, routing, effects, sources, chat, soundboard, play, stop, disconnect;
     juce::ComboBox bufferMode;
     juce::Slider bufferTime;
     juce::String selectedId;
