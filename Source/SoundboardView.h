@@ -11,7 +11,6 @@
 #include "SonoPlaybackProgressButton.h"
 #include "SonoChoiceButton.h"
 #include "SoundboardProcessor.h"
-#include "SonoCraftListeningControls.h"
 
 /**
  * User Interface element for the Soundboard.
@@ -109,7 +108,6 @@ private:
      * The outer soundboard panel box.
      */
     FlexBox mainBox;
-    std::unique_ptr<SonoCraftListeningControls> listeningControls;
     ToggleButton sendPadsToAll;
 
     /**

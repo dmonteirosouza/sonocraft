@@ -457,9 +457,11 @@ public:
 
     void toggleAdvancedSettings()
     {
-        showAdvancedSettingsButton->setButtonText ((showAdvancedSettingsButton->getToggleState() ? "Hide " : "Show ")
-                                                   + String ("advanced settings..."));
+        showAdvancedSettingsButton->setButtonText (showAdvancedSettingsButton->getToggleState()
+                                                       ? TRANS ("Hide advanced settings...")
+                                                       : TRANS ("Show advanced settings..."));
         resized();
+        parent.resized(); // Propagate the expanded height to the enclosing settings form.
     }
 
     void showDeviceUIPanel()

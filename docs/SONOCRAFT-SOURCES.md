@@ -6,7 +6,7 @@ O SonoCraft transmite áudio entre seus participantes e reproduz os sons localme
 | --- | --- |
 | Entrada | Recebe um microfone ou captura do sistema por um cabo virtual, para transmitir aos conectados. |
 | Saída local | Reproduz os sons recebidos e os pads em fones ou alto-falantes. |
-| Escuta adicional | Reproduz os recebidos e pads em uma segunda saída física, sem a voz local. É opcional. |
+| Segunda saída | Reproduz os recebidos e pads em uma segunda saída física, sem a voz local. É opcional. |
 | Envio aos conectados | Transmite entrada, pads habilitados e as fontes habilitadas para a conexão ou grupo do SonoCraft. |
 
 ## Ouvir em outro computador
@@ -14,15 +14,15 @@ O SonoCraft transmite áudio entre seus participantes e reproduz os sons localme
 No computador que transmite:
 
 1. Para enviar o som completo do sistema, use o cabo virtual como saída do sistema e como **entrada** do SonoCraft. Aplicativos com saída própria também precisam usar esse cabo.
-2. Em **Ajustes → Escuta e saídas**, escolha **Sem saída principal (só transmitir)**, ou uma saída física caso também queira ouvir localmente.
-3. Clique em **Aplicar dispositivos e saída**, mantenha a entrada ativa e conecte por IP ou grupo.
+2. Em **Ajustes → Áudio**, escolha **Nenhum** na saída principal, ou uma saída física caso também queira ouvir localmente.
+3. A escolha dos dispositivos é aplicada imediatamente. Mantenha a entrada ativa e conecte por IP ou grupo.
 4. Na mesa de sons, **Enviar pads a todos os conectados** controla o envio dos pads pelo SonoCraft.
 
 No computador que recebe:
 
 1. Escolha o microfone físico ou **Sem entrada**, conforme queira transmitir sua voz aos conectados.
 2. Escolha seus **fones ou alto-falantes como saída local**.
-3. Clique em **Aplicar dispositivos e saída** e mantenha **Receber áudio dos conectados** ligado.
+3. A escolha dos dispositivos é aplicada imediatamente. Na mesa, mantenha **Silenciar recebidos** desligado.
 4. A escuta adicional só é necessária para uma segunda saída física. Não use a mesma saída nos dois caminhos.
 
 ## Navegação da mesa
@@ -36,9 +36,18 @@ Os comandos ficam na barra superior. Não há uma segunda barra de botões no ro
 | Pads | Abrir ou fechar a mesa de sons. |
 | Conversa | Abrir ou fechar o chat com os participantes. |
 | Ferramentas | Arquivo de áudio, gravação, metrônomo, efeitos da saída e roteamento de canais. |
-| Ajustes | Dispositivos, escuta e saídas, gravação e preferências. |
+| Ajustes | Áudio, conexão, gravação e preferências. |
 
 Arquivo, gravação e metrônomo abrem um painel identificado logo abaixo da navegação. **Fechar painel** apenas oculta os controles: não interrompe o som nem uma gravação. Para interromper, use **Parar**, **Parar gravação** ou desative o metrônomo. Durante uma gravação, a barra indica **Gravando** e o menu Ferramentas oferece **Parar gravação agora**. Pads e Conversa ficam destacados enquanto seus painéis estiverem abertos. Em janelas pequenas, a mesa permite rolar para alcançar todos os canais.
+
+## Configurações
+
+- **Áudio:** entrada e saída principal, opções avançadas do dispositivo e uma segunda saída física opcional. A saída principal já reproduz participantes e pads. A segunda saída recebe esses sons sem a entrada local; não é preciso ativá-la para ouvir na saída principal.
+- **Conexão:** reconexão ao último grupo, qualidade de envio, reserva de áudio, volume inicial de participantes e rede avançada. Uma reserva maior pode evitar cortes, mas aumenta o atraso.
+- **Gravação:** pasta, formato, arquivos separados, inclusão do metrônomo e tratamento da sua entrada. Iniciar e parar continuam em **Ferramentas → Gravação**.
+- **Preferências:** idioma, aparência, atalhos e diagnóstico para suporte.
+
+Os dispositivos são escolhidos em um único lugar. A configuração da segunda saída foi retirada do painel de pads e fica em **Ajustes → Áudio**. Seu volume usa dB, como a mesa. Alterar o dispositivo não redefine silenciamentos nem ativa envios. Se a segunda saída passar a ser usada como saída principal, a escuta adicional é desligada para evitar reprodução duplicada. A opção de atualização automática foi retirada porque não está disponível nesta prévia.
 
 ## Mixer de fontes
 
@@ -91,7 +100,7 @@ Esta remoção elimina o envio por microfone virtual oferecido pelo SonoCraft. E
 
 ## Diagnóstico e compatibilidade
 
-Em **Ajustes → Escuta e saídas**, **Copiar diagnóstico de áudio** copia dispositivos, controles e medidores. Não grava áudio nem envia o diagnóstico automaticamente.
+Em **Ajustes → Preferências**, **Copiar diagnóstico de áudio** copia dispositivos, controles e medidores. Não grava áudio nem envia o diagnóstico automaticamente.
 
 Captura de aplicativo: macOS 13+ com permissão de áudio/tela; Windows com loopback por processo (build 20348+, normalmente Windows 11). Captura de abas pelo Chrome/Edge é uma alternativa separada. Um driver de cabo virtual só é necessário para a captura completa por essa entrada.
 

@@ -3508,8 +3508,8 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
         int defWidth = 320;
         int defHeight = 420;
 #else
-        int defWidth = 520;
-        int defHeight = 400;
+        int defWidth = 660;
+        int defHeight = 640;
 #endif
         
 
@@ -3560,7 +3560,7 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
             launch.resizable = true;
             auto* dialog = launch.launchAsync();
             dialog->setLookAndFeel(&sonoLookAndFeel);
-            dialog->setResizeLimits(420, 340, 1000, 1000);
+            dialog->setResizeLimits(480, 380, 1000, 1000);
             settingsCalloutBox = dialog;
         } else {
             const auto bounds = dw->getLocalArea(mTitleLabel.get(), mTitleLabel->getLocalBounds());

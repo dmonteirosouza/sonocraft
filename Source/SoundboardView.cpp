@@ -20,8 +20,6 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
     createControlPanel();
     createBasePanels();
 
-    listeningControls = std::make_unique<SonoCraftListeningControls>(audioProcessor);
-    addAndMakeVisible(listeningControls.get());
     sendPadsToAll.setButtonText("Enviar pads a todos os conectados");
     addAndMakeVisible(sendPadsToAll);
     mSendAudioAttachment.reset();
@@ -104,7 +102,7 @@ void SoundboardView::createSoundboardTitle()
 
 void SoundboardView::createSoundboardTitleLabel()
 {
-    mTitleLabel = std::make_unique<Label>("title", "Soundpads");
+    mTitleLabel = std::make_unique<Label>("title", "Mesa de pads");
     mTitleLabel->setJustificationType(Justification::centred);
     mTitleLabel->setFont(Font(TITLE_FONT_HEIGHT, Font::bold));
     mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
@@ -969,7 +967,6 @@ void SoundboardView::resized()
     auto groups = bounds.removeFromTop(32);
     mBoardSelectComboBox->setBounds(groups);
     bounds.removeFromTop(8);
-    if (listeningControls) listeningControls->setBounds(bounds.removeFromBottom(148));
     sendPadsToAll.setBounds(bounds.removeFromBottom(28));
     auto controls = bounds.removeFromBottom(48);
     controlsBox.performLayout(controls);
