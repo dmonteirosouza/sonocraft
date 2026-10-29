@@ -4,21 +4,23 @@
 
 Versão em desenvolvimento baseada no [SonoBus](https://github.com/sonosaurus/sonobus), com foco inicial em conexão e áudio entre Mac e Windows na rede local.
 
-**Prévia experimental:** os testes automáticos locais não substituem a validação com dois computadores. Grupo/senha, estabilidade prolongada e abertura da interface ainda precisam ser confirmados. Consulte [as mudanças e limitações](SONOCRAFT.md).
+**Prévia experimental:** a interface foi conferida no Mac e os testes automáticos verificam o motor de áudio. O uso prolongado, as capturas reais e a comunicação entre dispositivos físicos ainda precisam de validação no seu ambiente. Consulte [as mudanças e limitações](SONOCRAFT.md).
 
-## Novidades da versão 0.2
+## Novidades da versão 0.4
 
-Tema claro e minimalista, ícone próprio e botão **Remover** em cada conexão. A remoção continua apontando para o participante selecionado mesmo quando a ordem da lista muda. Veja [detalhes e limites](SONOCRAFT.md).
+Mixer automático de aplicativos e abas, pads reutilizáveis e canais com controles e volumes em dB padronizados. A navegação reúne **Conexões**, **Fontes**, **Pads**, **Conversa**, **Ferramentas** e **Ajustes**.
+
+As configurações ficam em **Áudio**, **Conexão**, **Gravação** e **Preferências**, com dispositivos em um único lugar e explicações em português. O SonoCraft transmite entre seus participantes e reproduz em saídas físicas; a saída para microfone virtual foi removida. Veja [o guia de uso](docs/SONOCRAFT-SOURCES.md).
 
 ## Downloads
 
-Os pacotes aprovados pela compilação e pelos testes ficam em **Actions → Build SonoCraft → Artifacts**. As versões marcadas também aparecem em **Releases**, como prévias. Mac: `.app` em ZIP, para Apple Silicon e Intel. Windows: `.exe` portátil em ZIP, x64, usando WASAPI; ASIO exige SDK e compilação próprios.
+Os pacotes aprovados pela compilação e pelos testes ficam em **Actions → Build SonoCraft → Artifacts**. As versões marcadas também aparecem em [**Releases**](https://github.com/dmonteirosouza/sonocraft/releases), como prévias. Mac: `.app` em ZIP, para Apple Silicon e Intel. Windows: `.exe` portátil em ZIP, x64, usando WASAPI; ASIO exige SDK e compilação próprios.
 
 Os pacotes não têm assinatura comercial nem notarização. As Releases incluem licenças e o código-fonte correspondente fica no mesmo tag.
 
 ## Desenvolvimento
 
-Veja [SONOCRAFT.md](SONOCRAFT.md) para compilar, testar e realizar o primeiro ensaio Mac → Windows. O fluxo do GitHub compila em macOS e Windows, testa o motor real por UDP local e publica os pacotes somente se todos os sistemas passarem. Não instala ou executa áudio em dispositivos físicos durante esses testes.
+Veja [SONOCRAFT.md](SONOCRAFT.md) para compilar, testar e realizar o primeiro ensaio Mac → Windows. O fluxo do GitHub compila em macOS e Windows, testa o motor real por UDP local e confere os ZIPs e publica os pacotes somente se todos os sistemas passarem. Não instala ou executa áudio em dispositivos físicos durante esses testes.
 
 ---
 
