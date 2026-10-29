@@ -6,6 +6,29 @@
 #include "SonoCraftSourceControls.h"
 #include "SonoCraftStrip.h"
 
+// Draw menu indicators as geometry: the Windows UI font need not contain ▾.
+class SonoCraftNavigationButton : public juce::TextButton {
+public:
+    bool opensMenu = false;
+    void paintButton(juce::Graphics& g, bool over, bool down) override {
+        if (!opensMenu) { juce::TextButton::paintButton(g, over, down); return; }
+        auto& look = getLookAndFeel();
+        look.drawButtonBackground(g, *this, findColour(getToggleState() ? buttonOnColourId : buttonColourId), over, down);
+        g.setColour(findColour(getToggleState() ? textColourOnId : textColourOffId).withMultipliedAlpha(isEnabled() ? 1.0f : 0.5f));
+        g.setFont(look.getTextButtonFont(*this, getHeight()));
+        g.drawFittedText(getButtonText(), getLocalBounds().reduced(8, 2).withTrimmedRight(16), juce::Justification::centred, 1);
+        const float x = float(getWidth() - 16), y = getHeight() * 0.5f;
+        juce::Path chevron;
+        chevron.startNewSubPath(x - 4, y - 2); chevron.lineTo(x, y + 2); chevron.lineTo(x + 4, y - 2);
+        g.strokePath(chevron, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+};
+
+inline bool sonoCraftMainOutputAvailable(SonobusAudioProcessor& processor) {
+    return !processor.isStandaloneOutputBlocked() && processor.getMainBusNumOutputChannels() > 0
+        && (!juce::JUCEApplicationBase::isStandaloneApp() || processor.getStandaloneOutputName().isNotEmpty());
+}
+
 class SonoCraftChannelStrip final : public SonoCraftStrip {
 public:
     enum Role { input, peer, master };
@@ -24,8 +47,9 @@ public:
         // Keep that scope explicit instead of presenting it as a master mute.
         if (role == master) mute.setButtonText("Silenciar recebidos");
         secondary.setButtonText(role == input ? "Ouvir entrada" : juce::String::fromUTF8("Ouvir só este"));
-        mute.setTooltip(role == input ? juce::String::fromUTF8("Silenciar a entrada de áudio, mantendo os pads e fontes selecionadas")
-            : juce::String::fromUTF8("Silenciar o áudio recebido, sem interromper a conexão"));
+        mute.setTooltip(juce::String::fromUTF8(role == input ? "Silenciar a entrada de áudio, mantendo os pads e fontes selecionadas"
+            : role == master ? "Silenciar todos os participantes recebidos. Pads, arquivos e metrônomo locais continuam tocando."
+                             : "Silenciar o áudio deste participante, sem interromper a conexão"));
         secondary.setTooltip(role == input ? juce::String::fromUTF8("Ouvir sua entrada na saída local. Não altera o envio aos conectados.")
             : juce::String::fromUTF8("Ouvir somente este participante e os outros marcados como Ouvir só este. Não altera o envio."));
         mute.onClick = [this] {
@@ -45,17 +69,29 @@ public:
         secondary.setVisible(role != master);
         fader.setTitle(role == input ? "Volume da entrada (dB)" : role == master ? juce::String::fromUTF8("Volume da saída principal (dB)") : "Volume do participante (dB)");
     }
-    void setState(const SonobusAudioProcessor::MixerChannelState& state) {
+    void setState(const SonobusAudioProcessor::MixerChannelState& state, bool excludedBySolo) {
         name.setText(state.name, juce::dontSendNotification);
         subtitle.setText("PARTICIPANTE", juce::dontSendNotification);
         name.setTooltip(state.name + juce::String::fromUTF8(" · ") + state.address);
-        setStatus(state.connected ? (state.muted ? juce::String::fromUTF8("Recepção silenciada") : juce::String::fromUTF8("Conectado · ") + state.address) : juce::String::fromUTF8("Aguardando conexão"));
+        const bool silent = state.muted || excludedBySolo || state.gain <= 0.00001f;
+        const bool mainOutput = sonoCraftMainOutputAvailable(processor) && readParameter(SonobusAudioProcessor::paramWet) > 0;
+        const bool additionalOutput = processor.getPadMonitor().isActive();
+        const bool ready = state.connected && state.receiving && !state.safetyMuted;
+        setStatus(juce::String::fromUTF8(!state.connected ? "Aguardando conexão" : excludedBySolo ? "Outro canal em solo"
+            : state.muted ? "Recepção silenciada" : state.gain <= 0.00001f ? "Volume zerado"
+            : !ready ? "Aguardando áudio" : "Recebendo"),
+            state.address, silent ? SonoCraftPresentation::Tone::attention : ready ? SonoCraftPresentation::Tone::active : SonoCraftPresentation::Tone::neutral);
+        setRoutes(juce::String::fromUTF8(silent ? "Escuta: silenciada" : !ready ? "Escuta: aguardando"
+            : mainOutput && additionalOutput ? "Escuta: duas saídas" : mainOutput ? "Escuta: saída principal"
+            : additionalOutput ? "Escuta: saída adicional" : "Escuta: sem saída"),
+            "Origem: participante", juce::String::fromUTF8("Áudio recebido deste participante. O volume e o silêncio deste canal controlam a escuta local. Rotas avançadas ficam em Ferramentas."));
         meterLeft = state.left; meterRight = state.right;
+        setTooltip(juce::String::fromUTF8("Nível recebido deste participante, incluindo entrada, pads e fontes separadas."));
         mute.setToggleState(state.muted, juce::dontSendNotification);
         secondary.setToggleState(state.soloed, juce::dontSendNotification);
         syncGain(state.gain); repaint();
     }
-    void syncLocal() {
+    void syncLocal(bool hasRecipients, bool sendPaused) {
         name.setText(role == input ? "Sua entrada" : juce::String::fromUTF8("Saída principal"), juce::dontSendNotification);
         subtitle.setText(role == input ? "ENTRADA" : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
         auto& source = role == input ? processor.getInputMeterSource() : processor.getOutputMeterSource();
@@ -65,9 +101,30 @@ public:
         syncGain(readParameter(role == input ? SonobusAudioProcessor::paramInGain : SonobusAudioProcessor::paramWet));
         const bool muted = readParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute) > 0;
         mute.setToggleState(muted, juce::dontSendNotification);
-        setStatus(role == input ? juce::String::fromUTF8(processor.isSystemInputSuppressed() ? "Fora do envio: fontes individuais em uso." : muted ? "Entrada silenciada. Pads e fontes continuam." : "Entrada disponível para os conectados.")
-            : juce::String::fromUTF8(muted ? "Recebidos silenciados. Pads locais continuam." : "Volume dos sons na saída principal."));
-        if (role == input) secondary.setToggleState(readParameter(SonobusAudioProcessor::paramDry) > 0, juce::dontSendNotification);
+        const bool outputAvailable = sonoCraftMainOutputAvailable(processor);
+        if (role == input) {
+            const bool suppressed = processor.isSystemInputSuppressed();
+            const bool zeroGain = readParameter(SonobusAudioProcessor::paramInGain) <= 0.00001f;
+            const bool blocked = muted || suppressed || zeroGain;
+            const bool monitorSelected = readParameter(SonobusAudioProcessor::paramDry) > 0;
+            const bool soloBlocks = processor.isAnythingSoloed() && readParameter(SonobusAudioProcessor::paramMainMonitorSolo) <= 0;
+            const bool listen = monitorSelected && !blocked && !soloBlocks && outputAvailable && readParameter(SonobusAudioProcessor::paramWet) > 0;
+            setStatus(juce::String::fromUTF8(suppressed ? "Fontes individuais" : muted ? "Entrada silenciada" : zeroGain ? "Volume zerado"
+                : sendPaused ? "Envio pausado" : meterLeft > 0.0001f || meterRight > 0.0001f ? "Com sinal" : "Pronta"),
+                juce::String::fromUTF8(suppressed ? "A entrada completa fica fora do envio para não duplicar as fontes individuais."
+                    : "A entrada é independente dos pads e dos aplicativos. Ouvir entrada controla somente sua escuta local."),
+                blocked || sendPaused ? SonoCraftPresentation::Tone::attention : SonoCraftPresentation::Tone::neutral);
+            setRoutes(juce::String::fromUTF8(listen ? "Escuta: saída principal" : monitorSelected ? "Escuta: indisponível" : "Escuta: desligada"),
+                juce::String::fromUTF8(blocked ? "Envio: silenciado" : sendPaused ? "Envio: pausado" : hasRecipients ? "Envio: aos conectados" : "Envio: sem conexão"));
+            secondary.setToggleState(monitorSelected, juce::dontSendNotification);
+        } else {
+            setStatus(juce::String::fromUTF8(!outputAvailable ? "Sem saída principal" : muted ? "Recebidos silenciados"
+                : meterLeft > 0.0001f || meterRight > 0.0001f ? "Reproduzindo" : "Sem som agora"),
+                juce::String::fromUTF8("Este volume controla a saída principal. Silenciar recebidos afeta os participantes; pads, arquivos e metrônomo locais continuam."),
+                muted || !outputAvailable ? SonoCraftPresentation::Tone::attention : SonoCraftPresentation::Tone::neutral);
+            setRoutes(juce::String::fromUTF8(outputAvailable ? "Escuta: saída principal" : "Escuta: sem dispositivo"), "Uso: escuta local",
+                juce::String::fromUTF8("Dispositivo: ") + processor.getStandaloneOutputName() + juce::String::fromUTF8(". A saída adicional tem controle independente em Ajustes."));
+        }
         repaint();
     }
     void setSelected(bool yes) { selected = yes; repaint(); }
@@ -92,7 +149,7 @@ public:
     explicit SonoCraftMixerView(SonobusAudioProcessor& p) : processor(p), input(p, SonoCraftChannelStrip::input), master(p, SonoCraftChannelStrip::master) {
         for (auto* c : std::initializer_list<juce::Component*> { &input, &master, &viewport, &session, &sourceRouting, &brand,
                 &connections, &sources, &soundboard, &chat, &tools, &settings,
-                &toolTitle, &toolHelp, &closeTool, &file, &play, &stop, &record,
+                &toolTitle, &toolHelp, &closeTool, &file, &play, &stop, &record, &playingActivity, &recordingActivity, &metronomeActivity,
                 &metEnabled, &metTempo, &metLevel, &metSend, &inspector, &bufferMode, &bufferTime })
             addAndMakeVisible(c);
         brand.setImage(juce::ImageCache::getFromMemory(BinaryData::sonocraft_icon_256_png, BinaryData::sonocraft_icon_256_pngSize));
@@ -100,9 +157,9 @@ public:
         viewport.setScrollBarsShown(true, true);
         session.setFont(13.0f); session.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
         session.setJustificationType(juce::Justification::centredRight);
-        connections.setButtonText(juce::String::fromUTF8("Conexões ▾"));
+        connections.setButtonText(juce::String::fromUTF8("Conexões")); connections.opensMenu = true;
         sources.setButtonText("Fontes"); soundboard.setButtonText("Pads"); chat.setButtonText("Conversa");
-        tools.setButtonText(juce::String::fromUTF8("Ferramentas ▾")); settings.setButtonText("Ajustes");
+        tools.setButtonText("Ferramentas"); tools.opensMenu = true; settings.setButtonText("Ajustes");
         for (auto* button : { &connections, &sources, &soundboard, &chat, &tools, &settings }) {
             button->setColour(juce::TextButton::buttonColourId, SonoCraftTheme::panel());
             button->setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
@@ -117,6 +174,17 @@ public:
         settings.setTooltip(juce::String::fromUTF8("Dispositivos de áudio, saídas, gravação e preferências"));
         connections.onClick = [this] { showConnections(); };
         tools.onClick = [this] { showTools(); };
+        for (auto* activity : { &playingActivity, &recordingActivity, &metronomeActivity }) {
+            activity->setColour(juce::TextButton::buttonColourId, SonoCraftTheme::selection());
+            activity->setColour(juce::TextButton::textColourOffId, SonoCraftTheme::accent());
+            activity->setTooltip("Ativo mesmo com o painel fechado. Clique para abrir os controles.");
+            activity->setVisible(false);
+        }
+        recordingActivity.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffffe6cf));
+        recordingActivity.setColour(juce::TextButton::textColourOffId, SonoCraftTheme::warning());
+        playingActivity.onClick = [this] { selectTool(Tool::player); };
+        recordingActivity.onClick = [this] { selectTool(Tool::recorder); };
+        metronomeActivity.onClick = [this] { selectTool(Tool::metronome); };
         settings.onClick = [this] { if (onSettings) onSettings(); };
         chat.onClick = [this] { if (onChat) onChat(); };
         soundboard.onClick = [this] { if (onSoundboard) onSoundboard(); };
@@ -191,6 +259,18 @@ public:
         for (int i = 0; i < 6; ++i)
             navigation[i]->setBounds(nav.getX() + (i % columns) * cellWidth, nav.getY() + (i / columns) * 42, cellWidth - 6, 34);
         bounds.removeFromTop(6);
+        int activityCount = 0;
+        for (auto* activity : { &playingActivity, &recordingActivity, &metronomeActivity }) if (activity->isVisible()) ++activityCount;
+        if (activityCount > 0) {
+            const int columns = juce::jmax(1, bounds.getWidth() / 180);
+            auto area = bounds.removeFromTop(((activityCount + columns - 1) / columns) * 32);
+            const int width = juce::jmin(230, area.getWidth() / juce::jmin(columns, activityCount));
+            int index = 0;
+            for (auto* activity : { &playingActivity, &recordingActivity, &metronomeActivity }) if (activity->isVisible()) {
+                activity->setBounds(area.getX() + (index % columns) * width, area.getY() + (index / columns) * 32, width - 6, 26);
+                ++index;
+            }
+        }
         sourceRouting.setBounds(bounds.removeFromTop(34));
         bounds.removeFromTop(6);
         const bool hasTool = tool != Tool::none;
@@ -230,8 +310,8 @@ public:
         }
         const int busWidth = getWidth() < 700 ? 156 : SonoCraftStrip::preferredWidth;
         const int availableHeight = juce::jmax(80, bounds.getHeight() - viewport.getScrollBarThickness());
-        const bool scrollAll = availableHeight < 340 || bounds.getWidth() < 2*busWidth + 208;
-        const int channelHeight = juce::jmax(340, availableHeight);
+        const bool scrollAll = availableHeight < 420 || bounds.getWidth() < 2*busWidth + 208;
+        const int channelHeight = juce::jmax(420, availableHeight);
         int x = 0;
         if (scrollAll) {
             if (input.getParentComponent() != &channels) channels.addAndMakeVisible(input);
@@ -281,7 +361,8 @@ private:
     std::unique_ptr<SonoCraftSourceControls> sourceDialog;
     juce::ImageComponent brand;
     juce::Label session, sourceRouting, inspector, toolTitle, toolHelp;
-    juce::TextButton connections, sources, soundboard, chat, tools, settings, closeTool, file, play, stop, record;
+    SonoCraftNavigationButton connections, sources, soundboard, chat, tools, settings;
+    juce::TextButton closeTool, file, play, stop, record, playingActivity, recordingActivity, metronomeActivity;
     juce::ToggleButton metEnabled, metSend;
     juce::Slider metTempo, metLevel, bufferTime;
     juce::ComboBox bufferMode;
@@ -340,13 +421,19 @@ private:
     {
         processor.getSourceMixer().pollDiscovery();
         const auto sourcesState = processor.getSourceMixer().views();
+        const auto states = processor.getMixerChannelStates();
+        bool hasRecipients = false, anyPeerSolo = false;
+        for (const auto& state : states) { hasRecipients |= state.sendReady; anyPeerSolo |= state.soloed; }
+        const auto& parameters = processor.getValueTreeState();
+        const bool sendPaused = parameters.getRawParameterValue(SonobusAudioProcessor::paramMainSendMute)->load() > 0;
+        const bool inputSolo = parameters.getRawParameterValue(SonobusAudioProcessor::paramMainMonitorSolo)->load() > 0;
         bool sourcesChanged = sourcesState.size() != sourceStrips.size();
         if (!sourcesChanged) for (int i=0;i<sourcesState.size();++i) sourcesChanged |= sourcesState[i].id != sourceStrips[i]->sourceId();
         if (sourcesChanged) {
             sourceStrips.clear();
             for (const auto& state:sourcesState) channels.addAndMakeVisible(sourceStrips.add(new SonoCraftSourceStrip(processor,state.id)));
         }
-        for (int i=0;i<sourcesState.size();++i) sourceStrips[i]->sync(sourcesState[i]);
+        for (int i=0;i<sourcesState.size();++i) sourceStrips[i]->sync(sourcesState[i], hasRecipients, sendPaused);
         const bool virtualInput = SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName());
         const bool individual = processor.getSourceMixer().usesIndividualSources();
         sourceRouting.setText(juce::String::fromUTF8(virtualInput
@@ -357,7 +444,6 @@ private:
         sourceRouting.setTooltip(discoveryStatus.isEmpty()?juce::String::fromUTF8("A detecção automática não captura nem envia áudio. Abas são escolhidas em Fontes."):discoveryStatus);
         if(discoveryStatus.isNotEmpty())sourceRouting.setText(discoveryStatus,juce::dontSendNotification);
         if (sourcesChanged) resized();
-        auto states = processor.getMixerChannelStates();
         bool changed = states.size() != strips.size();
         if (!changed) for (int i = 0; i < states.size(); ++i) changed |= states[i].id != strips[i]->connectionId();
         if (changed) {
@@ -372,7 +458,7 @@ private:
         }
         syncing = true;
         for (int i = 0; i < states.size(); ++i) {
-            strips[i]->setState(states[i]); strips[i]->setSelected(states[i].id == selectedId);
+            strips[i]->setState(states[i], (anyPeerSolo || inputSolo) && !states[i].soloed); strips[i]->setSelected(states[i].id == selectedId);
             if (states[i].id == selectedId) {
                 inspector.setText(states[i].name + juce::String::fromUTF8("   ·   ") + states[i].address + juce::String::fromUTF8("   ·   Envio: ") + states[i].codec + juce::String::fromUTF8("   ·   Buffer de recepção"), juce::dontSendNotification);
                 bufferMode.setSelectedId(states[i].bufferMode == 0 ? 2 : 1, juce::dontSendNotification);
@@ -381,19 +467,26 @@ private:
             }
         }
         syncing = false;
-        input.syncLocal(); master.syncLocal();
+        input.syncLocal(hasRecipients, sendPaused); master.syncLocal(hasRecipients, sendPaused);
         const auto group = processor.getCurrentJoinedGroup();
         session.setText((group.isNotEmpty() ? "Grupo: " + group : juce::String::fromUTF8("Sessão local")) + juce::String::fromUTF8("   ·   ") + juce::String(states.size()) + (states.size() == 1 ? " participante" : " participantes"), juce::dontSendNotification);
         session.setTooltip(session.getText());
         const bool recording = processor.isRecordingToFile();
-        if (recording) session.setText(session.getText() + juce::String::fromUTF8("   ·   Gravando"), juce::dontSendNotification);
+        const bool playing = processor.getTransportSource().isPlaying();
+        const bool metronome = parameters.getRawParameterValue(SonobusAudioProcessor::paramMetEnabled)->load() > 0;
+        const bool activityLayoutChanged = playingActivity.isVisible() != playing || recordingActivity.isVisible() != recording || metronomeActivity.isVisible() != metronome;
+        playingActivity.setVisible(playing); recordingActivity.setVisible(recording); metronomeActivity.setVisible(metronome);
+        playingActivity.setButtonText("Arquivo tocando");
+        recordingActivity.setButtonText(juce::String::fromUTF8("Gravação em andamento"));
+        metronomeActivity.setButtonText(juce::String::fromUTF8("Metrônomo ligado · ") + juce::String(juce::roundToInt(parameters.getRawParameterValue(SonobusAudioProcessor::paramMetTempo)->load())) + " BPM");
+        if (activityLayoutChanged) resized();
         const bool hasFile = processor.getTransportSource().getLengthInSeconds() > 0;
         play.setEnabled(hasFile); stop.setEnabled(hasFile);
         play.setButtonText(processor.getTransportSource().isPlaying() ? "Pausar" : "Reproduzir");
         record.setButtonText(recording ? juce::String::fromUTF8("Parar gravação") : juce::String::fromUTF8("Iniciar gravação"));
         record.setToggleState(recording, juce::dontSendNotification);
         tools.setColour(juce::TextButton::buttonOnColourId, recording ? juce::Colour(0xffffe6cf) : SonoCraftTheme::selection());
-        tools.setToggleState(tool != Tool::none || recording || (isAdvancedToolVisible && isAdvancedToolVisible()), juce::dontSendNotification);
+        tools.setToggleState(tool != Tool::none || recording || playing || metronome || (isAdvancedToolVisible && isAdvancedToolVisible()), juce::dontSendNotification);
         connections.setToggleState(isConnectionVisible && isConnectionVisible(), juce::dontSendNotification);
         settings.setToggleState(isSettingsVisible && isSettingsVisible(), juce::dontSendNotification);
         chat.setToggleState(isChatVisible && isChatVisible(), juce::dontSendNotification);

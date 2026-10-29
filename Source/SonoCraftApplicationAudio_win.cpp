@@ -16,6 +16,9 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <audiopolicy.h>
+#include <endpointvolume.h>
+#include <vector>
+#include <cmath>
 #include <tlhelp32.h>
 #include <map>
 #include <audioclientactivationparams.h>
@@ -149,10 +152,16 @@ std::unique_ptr<SonoCraftApplicationAudioBackend> createSonoCraftApplicationAudi
 juce::Array<SonoCraftApplicationAudio::Application> listSonoCraftAudioApplications() { AppList apps; EnumWindows(collectApplication, reinterpret_cast<LPARAM>(&apps)); return apps.result; }
 
 bool requestSonoCraftCapturePermission() {return true;}
-SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
+namespace {
+struct SessionMeter {
+    int applicationIndex = 0;
+    ComPtr<IAudioSessionControl> control;
+    ComPtr<IAudioMeterInformation> meter;
+    std::vector<float> peaks;
+};
+SonoCraftApplicationAudio::Discovery enumerateAudioSessions(std::vector<SessionMeter>& meters) {
     SonoCraftApplicationAudio::Discovery result;
-    struct ComScope { HRESULT value=CoInitializeEx(nullptr,COINIT_MULTITHREADED); ~ComScope(){if(SUCCEEDED(value))CoUninitialize();} } com;
-    if(FAILED(com.value) && com.value!=RPC_E_CHANGED_MODE)return result;
+    meters.clear();
     ComPtr<IMMDeviceEnumerator> enumerator;
     if(FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator),nullptr,CLSCTX_ALL,IID_PPV_ARGS(&enumerator))))return result;
     ComPtr<IMMDeviceCollection> devices;
@@ -198,11 +207,72 @@ SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
             bool runningKnown=false;for(const auto& app:result.runningApplications)runningKnown|=app.processId==selected.processId;
             if(!runningKnown)result.runningApplications.add(selected);
             if(state!=AudioSessionStateActive)continue;
-            bool known=false;for(const auto& app:result.applications)known|=app.identifier==selected.identifier;
-            if(!known)result.applications.add(selected);
+            int applicationIndex = -1;
+            for(int index=0;index<result.applications.size();++index)
+                if(result.applications[index].identifier==selected.identifier){applicationIndex=index;break;}
+            if(applicationIndex<0){applicationIndex=result.applications.size();result.applications.add(selected);}
+            ComPtr<IAudioMeterInformation> meter;
+            if(SUCCEEDED(control.As(&meter))) {
+                UINT channels=0;meter->GetMeteringChannelCount(&channels);
+                SessionMeter reading;
+                reading.applicationIndex=applicationIndex;reading.control=control;reading.meter=meter;
+                if(channels>0 && channels<=64)reading.peaks.resize(channels);
+                meters.push_back(std::move(reading));
+            }
         }
     }
     return result;
+}
+// One cache per discovery thread. Session handles are released before the
+// matching CoUninitialize, including when a plugin instance is destroyed.
+class WindowsAudioDiscovery {
+    struct ComScope {
+        HRESULT value=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
+        ~ComScope(){if(SUCCEEDED(value))CoUninitialize();}
+    } com;
+    std::vector<SessionMeter> meters;
+    SonoCraftApplicationAudio::Discovery snapshot;
+    double nextEnumeration=0;
+public:
+    SonoCraftApplicationAudio::Discovery sample() {
+        if(FAILED(com.value) && com.value!=RPC_E_CHANGED_MODE)return {};
+        const auto now=juce::Time::getMillisecondCounterHiRes();
+        if(now>=nextEnumeration) {
+            snapshot=enumerateAudioSessions(meters);
+            nextEnumeration=now+1500;
+        }
+        for(auto& app:snapshot.applications){app.leftLevel=0;app.rightLevel=0;app.hasMeter=false;}
+        for(auto& reading:meters) {
+            auto& app=snapshot.applications.getReference(reading.applicationIndex);
+            AudioSessionState state=AudioSessionStateInactive;
+            if(FAILED(reading.control->GetState(&state)) || state!=AudioSessionStateActive)continue;
+            float left=0,right=0;
+            bool measured=false;
+            if(!reading.peaks.empty() && SUCCEEDED(reading.meter->GetChannelsPeakValues(UINT(reading.peaks.size()),reading.peaks.data()))) {
+                for(size_t ch=0;ch<reading.peaks.size();++ch) {
+                    const auto peak=reading.peaks[ch];
+                    if(!std::isfinite(peak))continue;
+                    if(ch%2==0)left=juce::jmax(left,peak);else right=juce::jmax(right,peak);
+                }
+                if(reading.peaks.size()==1)right=left;
+                measured=true;
+            } else {
+                float peak=0;
+                if(SUCCEEDED(reading.meter->GetPeakValue(&peak)) && std::isfinite(peak)){left=right=peak;measured=true;}
+            }
+            // A browser can own several sessions/endpoints. Aggregate their
+            // activity instead of letting the last silent session erase it.
+            app.leftLevel=juce::jmax(app.leftLevel,juce::jlimit(0.0f,1.0f,left));
+            app.rightLevel=juce::jmax(app.rightLevel,juce::jlimit(0.0f,1.0f,right));
+            app.hasMeter|=measured;
+        }
+        return snapshot;
+    }
+};
+}
+SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
+    thread_local WindowsAudioDiscovery discovery;
+    return discovery.sample();
 }
 #elif !JUCE_MAC
 class UnsupportedApplicationAudio final : public SonoCraftApplicationAudioBackend {

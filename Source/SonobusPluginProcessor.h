@@ -342,6 +342,7 @@ public:
         String id, name, address, codec;
         float gain = 1.0f, left = 0.0f, right = 0.0f, bufferMs = 0.0f;
         bool connected = false, muted = false, soloed = false;
+        bool sendReady = false, receiving = false, safetyMuted = false;
         int bufferMode = 0;
     };
     Array<MixerChannelState> getMixerChannelStates();

@@ -78,6 +78,17 @@ static bool testSourceMixer() {
     juce::Array<SonoCraftApplicationAudio::Application> detected;detected.add({"Chrome",101,"browser"});detected.add({juce::String::fromUTF8("Música"),202,"music"});
     mixer.updateDiscovered(detected);const auto automatic=mixer.views();
     if(automatic.size()!=2 || mixer.usesIndividualSources() || automatic[0].sending || automatic[0].requested || !automatic[0].producing || !automatic[0].automatic)return false;
+    // OS activity is visible without opening a capture or enabling any route.
+    detected.getReference(1).leftLevel=0.2f;detected.getReference(1).rightLevel=0.4f;detected.getReference(1).hasMeter=true;
+    mixer.updateDiscovered(detected);mixer.render(mixed,128,48000);
+    const auto activity=mixer.views()[1];
+    if(!activity.systemMeter || activity.leftLevel!=0.2f || activity.rightLevel!=0.4f || activity.level!=0.4f
+        || activity.requested || activity.active || activity.sending || mixer.usesIndividualSources() || mixed.getMagnitude(0,128)!=0) {
+        std::cerr << "FAIL: read-only app activity is absent or started capturing/sending\n";return false;
+    }
+    mixer.updateDiscovered({});
+    if(mixer.views()[1].level!=0 || mixer.views()[1].systemMeter){std::cerr<<"FAIL: stale OS meter after session stopped\n";return false;}
+    mixer.updateDiscovered(detected);
     mixer.setGain(automatic[1].id,0.35f);mixer.setSend(automatic[1].id,true);
     mixer.updateDiscovered(detected);
     if(mixer.views().size()!=2 || mixer.views()[1].id!=automatic[1].id || mixer.views()[1].gain!=0.35f || !mixer.views()[1].sending)return false;
@@ -96,9 +107,10 @@ static bool testSourceMixer() {
     }
     mixer.updateDiscovered(detected);
     const auto automaticSaved=mixer.save();mixer.restore(automaticSaved);
-    for(const auto& view:mixer.views())if(!view.automatic || view.requested || view.sending)return false;
+    for(const auto& view:mixer.views())if(!view.automatic || view.requested || view.sending || view.systemMeter || view.level!=0)return false;
     mixer.updateDiscovered({},&running,&detected);
     if(mixer.hasChannels())return false;
+    std::cout << "PASS: read-only OS meters show stereo activity without capture/send and clear on pause/restore" << std::endl;
     std::cout << "PASS: pause keeps channels; process exit closes captures/removes channels without full-input fallback" << std::endl;
     std::cout << "PASS: automatic discovery preserves mode, gains, stable channels and requires opt-in after app restart" << std::endl;
     std::cout << "PASS: concurrent sources, independent gains/send/mute, application overlap prevention, safe restore/removal" << std::endl;

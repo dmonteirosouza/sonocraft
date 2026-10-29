@@ -489,6 +489,12 @@ int main()
         }
         if (block == 300) { receiver.getPadMonitor().stop(); remoteHeadphones = nullptr; }
         sender.processBlock(source, midi); receiver.processBlock(destination, midi);
+        if (block == 220) {
+            const auto channels=receiver.getMixerChannelStates();
+            if(channels.isEmpty() || channels[0].left<0.001f || channels[0].right<0.001f) {
+                std::cerr << "FAIL: participant meter omitted pad lanes while its input was muted\n";return 1;
+            }
+        }
         if (block > 180 && block < 230) remotePlaybackWithEars += destination.getRMSLevel(0,0,128);
         if (block > 330 && block < 380) remotePlaybackWithoutEars += destination.getRMSLevel(0,0,128);
         if (remoteHeadphones) { juce::AudioBuffer<float> ears(2,128); remoteHeadphones->render(ears); remoteHeadphoneEnergy += ears.getRMSLevel(0,0,128); }
@@ -560,6 +566,12 @@ int main()
         }
         sender.processBlock(local,midi); receiver.processBlock(remote,midi); tabEars->render(ears);
         if (block>80 && block<130) { completeFeedPlayback+=remote.getRMSLevel(0,0,128); tabInHeadphones+=ears.getRMSLevel(0,0,128); }
+        if (block==120) {
+            const auto channels=receiver.getMixerChannelStates();
+            if(channels.isEmpty() || channels[0].left<0.001f || channels[0].right<0.001f) {
+                std::cerr << "FAIL: participant meter omitted separate application lanes\n";return 1;
+            }
+        }
         if (block>230 && block<260) duplicateSelectedAudio+=ears.getRMSLevel(0,0,128);
         if ((block>80 && block<130) || (block>230 && block<260)) {
             const bool selected=block<130; auto* real=selected?selectedReal:completeReal; auto* imag=selected?selectedImag:completeImag;

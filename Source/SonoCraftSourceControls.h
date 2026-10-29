@@ -105,16 +105,21 @@ public:
         };
     }
     const juce::String& sourceId() const {return id;}
-    void sync(const SonoCraftSourceMixer::View& s) {
+    void sync(const SonoCraftSourceMixer::View& s, bool hasRecipients, bool sendPaused) {
         if(!name.isBeingEdited())name.setText(s.name,juce::dontSendNotification);
-        subtitle.setText(s.tab?juce::String("ABA DO NAVEGADOR"):juce::String::fromUTF8(s.producing?"APLICATIVO · COM ÁUDIO":"APLICATIVO"),juce::dontSendNotification);
+        subtitle.setText(s.tab ? "ABA DO NAVEGADOR" : "APLICATIVO", juce::dontSendNotification);
         requested=s.requested;permissionRequired=s.permissionRequired;details.setButtonText(permissionRequired?"Autorizar captura":requested?"Parar captura":"Iniciar captura");
         details.setEnabled(!s.blockedByTabs);secondary.setEnabled(!s.blockedByTabs);
-        status.setText(s.blockedByTabs ? juce::String::fromUTF8("Abas individuais em uso. Remova as abas para enviar o navegador inteiro.") : actionError.isNotEmpty() ? actionError : s.automatic && !s.requested ? juce::String::fromUTF8(s.producing?"Áudio detectado. Ative Enviar para compartilhar.":"Sem áudio agora. Seus ajustes foram mantidos.") : s.active ? (s.sending ? (s.muted ? juce::String("Envio silenciado") : juce::String("Enviando aos conectados")) : juce::String::fromUTF8("Capturando · envio desligado")) : s.status,juce::dontSendNotification);
-        status.setTooltip(status.getText());
+        const auto presentation = SonoCraftPresentation::describeSource(s, hasRecipients, sendPaused, actionError);
+        setStatus(presentation.state, presentation.detail, presentation.tone);
+        setRoutes(presentation.listening, presentation.sending, presentation.detail);
         syncGain(s.gain);
         secondary.setToggleState(s.sending,juce::dontSendNotification);mute.setToggleState(s.muted,juce::dontSendNotification);
-        meterLeft=s.leftLevel;meterRight=s.rightLevel;repaint();
+        meterLeft=s.leftLevel;meterRight=s.rightLevel;
+        setTooltip(juce::String::fromUTF8(s.systemMeter
+            ? "Atividade do aplicativo no sistema. Este medidor não confirma o envio; confira o estado do canal."
+            : "Nível capturado antes do volume e do silêncio de envio. Barras em movimento não significam que o áudio está sendo enviado."));
+        repaint();
     }
 private:
     SonobusAudioProcessor& processor;

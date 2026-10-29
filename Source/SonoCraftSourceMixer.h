@@ -25,7 +25,7 @@ public:
                           const juce::Array<SonoCraftApplicationAudio::Application>* openApps=nullptr){
         const juce::ScopedLock lock(control);
         for(auto& s:slots){
-            s.producing=false;
+            s.producing=false;s.application.leftLevel=0;s.application.rightLevel=0;s.application.hasMeter=false;
             if(!s.occupied.load() || s.tab || !running)continue;
             if(!s.application.processId && openApps) {
                 for(const auto& app:*openApps)if(sameApplication(s.application,app)){s.application=app;break;}
@@ -47,8 +47,9 @@ public:
             if(existing){
                 existing->producing=true;
                 if(existing->application.processId!=app.processId){
-                    ++existing->revision;existing->send=false;existing->audio.stop();existing->application=app;
+                    ++existing->revision;existing->send=false;existing->audio.stop();
                 }
+                existing->application=app;
                 continue;
             }
             if(auto* s=allocate(false,app.name,false)){s->application=app;s->automatic=true;s->producing=true;}
@@ -60,6 +61,7 @@ public:
         float gain = 1, level = 0;
         bool automatic=false,producing=false,blockedByTabs=false,permissionRequired=false;
         float leftLevel=0,rightLevel=0;
+        bool systemMeter=false;
     };
     struct Added { juce::String id, url, error; };
     static bool isBrowser(const juce::String& name) {
@@ -133,9 +135,15 @@ public:
     bool anyActive() const { for (auto& s:slots) if (s.occupied.load() && s.audio.isActive()) return true; return false; }
     juce::Array<View> views() const {
         const juce::ScopedLock lock(control); juce::Array<View> result;
-        for (auto& s:slots) if (s.occupied.load()) result.add({s.id,s.name,s.application.name,s.audio.status(),s.tab,
-            s.send.load() && individual.load(),s.muted.load(),s.audio.isActive(),s.audio.isCaptureRequested(),s.gain.load(),s.level.load(),s.automatic,s.producing,
-            !s.tab && isBrowser(s.application.name) && hasTabs(),s.audio.needsCapturePermission(),s.leftLevel.load(),s.rightLevel.load()});
+        for (auto& s:slots) if (s.occupied.load()) {
+            const bool active=s.audio.isActive();
+            const bool systemMeter=!s.tab && !active && s.application.hasMeter;
+            const float left=systemMeter?s.application.leftLevel:s.leftLevel.load();
+            const float right=systemMeter?s.application.rightLevel:s.rightLevel.load();
+            result.add({s.id,s.name,s.application.name,s.audio.status(),s.tab,
+                s.send.load() && individual.load(),s.muted.load(),active,s.audio.isCaptureRequested(),s.gain.load(),juce::jmax(left,right),s.automatic,s.producing,
+                !s.tab && isBrowser(s.application.name) && hasTabs(),s.audio.needsCapturePermission(),left,right,systemMeter});
+        }
         return result;
     }
     void prepare(int samples) { if (scratch.getNumSamples()<samples) scratch.setSize(2,samples,false,false,true); }
@@ -211,7 +219,12 @@ private:
         while(!threadShouldExit()){
             auto value=SonoCraftApplicationAudio::applicationsWithAudio();
             {const juce::ScopedLock lock(discoveryLock);discovered=std::move(value);++discoveryRevision;}
+            // Windows caches session discovery and only samples its meters at 20 Hz.
+#if JUCE_WINDOWS
+            wait(50);
+#else
             wait(1500);
+#endif
         }
     }
     static juce::String applicationKey(const SonoCraftApplicationAudio::Application& app){return app.identifier.isNotEmpty()?app.identifier:app.name;}

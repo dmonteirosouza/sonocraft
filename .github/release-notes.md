@@ -1,13 +1,14 @@
-SonoCraft 0.4.0-preview.12 — mesa e configurações padronizadas
+SonoCraft 0.4.0-preview.13 — medidores e estados de áudio mais claros
 
-- Canais da mesa com o mesmo desenho, escala em dB, medidores e controles alinhados. Silenciar, Ouvir entrada, Ouvir só este e Enviar têm nomes e explicações próprios.
-- Barra superior única: Conexões, Fontes, Pads, Conversa, Ferramentas e Ajustes. Atalhos duplicados e a barra inferior foram removidos.
-- Arquivo de áudio, gravação e metrônomo abrem painéis identificados. Fechar o painel apenas oculta os controles; uma gravação em andamento continua indicada.
-- Configurações organizadas em Áudio, Conexão, Gravação e Preferências. Entrada, saída principal e segunda saída opcional ficam juntas. A mesa de pads não repete a escolha de dispositivos.
-- Dispositivos são aplicados ao selecionar, sem redefinir silenciamentos ou ligar envios. A segunda saída é desligada se passar a usar o mesmo dispositivo da principal, para evitar som duplicado.
-- Nomes, explicações, acentos e traduções em português revisados, inclusive nas opções de reprodução dos pads. Ajustes avançados expandem corretamente e os textos se adaptam a janelas menores.
-- Removida a opção de atualização automática que não estava disponível nesta prévia.
-- Aplicativos com áudio continuam aparecendo automaticamente. Pausar preserva ajustes; fechar o programa remove o canal. A saída para microfone virtual permanece removida.
+- Setas dos menus desenhadas sem depender de caracteres da fonte, corrigindo o quadrado no Windows.
+- Medidor do participante considera também pads e aplicativos recebidos em canais separados, respeitando grupos mono e estéreo.
+- No Windows, aplicativos detectados mostram sua atividade de áudio mesmo sem captura ou envio ativados. A leitura dos medidores não liga o compartilhamento.
+- Cada canal distingue o estado do áudio (Tocando, Capturando, Enviando ou Silenciado) da configuração de escuta e envio.
+- Indicações consideram ausência de conexão, silêncio geral, volume zerado, solo e captura aguardando autorização.
+- O alcance de Silenciar recebidos está explicado: pads, arquivos e metrônomo locais continuam independentes.
+- Reprodução de arquivo, gravação e metrônomo ativos permanecem visíveis com seus painéis fechados. Clique no indicador para abrir os controles.
+- Layout dos canais revisado em janelas amplas e compactas, com textos e controles alinhados.
+- A saída para microfone virtual permanece removida.
 
 **Onde configurar:** Ajustes → Áudio para entrada e saídas; Conexões para grupo/IP; Fontes para aplicativos, abas e modo de envio. A saída principal já reproduz participantes e pads. A segunda saída é opcional, para outro dispositivo físico.
 

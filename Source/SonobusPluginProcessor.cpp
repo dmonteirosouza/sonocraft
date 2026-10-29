@@ -4710,15 +4710,33 @@ Array<SonobusAudioProcessor::MixerChannelState> SonobusAudioProcessor::getMixerC
         state.codec = getAudioCodeFormatName(peer->formatIndex);
         state.gain = peer->gain;
         state.connected = peer->connected;
+        state.sendReady = peer->connected && peer->sendActive && peer->sendAllow;
+        state.receiving = peer->recvActive;
+        state.safetyMuted = peer->resetSafetyMuted;
         state.muted = peer->mixerMuted.get() || !peer->recvAllow;
         state.soloed = peer->soloed;
         state.bufferMs = peer->buffertimeMs;
         state.bufferMode = peer->autosizeBufferMode;
         peer->recvMeterSource.decayIfNeeded();
-        if (peer->recvMeterSource.getNumChannels() > 0)
-            state.left = peer->recvMeterSource.getMaxLevel(0);
-        state.right = peer->recvMeterSource.getNumChannels() > 1
-            ? peer->recvMeterSource.getMaxLevel(1) : state.left;
+        // A participant carries input, pads and applications in separate groups.
+        // Summarise every lane, preserving each group's stereo alignment (a
+        // stereo pad can start after a mono input). Mono groups feed both bars.
+        const int meterChannels = peer->recvMeterSource.getNumChannels();
+        for (int ch = 0; ch < meterChannels; ++ch) {
+            int groupChannel = ch;
+            bool mono = meterChannels == 1;
+            for (int group = 0; group < peer->numChanGroups; ++group) {
+                const auto& params = peer->chanGroups[group].params;
+                if (ch >= params.chanStartIndex && ch < params.chanStartIndex + params.numChannels) {
+                    groupChannel = ch - params.chanStartIndex;
+                    mono = params.numChannels == 1;
+                    break;
+                }
+            }
+            const float peak = peer->recvMeterSource.getMaxLevel(ch);
+            if (mono || groupChannel % 2 == 0) state.left = jmax(state.left, peak);
+            if (mono || groupChannel % 2 != 0) state.right = jmax(state.right, peak);
+        }
         states.add(state);
     }
     return states;

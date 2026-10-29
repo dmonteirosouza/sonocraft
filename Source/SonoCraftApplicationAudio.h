@@ -11,7 +11,12 @@ class SonoCraftBrowserAudioBridge;
 // Capture does not change the application's playback device or replay it locally.
 class SonoCraftApplicationAudio {
 public:
-    struct Application { juce::String name; uint32_t processId = 0; juce::String identifier; };
+    struct Application {
+        juce::String name; uint32_t processId = 0; juce::String identifier;
+        // Read-only OS session activity, available without starting capture on Windows.
+        float leftLevel = 0, rightLevel = 0;
+        bool hasMeter = false;
+    };
     struct Discovery {
         juce::Array<Application> applications;
         juce::String message;

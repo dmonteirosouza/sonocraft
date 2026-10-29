@@ -1,22 +1,29 @@
 // Shared channel surface: routing stays in the channel's adapter.
 #pragma once
 #include "SonoCraftFaderLookAndFeel.h"
+#include "SonoCraftChannelPresentation.h"
 
-class SonoCraftStrip : public juce::Component {
+class SonoCraftStrip : public juce::Component, public juce::SettableTooltipClient {
 public:
     static constexpr int preferredWidth = 184;
     SonoCraftStrip() {
         for (auto* c : std::initializer_list<juce::Component*> {
-                 &name, &subtitle, &status, &fader, &mute, &secondary, &details, &remove })
+                 &name, &subtitle, &status, &listeningRoute, &sendingRoute, &fader, &mute, &secondary, &details, &remove })
             addAndMakeVisible(c);
         name.setFont(juce::Font(15.0f, juce::Font::bold));
         name.setColour(juce::Label::textColourId, SonoCraftTheme::text());
         subtitle.setFont(11.0f);
         subtitle.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        status.setFont(12.0f);
+        status.setFont(juce::Font(12.0f, juce::Font::bold));
         status.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        status.setJustificationType(juce::Justification::topLeft);
+        status.setJustificationType(juce::Justification::centredLeft);
+        status.setBorderSize(juce::BorderSize<int>(0, 7, 0, 4));
         status.setMinimumHorizontalScale(1);
+        for (auto* route : { &listeningRoute, &sendingRoute }) {
+            route->setFont(11.5f); route->setMinimumHorizontalScale(1.0f);
+            route->setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
+            route->setBorderSize(juce::BorderSize<int>(0));
+        }
         fader.setLookAndFeel(&look);
         fader.setSliderStyle(juce::Slider::LinearVertical);
         fader.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 88, 24);
@@ -47,11 +54,14 @@ public:
     ~SonoCraftStrip() override { fader.setLookAndFeel(nullptr); }
     void resized() override {
         auto r = getLocalBounds().reduced(12);
-        const bool compact = getHeight() < 360;
+        const bool compact = getHeight() < 430;
         const int row = compact ? 24 : 28;
         name.setBounds(r.removeFromTop(25));
-        subtitle.setBounds(r.removeFromTop(20));
-        status.setBounds(r.removeFromTop(compact ? 32 : 44));
+        subtitle.setBounds(r.removeFromTop(18));
+        status.setBounds(r.removeFromTop(24));
+        r.removeFromTop(4);
+        listeningRoute.setBounds(r.removeFromTop(17));
+        sendingRoute.setBounds(r.removeFromTop(17));
         r.removeFromTop(6);
         mute.setBounds(r.removeFromTop(row));
         r.removeFromTop(6);
@@ -73,6 +83,8 @@ public:
         g.setColour(panel()); g.fillRoundedRectangle(box, radius);
         g.setColour(selected ? accent() : border());
         g.drawRoundedRectangle(box, radius, selected ? 1.5f : 1.0f);
+        g.setColour(statusColour.withAlpha(0.10f));
+        g.fillRoundedRectangle(status.getBounds().toFloat(), 4);
         g.setColour(accent());
         g.fillRoundedRectangle(12, 0, float(getWidth() - 24), 3, 1.5f);
         g.setColour(SonoCraftTheme::secondary()); g.setFont(10.0f);
@@ -91,7 +103,7 @@ public:
         }
     }
 protected:
-    juce::Label name, subtitle, status;
+    juce::Label name, subtitle, status, listeningRoute, sendingRoute;
     juce::Slider fader;
     juce::TextButton mute, secondary, details, remove;
     float meterLeft = 0, meterRight = 0;
@@ -109,8 +121,21 @@ protected:
         if (!fader.isMouseButtonDown() && !(dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr && fader.isParentOf(juce::Component::getCurrentlyFocusedComponent())))
             fader.setValue(juce::Decibels::gainToDecibels(double(gain), -60.0), juce::dontSendNotification);
     }
-    void setStatus(const juce::String& text) { status.setText(text, juce::dontSendNotification); status.setTooltip(text); }
+    void setStatus(const juce::String& text, const juce::String& explanation = {}, SonoCraftPresentation::Tone tone = SonoCraftPresentation::Tone::neutral) {
+        statusColour = tone == SonoCraftPresentation::Tone::active ? SonoCraftTheme::accent()
+            : tone == SonoCraftPresentation::Tone::attention ? SonoCraftTheme::warning() : SonoCraftTheme::secondary();
+        status.setColour(juce::Label::textColourId, statusColour);
+        status.setText(text, juce::dontSendNotification);
+        status.setTooltip(explanation.isNotEmpty() ? explanation : text);
+    }
+    void setRoutes(const juce::String& listening, const juce::String& sending, const juce::String& explanation = {}) {
+        listeningRoute.setText(listening, juce::dontSendNotification);
+        sendingRoute.setText(sending, juce::dontSendNotification);
+        listeningRoute.setTooltip(explanation.isNotEmpty() ? explanation : listening);
+        sendingRoute.setTooltip(explanation.isNotEmpty() ? explanation : sending);
+    }
 private:
+    juce::Colour statusColour = SonoCraftTheme::secondary();
     SonoCraftFaderLookAndFeel look;
     juce::Rectangle<float> meter, scale;
 };
