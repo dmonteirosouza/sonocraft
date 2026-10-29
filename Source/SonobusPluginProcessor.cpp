@@ -3806,7 +3806,7 @@ int32_t SonobusAudioProcessor::handleSinkEvents(const aoo_event ** events, int32
 
                             // set up this sink with new channel count
 
-                            int sinkchan = std::max(getMainBusNumOutputChannels(), peer->recvChannels);
+                            int sinkchan = jmax(2, jmax(getMainBusNumOutputChannels(), peer->recvChannels));
 
                             peer->oursink->setup(getSampleRate(), currSamplesPerBlock, sinkchan);
                         }
@@ -5129,7 +5129,7 @@ bool SonobusAudioProcessor::insertRemotePeerChannelGroup(int index, int atgroup,
         remote->chanGroups[atgroup].params.chanStartIndex = chstart;
         remote->chanGroups[atgroup].params.numChannels = std::max(1, std::min(chcount, MAX_CHANNELS));
         remote->chanGroups[atgroup].params.panDestStartIndex = 0;
-        remote->chanGroups[atgroup].params.panDestChannels = std::max(1, std::min(2, getTotalNumOutputChannels()));
+        remote->chanGroups[atgroup].params.panDestChannels = std::min(2, getReceiveMixChannelCount());
 
         remote->modifiedChanGroups = true;
         remote->modifiedMultiChanGroups = true;
@@ -6130,7 +6130,7 @@ SonobusAudioProcessor::RemotePeer * SonobusAudioProcessor::doAddRemotePeerIfNece
         retpeer->resetSafetyMuted = retpeer->buffertimeMs < 3.0f;
         retpeer->blockedUs = false;
         
-        retpeer->oursink->setup(getSampleRate(), currSamplesPerBlock, getMainBusNumOutputChannels());
+        retpeer->oursink->setup(getSampleRate(), currSamplesPerBlock, jmax(2, getMainBusNumOutputChannels()));
         retpeer->oursink->set_buffersize(retpeer->buffertimeMs);
 
         int32_t flags = AOO_PROTOCOL_FLAG_COMPACT_DATA;
@@ -6594,9 +6594,9 @@ void SonobusAudioProcessor::restoreLayoutFormatForPeer(RemotePeer * remote, bool
         // possibly reset monitoring pan
         if (remote->chanGroups[i].params.numChannels > remote->chanGroups[i].params.panDestChannels) {
             // set the monDestChannel count to be equal (but not more than total output channels)
-            remote->chanGroups[i].params.panDestChannels = jmin(remote->chanGroups[i].params.numChannels, getTotalNumOutputChannels());
+            remote->chanGroups[i].params.panDestChannels = jmin(remote->chanGroups[i].params.numChannels, getReceiveMixChannelCount());
             remote->chanGroups[i].params.panDestStartIndex = jmax(0, jmin(remote->chanGroups[i].params.panDestStartIndex,
-                                                                          getTotalNumOutputChannels() - remote->chanGroups[i].params.panDestChannels));
+                                                                          getReceiveMixChannelCount() - remote->chanGroups[i].params.panDestChannels));
         }
 
         remote->chanGroups[i].commitAllParams();
@@ -7248,7 +7248,7 @@ void SonobusAudioProcessor::setupSourceFormatsForAll()
         }
         if (s->oursink) {
             const ScopedWriteLock sl (s->sinkLock);
-            int sinkchan = jmax(outchannels, s->recvChannels);
+            int sinkchan = jmax(2, jmax(outchannels, s->recvChannels));
             s->oursink->setup(sampleRate, currSamplesPerBlock, sinkchan);
         }
 
@@ -8120,7 +8120,8 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
                 float adjgain = anysubsolo && !remote->chanGroups[i].params.soloed ? 0.0f : tgain;
                 // todo change dest ch target
                 int dstch = remote->chanGroups[i].params.panDestStartIndex;
-                int dstcnt = jmin(totalOutputChannels, remote->chanGroups[i].params.panDestChannels);
+                // The listening mix is independent of main hardware outputs.
+                int dstcnt = jmin(getReceiveMixChannelCount(), remote->chanGroups[i].params.panDestChannels);
                 remote->chanGroups[i].processPan(receivedListeningWorkBuffer, remote->chanGroups[i].params.chanStartIndex, tempBuffer, dstch, dstcnt, numSamples, adjgain);
 
                 if (doreverb) {

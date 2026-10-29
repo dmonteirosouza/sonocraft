@@ -52,6 +52,33 @@ mFileURL(soundSample == nullptr ? URL() : soundSample->getFileURL())
     createVolumeInputs();
     createHotkeyInput();
     createButtonBar();
+    editorTitle.setText("Editar pad", dontSendNotification);
+    editorTitle.setFont(Font(20.0f, Font::bold));
+    editorHint.setText(String::fromUTF8("As alterações são salvas automaticamente."), dontSendNotification);
+    editorHint.setFont(12.0f);
+    for (auto* label : { &editorTitle, &editorHint }) {
+        label->setColour(Label::textColourId, SonoCraftTheme::text());
+        addAndMakeVisible(label);
+    }
+    const char* names[] = { "Ao clicar", "Ao terminar", "Com outros pads", "Ao tocar novamente" };
+    const char* hints[] = { "Escolha como o botão inicia e interrompe o som.",
+        "O próximo pad segue a ordem da mesa.", "Fundo contínuo não é interrompido por outros pads.",
+        "Escolha de onde a reprodução será retomada." };
+    ComboBox* choices[] = {mButtonBehaviourButton.get(), mLoopButton.get(), mPlaybackBehaviourButton.get(), mReplayBehaviourButton.get()};
+    for (int i = 0; i < 4; ++i) {
+        optionLabels[i].setText(String::fromUTF8(names[i]), dontSendNotification);
+        optionLabels[i].setFont(Font(13.0f, Font::bold));
+        optionLabels[i].setColour(Label::textColourId, SonoCraftTheme::text());
+        optionHints[i].setText(String::fromUTF8(hints[i]), dontSendNotification);
+        optionHints[i].setFont(11.5f);
+        optionHints[i].setColour(Label::textColourId, SonoCraftTheme::secondary());
+        choices[i]->setTitle(String::fromUTF8(names[i]));
+        choices[i]->setTooltip(String::fromUTF8(hints[i]));
+        addAndMakeVisible(optionLabels[i]); addAndMakeVisible(optionHints[i]);
+    }
+    mSubmitButton = std::make_unique<SonoTextButton>(String::fromUTF8("Concluído"));
+    mSubmitButton->onClick = [this] { submitDialog(); };
+    addAndMakeVisible(mSubmitButton.get());
 }
 
 void SampleEditView::setEditMode(bool flag)
@@ -113,7 +140,7 @@ void SampleEditView::createColourInput()
     buttonH = 36;
 #endif
 
-    mColourInputLabel = std::make_unique<Label>("colourInputLabel", TRANS("Button colour"));
+    mColourInputLabel = std::make_unique<Label>("colourInputLabel", String::fromUTF8("Cor do pad"));
     mColourInputLabel->setJustificationType(Justification::left);
     mColourInputLabel->setFont(Font(14, Font::bold));
     mColourInputLabel->setColour(Label::textColourId, SonoCraftTheme::text());
@@ -187,7 +214,7 @@ void SampleEditView::createPlaybackOptionInputs()
 
     createReplayBehaviourButton();
     
-    mApplyPlaybackOptionsToOthersButton = std::make_unique<SonoTextButton>(TRANS("Apply to others"));
+    mApplyPlaybackOptionsToOthersButton = std::make_unique<SonoTextButton>(String::fromUTF8("Aplicar reprodução aos outros pads desta mesa"));
     mApplyPlaybackOptionsToOthersButton->setTooltip(TRANS("Apply these options to all samples in the selected soundboard"));
     mApplyPlaybackOptionsToOthersButton->onClick = [this]() {
         if (applyPlaybackOptionsToOthersCallback) {
@@ -199,7 +226,7 @@ void SampleEditView::createPlaybackOptionInputs()
 
 void SampleEditView::createVolumeInputs()
 {
-    mVolumeLabel = std::make_unique<Label>("gainLabel", TRANS("Gain"));
+    mVolumeLabel = std::make_unique<Label>("gainLabel", String::fromUTF8("Volume"));
     mVolumeLabel->setJustificationType(Justification::left);
     mVolumeLabel->setFont(Font(14, Font::bold));
     mVolumeLabel->setColour(Label::textColourId, SonoCraftTheme::text());
@@ -232,94 +259,69 @@ void SampleEditView::createVolumeInputs()
 
 void SampleEditView::createLoopButton()
 {
-    auto loopOffImg = Drawable::createFromImageData(BinaryData::stop_svg, BinaryData::stop_svgSize);
-    auto loopImg = Drawable::createFromImageData(BinaryData::loop_icon_svg, BinaryData::loop_icon_svgSize);
-    auto nextImg = Drawable::createFromImageData(BinaryData::skipforward_icon_svg, BinaryData::skipforward_icon_svgSize);
-    auto loopImages = std::vector<std::unique_ptr<Drawable>>();
-    loopImages.push_back(std::move(loopOffImg));
-    loopImages.push_back(std::move(loopImg));
-    loopImages.push_back(std::move(nextImg));
-    auto labels = std::vector<String>{TRANS("Stop at End"), TRANS("Loop at End"), TRANS("Play Next")};
-
-    mLoopButton = std::make_unique<SonoMultiStateDrawableButton>("loop", std::move(loopImages), std::move(labels));
-    mLoopButton->setColour(DrawableButton::backgroundColourId, Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.3));
-    mLoopButton->setState(initialEndPlaybackBehaviour);
-    mLoopButton->onStateChange = [this]() {
-        submitDialog(false);
-    };
-
+    mLoopButton = std::make_unique<ComboBox>();
+    mLoopButton->addItem(String::fromUTF8("Parar no final"), 1);
+    mLoopButton->addItem(String::fromUTF8("Repetir em loop"), 2);
+    mLoopButton->addItem(String::fromUTF8("Tocar o próximo pad"), 3);
+    mLoopButton->setSelectedItemIndex(int(initialEndPlaybackBehaviour), dontSendNotification);
+    mLoopButton->setColour(ComboBox::backgroundColourId, SonoCraftTheme::panel());
+    mLoopButton->setColour(ComboBox::textColourId, SonoCraftTheme::text());
+    mLoopButton->setColour(ComboBox::arrowColourId, SonoCraftTheme::secondary());
+    mLoopButton->onChange = [this]() { submitDialog(false); };
     addAndMakeVisible(mLoopButton.get());
 }
 
-
 void SampleEditView::createReplayBehaviourButton()
 {
-    auto replayImage = Drawable::createFromImageData(BinaryData::replay_icon_svg, BinaryData::replay_icon_svgSize);
-    auto continueImage = Drawable::createFromImageData(BinaryData::continue_svg, BinaryData::continue_svgSize);
-    auto buttonImages = std::vector<std::unique_ptr<Drawable>>();
-    buttonImages.push_back(std::move(replayImage));
-    buttonImages.push_back(std::move(continueImage));
-    auto labels = std::vector<String>{TRANS("Replay"), TRANS("Continue")};
-    mReplayBehaviourButton = std::make_unique<SonoMultiStateDrawableButton>("replayBehaviour", std::move(buttonImages), std::move(labels));
-    mReplayBehaviourButton->setColour(DrawableButton::backgroundColourId, Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.3));
-    mReplayBehaviourButton->setState(initialReplayBehaviour);
-    mReplayBehaviourButton->onStateChange = [this]() {
-        submitDialog(false);
-    };
-
+    mReplayBehaviourButton = std::make_unique<ComboBox>();
+    mReplayBehaviourButton->addItem(String::fromUTF8("Voltar ao início"), 1);
+    mReplayBehaviourButton->addItem(String::fromUTF8("Continuar de onde parou"), 2);
+    mReplayBehaviourButton->setSelectedItemIndex(int(initialReplayBehaviour), dontSendNotification);
+    mReplayBehaviourButton->setColour(ComboBox::backgroundColourId, SonoCraftTheme::panel());
+    mReplayBehaviourButton->setColour(ComboBox::textColourId, SonoCraftTheme::text());
+    mReplayBehaviourButton->setColour(ComboBox::arrowColourId, SonoCraftTheme::secondary());
+    mReplayBehaviourButton->onChange = [this]() { submitDialog(false); };
     addAndMakeVisible(mReplayBehaviourButton.get());
 }
 
 void SampleEditView::createPlaybackBehaviourButton()
 {
-    auto simImg = Drawable::createFromImageData(BinaryData::play_simultaneous_svg, BinaryData::play_simultaneous_svgSize);
-    auto b2bImg = Drawable::createFromImageData(BinaryData::play_back_to_back_svg, BinaryData::play_back_to_back_svgSize);
-    auto bgImg = Drawable::createFromImageData(BinaryData::play_background_svg, BinaryData::play_background_svgSize);
-    auto imgs = std::vector<std::unique_ptr<Drawable>>();
-    imgs.push_back(std::move(simImg));
-    imgs.push_back(std::move(b2bImg));
-    imgs.push_back(std::move(bgImg));
-    auto labels = std::vector<String>{TRANS("Simultaneous"), TRANS("Back to Back"), TRANS("Background")};
-    mPlaybackBehaviourButton = std::make_unique<SonoMultiStateDrawableButton>("playbackBehaviour", std::move(imgs), std::move(labels));
-    mPlaybackBehaviourButton->setColour(DrawableButton::backgroundColourId, Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.3));
-    mPlaybackBehaviourButton->setState(initialPlaybackBehaviour);
-    mPlaybackBehaviourButton->onStateChange = [this]() {
-        submitDialog(false);
-    };
-
+    mPlaybackBehaviourButton = std::make_unique<ComboBox>();
+    mPlaybackBehaviourButton->addItem(String::fromUTF8("Misturar com outros pads"), 1);
+    mPlaybackBehaviourButton->addItem(String::fromUTF8("Parar os outros pads"), 2);
+    mPlaybackBehaviourButton->addItem(String::fromUTF8("Fundo contínuo"), 3);
+    mPlaybackBehaviourButton->setSelectedItemIndex(int(initialPlaybackBehaviour), dontSendNotification);
+    mPlaybackBehaviourButton->setColour(ComboBox::backgroundColourId, SonoCraftTheme::panel());
+    mPlaybackBehaviourButton->setColour(ComboBox::textColourId, SonoCraftTheme::text());
+    mPlaybackBehaviourButton->setColour(ComboBox::arrowColourId, SonoCraftTheme::secondary());
+    mPlaybackBehaviourButton->onChange = [this]() { submitDialog(false); };
     addAndMakeVisible(mPlaybackBehaviourButton.get());
 }
 
 void SampleEditView::createButtonBehaviourButton()
 {
-    auto toggleImg = Drawable::createFromImageData(BinaryData::toggle_svg, BinaryData::toggle_svgSize);
-    auto holdImg = Drawable::createFromImageData(BinaryData::hold_svg, BinaryData::hold_svgSize);
-    auto oneshotImg = Drawable::createFromImageData(BinaryData::oneshot_svg, BinaryData::oneshot_svgSize);
-    auto imgs = std::vector<std::unique_ptr<Drawable>>();
-    imgs.push_back(std::move(toggleImg));
-    imgs.push_back(std::move(holdImg));
-    imgs.push_back(std::move(oneshotImg));
-    auto labels = std::vector<String>{TRANS("Toggle"), TRANS("Hold"), TRANS("1-shot")};
-    mButtonBehaviourButton = std::make_unique<SonoMultiStateDrawableButton>("buttonBehaviour", std::move(imgs), std::move(labels));
-    mButtonBehaviourButton->setColour(DrawableButton::backgroundColourId, Colour::fromFloatRGBA(0.5, 0.5, 0.5, 0.3));
-    mButtonBehaviourButton->setState(initialButtonBehaviour);
-    mButtonBehaviourButton->onStateChange = [this]() {
-        submitDialog(false);
-    };
-
+    mButtonBehaviourButton = std::make_unique<ComboBox>();
+    mButtonBehaviourButton->addItem(String::fromUTF8("Clique para tocar / parar"), 1);
+    mButtonBehaviourButton->addItem(String::fromUTF8("Tocar enquanto pressionado"), 2);
+    mButtonBehaviourButton->addItem(String::fromUTF8("Disparar a cada clique"), 3);
+    mButtonBehaviourButton->setSelectedItemIndex(int(initialButtonBehaviour), dontSendNotification);
+    mButtonBehaviourButton->setColour(ComboBox::backgroundColourId, SonoCraftTheme::panel());
+    mButtonBehaviourButton->setColour(ComboBox::textColourId, SonoCraftTheme::text());
+    mButtonBehaviourButton->setColour(ComboBox::arrowColourId, SonoCraftTheme::secondary());
+    mButtonBehaviourButton->onChange = [this]() { submitDialog(false); };
     addAndMakeVisible(mButtonBehaviourButton.get());
 }
 
 void SampleEditView::createHotkeyInput()
 {
-    mHotkeyLabel = std::make_unique<Label>("hotkeyLabel", TRANS("Hotkey"));
+    mHotkeyLabel = std::make_unique<Label>("hotkeyLabel", String::fromUTF8("Atalho"));
     mHotkeyLabel->setJustificationType(Justification::left);
     mHotkeyLabel->setFont(Font(14, Font::bold));
     mHotkeyLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mHotkeyLabel.get());
 
     auto keyPress = juce::KeyPress(hotkeyCode);
-    auto buttonText = hotkeyCode == -1 ? TRANS("Click to change...") : keyPress.getTextDescriptionWithIcons();
+    auto buttonText = hotkeyCode == -1 ? String::fromUTF8("Definir tecla...") : keyPress.getTextDescriptionWithIcons();
     mHotkeyButton = std::make_unique<SonoTextButton>(buttonText);
     mHotkeyButton->setClickingTogglesState(true);
     mHotkeyButton->setToggleState(false, dontSendNotification);
@@ -330,9 +332,9 @@ void SampleEditView::createHotkeyInput()
     };
     addAndMakeVisible(mHotkeyButton.get());
 
-    mRemoveHotkeyButton = std::make_unique<SonoTextButton>(TRANS("Remove hotkey"));
+    mRemoveHotkeyButton = std::make_unique<SonoTextButton>(String::fromUTF8("Remover atalho"));
     mRemoveHotkeyButton->onClick = [this]() {
-        mHotkeyButton->setButtonText(TRANS("Click to change..."));
+        mHotkeyButton->setButtonText(String::fromUTF8("Definir tecla..."));
         mHotkeyButton->setToggleState(false, dontSendNotification);
         hotkeyCode = -1;
         submitDialog(false);
@@ -369,6 +371,7 @@ std::unique_ptr<SonoDrawableButton> SampleEditView::createColourButton(const int
 void SampleEditView::updateColourButtonCheckmark()
 {
     std::unique_ptr<Drawable> checkImage(Drawable::createFromImageData(BinaryData::checkmark_svg, BinaryData::checkmark_svgSize));
+    checkImage->replaceColour(Colour(0xffcccccc), SonoCraftTheme::text());
     auto selectedIndex = indexOfColour(selectedColour);
     auto buttonCount = mColourButtons.size() - 1; /* last one is custom colour */
 
@@ -505,8 +508,8 @@ void SampleEditView::inferSampleName()
 
 void SampleEditView::submitDialog(bool dismiss)
 {
-    auto inputtedName = mNameLabel->getText().trim();
-    if (inputtedName.isEmpty()) {
+    auto inputtedName = mNameInput->getText().trim();
+    if (inputtedName.isEmpty() && !deleteSample) {
         mNameInput->setColour(TextEditor::backgroundColourId, SonoCraftTheme::danger().withAlpha(0.12f));
         return;
     }
@@ -551,105 +554,39 @@ void SampleEditView::paint(Graphics& g)
 
 void SampleEditView::resized()
 {
-    const int minlabwidth = 60;
-    const int mintextwidth = 100;
-    const int mintextbuttwidth = 72;
-    int rowheight = 32;
-    int labrowheight = 24;
-    const int volheight = 38;
-    const int playbackboxw = 50;
-    const int playbackboxh = 50;
-
-#if JUCE_IOS || JUCE_ANDROID
-    rowheight = 36;
-    labrowheight = 28;
-#endif
-    
-    FlexBox contentBox;
-    contentBox.flexDirection = FlexBox::Direction::column;
-
-
-    FlexBox namebox;
-    namebox.flexDirection = FlexBox::Direction::row;
-    namebox.items.add(FlexItem(minlabwidth, rowheight, *mNameLabel).withMargin(0).withFlex(0));
-    namebox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    namebox.items.add(FlexItem(mintextwidth, rowheight, *mNameInput).withMargin(0).withFlex(1));
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN * 2).withMargin(0));
-    contentBox.items.add(FlexItem(mintextwidth, rowheight, namebox).withMargin(0));
-
-    FlexBox filebox;
-    filebox.flexDirection = FlexBox::Direction::row;
-    filebox.items.add(FlexItem(minlabwidth, rowheight, *mFilePathLabel).withMargin(0).withFlex(0));
-    filebox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    filebox.items.add(FlexItem(mintextwidth, rowheight, *mFilePathInput).withMargin(0).withFlex(1));
-    filebox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    filebox.items.add(FlexItem(mintextbuttwidth, rowheight, *mBrowseFilePathButton).withMargin(0).withFlex(0));
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN * 2).withMargin(0));
-    contentBox.items.add(FlexItem(mintextwidth, rowheight, filebox).withMargin(0));
-
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN * 2).withMargin(0));
-    contentBox.items.add(FlexItem(mintextwidth, labrowheight, *mColourInputLabel).withMargin(0).withFlex(0));
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    contentBox.items.add(FlexItem(32*6, rowheight * 2, colourButtonBox).withMargin(0).withFlex(0));
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN * 2).withMargin(0));
-    contentBox.items.add(FlexItem(mintextwidth, labrowheight, *mPlaybackOptionsLabel).withMargin(0).withFlex(0));
-
-
-    // Add row flexbox container for playback options
-    FlexBox playbackOptionsRowBox;
-    playbackOptionsRowBox.flexDirection = FlexBox::Direction::row;
-    playbackOptionsRowBox.items.add(FlexItem(ELEMENT_MARGIN * 2, ELEMENT_MARGIN).withMargin(0));
-    playbackOptionsRowBox.items.add(FlexItem(playbackboxw, playbackboxh, *mButtonBehaviourButton).withMargin(0).withFlex(0, 0));
-    playbackOptionsRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    playbackOptionsRowBox.items.add(FlexItem(playbackboxw, playbackboxh, *mLoopButton).withMargin(0).withFlex(0, 0));
-    playbackOptionsRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    playbackOptionsRowBox.items.add(FlexItem(playbackboxw, playbackboxh, *mPlaybackBehaviourButton).withMargin(0).withFlex(0, 0));
-    playbackOptionsRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    playbackOptionsRowBox.items.add(FlexItem(playbackboxw, playbackboxh, *mReplayBehaviourButton).withMargin(0).withFlex(0, 0));
-    playbackOptionsRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0).withFlex(1));
-    playbackOptionsRowBox.items.add(FlexItem(mintextbuttwidth, rowheight, *mApplyPlaybackOptionsToOthersButton).withMargin(0).withFlex(0, 0));
-    playbackOptionsRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    contentBox.items.add(FlexItem(playbackboxw * 4, playbackboxh, playbackOptionsRowBox).withMargin(0).withFlex(0));
-
-    FlexBox volbox;
-    volbox.flexDirection = FlexBox::Direction::row;
-    volbox.items.add(FlexItem(minlabwidth, rowheight, *mVolumeLabel).withMargin(0).withFlex(0));
-    volbox.items.add(FlexItem(mintextwidth, volheight, *mVolumeSlider).withMargin(0).withFlex(1).withMaxWidth(400));
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN * 2).withMargin(0));
-    contentBox.items.add(FlexItem(mintextwidth, volheight, volbox).withMargin(0));
-
-
-    FlexBox hotkeyButtonRowBox;
-    hotkeyButtonRowBox.flexDirection = FlexBox::Direction::row;
-    hotkeyButtonRowBox.items.add(FlexItem(minlabwidth, labrowheight, *mHotkeyLabel).withMargin(0).withFlex(0));
-    hotkeyButtonRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    hotkeyButtonRowBox.items.add(FlexItem(mintextwidth, rowheight, *mHotkeyButton).withMargin(0).withFlex(1));
-    hotkeyButtonRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-    hotkeyButtonRowBox.items.add(FlexItem(mintextwidth, rowheight, *mRemoveHotkeyButton).withMargin(0).withFlex(1));
-    hotkeyButtonRowBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN).withMargin(0));
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN * 1).withMargin(0));
-    contentBox.items.add(FlexItem(2*mintextwidth, rowheight, hotkeyButtonRowBox).withMargin(0).withFlex(0));
-
-    contentBox.items.add(FlexItem(ELEMENT_MARGIN, ELEMENT_MARGIN * 2).withMargin(0).withFlex(1));
-    contentBox.items.add(FlexItem(mintextwidth, rowheight, buttonBox).withMargin(0).withFlex(0));
-
-
-    int minh = 0;
-    for (auto & item : contentBox.items) {
-        minh += item.minHeight + item.margin.top + item.margin.bottom;
+    auto r = getLocalBounds().reduced(14);
+    editorTitle.setBounds(r.removeFromTop(28));
+    editorHint.setBounds(r.removeFromTop(22));
+    r.removeFromTop(10);
+    auto row = r.removeFromTop(32);
+    mNameLabel->setBounds(row.removeFromLeft(64)); mNameInput->setBounds(row);
+    r.removeFromTop(8); row = r.removeFromTop(32);
+    mFilePathLabel->setBounds(row.removeFromLeft(64));
+    mBrowseFilePathButton->setBounds(row.removeFromRight(86)); row.removeFromRight(8);
+    mFilePathInput->setBounds(row);
+    r.removeFromTop(12);
+    mColourInputLabel->setBounds(r.removeFromTop(22));
+    colourButtonBox.performLayout(r.removeFromTop(68));
+    r.removeFromTop(12);
+    mPlaybackOptionsLabel->setBounds(r.removeFromTop(26));
+    ComboBox* choices[] = {mButtonBehaviourButton.get(), mLoopButton.get(), mPlaybackBehaviourButton.get(), mReplayBehaviourButton.get()};
+    for (int i = 0; i < 4; ++i) {
+        row = r.removeFromTop(32);
+        optionLabels[i].setBounds(row.removeFromLeft(getWidth() < 400 ? 112 : 142));
+        choices[i]->setBounds(row);
+        optionHints[i].setBounds(r.removeFromTop(22));
+        r.removeFromTop(6);
     }
-    minContentHeight = minh + 4;
-    minContentWidth = jmax(32*6, playbackboxw*4) + 10;
-
-    contentBox.performLayout(getLocalBounds().reduced(2));
-
+    mApplyPlaybackOptionsToOthersButton->setBounds(r.removeFromTop(30));
+    r.removeFromTop(12); row = r.removeFromTop(36);
+    mVolumeLabel->setBounds(row.removeFromLeft(64)); mVolumeSlider->setBounds(row);
+    r.removeFromTop(8); row = r.removeFromTop(34);
+    mHotkeyLabel->setBounds(row.removeFromLeft(64));
+    mRemoveHotkeyButton->setBounds(row.removeFromRight(jmin(150, row.getWidth()/2)));
+    row.removeFromRight(8); mHotkeyButton->setBounds(row);
+    r.removeFromTop(12); row = r.removeFromTop(34);
+    mDeleteButton->setBounds(row.removeFromLeft(110));
+    mSubmitButton->setBounds(row.removeFromRight(110));
+    minContentHeight = row.getBottom() + 14;
+    minContentWidth = 340;
 }
-

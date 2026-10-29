@@ -24,12 +24,12 @@ public:
     /**
      * The recommended width of the Sample edit view.
      */
-    constexpr static const float DEFAULT_VIEW_WIDTH = 350;
+    constexpr static const float DEFAULT_VIEW_WIDTH = 460;
 
     /**
      * The recommended height of the Sample edit view.
      */
-    constexpr static const float DEFAULT_VIEW_HEIGHT = 500;
+    constexpr static const float DEFAULT_VIEW_HEIGHT = 660;
 
     /**
      * @param submitcallback Function with the actual selected name that gets called when the submit button is pressed.
@@ -89,13 +89,13 @@ public:
     /**
      * @return The selected playback behaviour.
      */
-    [[nodiscard]] SoundSample::EndPlaybackBehaviour getEndPlaybackBehaviour() const { return static_cast<SoundSample::EndPlaybackBehaviour>(mLoopButton->getState()); }
+    [[nodiscard]] SoundSample::EndPlaybackBehaviour getEndPlaybackBehaviour() const { return static_cast<SoundSample::EndPlaybackBehaviour>(mLoopButton->getSelectedItemIndex()); }
 
-    [[nodiscard]] SoundSample::PlaybackBehaviour getPlaybackBehaviour() const { return static_cast<SoundSample::PlaybackBehaviour>(mPlaybackBehaviourButton->getState()); }
+    [[nodiscard]] SoundSample::PlaybackBehaviour getPlaybackBehaviour() const { return static_cast<SoundSample::PlaybackBehaviour>(mPlaybackBehaviourButton->getSelectedItemIndex()); }
 
-    [[nodiscard]] SoundSample::ButtonBehaviour getButtonBehaviour() const { return static_cast<SoundSample::ButtonBehaviour>(mButtonBehaviourButton->getState()); }
+    [[nodiscard]] SoundSample::ButtonBehaviour getButtonBehaviour() const { return static_cast<SoundSample::ButtonBehaviour>(mButtonBehaviourButton->getSelectedItemIndex()); }
 
-    [[nodiscard]] SoundSample::ReplayBehaviour getReplayBehaviour() const { return static_cast<SoundSample::ReplayBehaviour>(mReplayBehaviourButton->getState()); }
+    [[nodiscard]] SoundSample::ReplayBehaviour getReplayBehaviour() const { return static_cast<SoundSample::ReplayBehaviour>(mReplayBehaviourButton->getSelectedItemIndex()); }
 
     /**
      * @return The selected gain.
@@ -236,14 +236,14 @@ private:
 
     std::unique_ptr<Label> mPlaybackOptionsLabel;
 
-    std::unique_ptr<SonoMultiStateDrawableButton> mLoopButton;
+    std::unique_ptr<ComboBox> mLoopButton;
 
     std::unique_ptr<Label> mVolumeLabel;
     std::unique_ptr<Slider> mVolumeSlider;
 
-    std::unique_ptr<SonoMultiStateDrawableButton> mPlaybackBehaviourButton;
-    std::unique_ptr<SonoMultiStateDrawableButton> mButtonBehaviourButton;
-    std::unique_ptr<SonoMultiStateDrawableButton> mReplayBehaviourButton;
+    std::unique_ptr<ComboBox> mPlaybackBehaviourButton;
+    std::unique_ptr<ComboBox> mButtonBehaviourButton;
+    std::unique_ptr<ComboBox> mReplayBehaviourButton;
 
     std::unique_ptr<Label> mHotkeyLabel;
     std::unique_ptr<SonoTextButton> mHotkeyButton;
@@ -253,6 +253,8 @@ private:
 
     std::unique_ptr<SonoTextButton> mApplyPlaybackOptionsToOthersButton;
 
+    Label editorTitle, editorHint;
+    std::array<Label, 4> optionLabels, optionHints;
     juce::URL mFileURL;
     
     /**

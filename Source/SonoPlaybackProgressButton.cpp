@@ -67,23 +67,46 @@ void SonoPlaybackProgressButton::paintButton(Graphics& graphics,
         auto linear = [](float value) { return value <= 0.04045f ? value / 12.92f : std::pow((value+0.055f)/1.055f, 2.4f); };
         const float luminance = 0.2126f*linear(background.getFloatRed()) + 0.7152f*linear(background.getFloatGreen()) + 0.0722f*linear(background.getFloatBlue());
         const auto ink = luminance > 0.179f ? juce::Colour(0xff101820) : juce::Colours::white;
-        graphics.setColour(background);
-        graphics.fillRoundedRectangle(box, 10);
-        graphics.setColour(ink.withAlpha(isPlaying ? 0.9f : 0.2f));
-        graphics.drawRoundedRectangle(box, 10, isPlaying ? 2.0f : 1.0f);
-        graphics.setColour(ink);
-        graphics.setFont(juce::Font(14.0f, juce::Font::bold));
-        graphics.drawFittedText(getButtonText().isEmpty() ? "Novo som" : getButtonText(), getLocalBounds().reduced(12).withTrimmedTop(12).withTrimmedBottom(24), juce::Justification::centredLeft, 2);
-        graphics.setFont(11.0f);
-        graphics.setColour(ink.withAlpha(0.85f));
-        graphics.drawText(isPlaying ? "Tocando" : "Reproduzir", getLocalBounds().reduced(12).removeFromBottom(18), juce::Justification::centredLeft);
-        graphics.setColour(ink.withAlpha(0.8f));
-        graphics.fillRoundedRectangle(12, float(getHeight()-5), float(juce::jmax(0.0, playbackPosition) * (getWidth()-24)), 3, 1);
-        editBounds = getLocalBounds().removeFromRight(28).removeFromTop(28);
+        graphics.setColour(Colours::black.withAlpha(0.14f));
+        graphics.fillRoundedRectangle(box.translated(0, 2), 9);
+        graphics.setGradientFill(ColourGradient(background.brighter(0.10f), 0, 0,
+            background.darker(0.12f), 0, float(getHeight()), false));
+        graphics.fillRoundedRectangle(box.withTrimmedBottom(2), 9);
+        graphics.setColour(ink.withAlpha(isPlaying || hasKeyboardFocus(true) ? 0.95f : 0.25f));
+        graphics.drawRoundedRectangle(box.reduced(2), 7, isPlaying || hasKeyboardFocus(true) ? 2.0f : 1.0f);
+        // A dedicated grip keeps ordering separate from playback and scrubbing.
+        graphics.setColour(ink.withAlpha(0.7f));
+        for (int x = 0; x < 2; ++x) for (int y = 0; y < 3; ++y)
+            graphics.fillEllipse(11.0f + x*4, 10.0f + y*4, 2, 2);
+        graphics.setFont(Font(11.0f, Font::bold));
+        graphics.drawText(String(padNumber).paddedLeft('0', 2), 24, 6, 24, 22, Justification::centredLeft);
+        editBounds = getLocalBounds().removeFromRight(32).removeFromTop(30);
         if (showEditArea) {
+            graphics.setColour(ink.withAlpha(overEditArea ? 0.22f : 0.10f));
+            graphics.fillRoundedRectangle(editBounds.toFloat().reduced(4), 4);
             graphics.setColour(ink);
-            for (int i = 0; i < 3; ++i) graphics.fillEllipse(float(editBounds.getCentreX()), 10.0f + i*4, 2, 2);
+            for (int i = 0; i < 3; ++i) graphics.fillEllipse(float(editBounds.getCentreX()-5+i*4), 13, 2, 2);
         }
+        graphics.setColour(ink);
+        graphics.setFont(Font(15.0f, Font::bold));
+        graphics.drawFittedText(getButtonText().isEmpty() ? "Novo som" : getButtonText(),
+            getLocalBounds().reduced(12).withTrimmedTop(20).withTrimmedBottom(35), Justification::centredLeft, 2);
+        auto footer = getLocalBounds().reduced(12).removeFromBottom(24);
+        Path symbol;
+        const float sy = float(footer.getCentreY());
+        if (isPlaying) graphics.fillRoundedRectangle(12, sy-5, 10, 10, 1);
+        else { symbol.addTriangle(12, sy-6, 12, sy+6, 22, sy); graphics.fillPath(symbol); }
+        graphics.setFont(11.0f);
+        graphics.drawText(isPlaying ? "Tocando" : "Tocar", footer.withTrimmedLeft(17), Justification::centredLeft);
+        if (shortcutLabel.isNotEmpty()) {
+            auto key = footer.removeFromRight(32).reduced(0, 3);
+            graphics.setColour(ink.withAlpha(0.12f)); graphics.fillRoundedRectangle(key.toFloat(), 3);
+            graphics.setColour(ink); graphics.drawFittedText(shortcutLabel, key, Justification::centred, 1);
+        }
+        graphics.setColour(ink.withAlpha(0.15f));
+        graphics.fillRoundedRectangle(12, float(getHeight()-9), float(getWidth()-24), 3, 1);
+        graphics.setColour(ink);
+        graphics.fillRoundedRectangle(12, float(getHeight()-9), float(jlimit(0.0, 1.0, playbackPosition) * (getWidth()-24)), 3, 1);
         return;
     }
     auto& lf = getLookAndFeel();

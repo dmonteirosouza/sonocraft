@@ -964,6 +964,9 @@ private:
 
     int findFormatIndex(AudioCodecFormatCodec codec, int bitrate, int bitdepth);
 
+    // Keep the network/listening mix alive without a main output device.
+    // Existing mono and multichannel main-output routing stays unchanged.
+    int getReceiveMixChannelCount() const { const int outputs = getTotalNumOutputChannels(); return outputs > 0 ? outputs : 2; }
     void ensureBuffers(int samples);
 
     void commitCacheForPeer(RemotePeer * peer);

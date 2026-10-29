@@ -14,10 +14,10 @@ public:
         name.setColour(juce::Label::textColourId, SonoCraftTheme::text());
         subtitle.setFont(11.0f);
         subtitle.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        status.setFont(juce::Font(12.0f, juce::Font::bold));
+        status.setFont(juce::Font(11.5f));
         status.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
         status.setJustificationType(juce::Justification::centredLeft);
-        status.setBorderSize(juce::BorderSize<int>(0, 7, 0, 4));
+        status.setBorderSize(juce::BorderSize<int>(0, 14, 0, 0));
         status.setMinimumHorizontalScale(1);
         for (auto* route : { &listeningRoute, &sendingRoute }) {
             route->setFont(11.5f); route->setMinimumHorizontalScale(1.0f);
@@ -80,11 +80,16 @@ public:
     void paint(juce::Graphics& g) override {
         using namespace SonoCraftTheme;
         const auto box = getLocalBounds().toFloat().reduced(0.5f);
-        g.setColour(panel()); g.fillRoundedRectangle(box, radius);
+        g.setGradientFill(juce::ColourGradient(panel(), 0, 0, juce::Colour(0xffe8edf1), 0, float(getHeight()), false));
+        g.fillRoundedRectangle(box, radius);
+        g.setColour(juce::Colours::white.withAlpha(0.8f));
+        g.fillRoundedRectangle(8, 8, float(getWidth()-16), 47, 4);
+        g.setColour(border());
+        g.drawHorizontalLine(details.getY()-5, 12, float(getWidth()-12));
         g.setColour(selected ? accent() : border());
         g.drawRoundedRectangle(box, radius, selected ? 1.5f : 1.0f);
-        g.setColour(statusColour.withAlpha(0.10f));
-        g.fillRoundedRectangle(status.getBounds().toFloat(), 4);
+        g.setColour(statusColour);
+        g.fillEllipse(float(status.getX()+2), float(status.getBounds().getCentreY()-3), 6.0f, 6.0f);
         g.setColour(accent());
         g.fillRoundedRectangle(12, 0, float(getWidth() - 24), 3, 1.5f);
         g.setColour(SonoCraftTheme::secondary()); g.setFont(10.0f);
@@ -93,13 +98,28 @@ public:
             g.drawText(db == -60 ? juce::String::fromUTF8("−∞") : juce::String(int(db)),
                        int(scale.getX()), int(y - 6), int(scale.getWidth()), 12, juce::Justification::centredRight);
         }
+        // Fine calibration marks share the fader's actual dB mapping.
+        for (int db = -60; db <= 0; db += 3) {
+            const float y = scale.getBottom() - float(fader.valueToProportionOfLength(db)) * scale.getHeight();
+            const float edge = float(fader.getX()+fader.getWidth()/2);
+            g.setColour(db == 0 ? accent() : border().darker(0.2f));
+            g.drawHorizontalLine(juce::roundToInt(y), edge-24, edge- (db % 12 == 0 ? 12 : 17));
+            g.drawHorizontalLine(juce::roundToInt(y), edge+ (db % 12 == 0 ? 12 : 17), edge+24);
+        }
         for (int ch = 0; ch < 2; ++ch) {
             auto bar = meter.withX(meter.getX() + ch * 10).withWidth(7);
-            g.setColour(recessed()); g.fillRoundedRectangle(bar, 2);
+            g.setColour(juce::Colour(0xff23333f)); g.fillRoundedRectangle(bar.expanded(1), 2);
             const float peak = ch == 0 ? meterLeft : meterRight;
             const float level = juce::jlimit(0.0f, 1.0f, (juce::Decibels::gainToDecibels(peak, -60.0f) + 60) / 60);
-            g.setColour(peak >= 1 ? danger() : peak > 0.5f ? warning() : accent());
-            g.fillRoundedRectangle(bar.removeFromBottom(bar.getHeight() * level), 2);
+            const int segments = juce::jmax(8, int(bar.getHeight()/6));
+            const float step = bar.getHeight()/segments;
+            for (int segment = 0; segment < segments; ++segment) {
+                const float threshold = float(segment+1)/segments;
+                const auto colour = threshold > 0.95f ? juce::Colour(0xffdd5a57)
+                    : threshold > 0.8f ? juce::Colour(0xffe9b44b) : juce::Colour(0xff43b790);
+                g.setColour(threshold <= level ? colour : colour.withAlpha(0.16f));
+                g.fillRect(bar.getX(), bar.getBottom()-(segment+1)*step, bar.getWidth(), juce::jmax(1.0f, step-2));
+            }
         }
     }
 protected:

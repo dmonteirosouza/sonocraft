@@ -162,7 +162,9 @@ bool SoundboardProcessor::moveSoundSample(int fromSampleIndex, int toSampleIndex
     auto& soundboard = soundboards[sindex];
     auto& sampleList = soundboard.getSamples();
 
-    if (fromSampleIndex < 0 || fromSampleIndex >= sampleList.size()) {
+    if (fromSampleIndex < 0 || fromSampleIndex >= sampleList.size()
+        || toSampleIndex < 0 || toSampleIndex > sampleList.size()
+        || toSampleIndex == fromSampleIndex || toSampleIndex == fromSampleIndex + 1) {
         return false;
     }
 

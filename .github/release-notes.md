@@ -1,14 +1,14 @@
-SonoCraft 0.4.0-preview.13 — medidores e estados de áudio mais claros
+SonoCraft 0.4.0-preview.14 — pads e mesa renovados, correção de recebimento
 
-- Setas dos menus desenhadas sem depender de caracteres da fonte, corrigindo o quadrado no Windows.
-- Medidor do participante considera também pads e aplicativos recebidos em canais separados, respeitando grupos mono e estéreo.
-- No Windows, aplicativos detectados mostram sua atividade de áudio mesmo sem captura ou envio ativados. A leitura dos medidores não liga o compartilhamento.
-- Cada canal distingue o estado do áudio (Tocando, Capturando, Enviando ou Silenciado) da configuração de escuta e envio.
-- Indicações consideram ausência de conexão, silêncio geral, volume zerado, solo e captura aguardando autorização.
-- O alcance de Silenciar recebidos está explicado: pads, arquivos e metrônomo locais continuam independentes.
-- Reprodução de arquivo, gravação e metrônomo ativos permanecem visíveis com seus painéis fechados. Clique no indicador para abrir os controles.
-- Layout dos canais revisado em janelas amplas e compactas, com textos e controles alinhados.
-- A saída para microfone virtual permanece removida.
+- Corrige o recebimento de áudio quando a saída principal está em Nenhum: a segunda saída física pode reproduzir participantes, pads e fontes recebidas.
+- Mantém a proteção contra saída para microfone virtual sem impedir o envio pela rede.
+- Edição de pads com opções de reprodução legíveis, campos com nomes completos, explicações e botão Concluído.
+- Pads maiores, com número, atalho configurado, progresso e alça dedicada para ordenar sem disparar o som.
+- Ordenação por arraste ou menu (antes, depois, início e final), com ordem salva entre sessões. Ordenar interrompe os pads em reprodução.
+- Reutilização de sons em outra mesa preservada; a ação de copiar opções agora informa que afeta os outros pads da mesa.
+- Canais com faders mais definidos, escala graduada e medidores segmentados. Status com texto e pequeno indicador colorido, sem faixa de fundo.
+- Espaçamento corrigido entre o seletor de aplicativo e Atualizar aplicativos em Fontes.
+- Diagnóstico de áudio ampliado com níveis de envio/fontes, estado de transmissão e contagem de pacotes por conexão.
 
 **Onde configurar:** Ajustes → Áudio para entrada e saídas; Conexões para grupo/IP; Fontes para aplicativos, abas e modo de envio. A saída principal já reproduz participantes e pads. A segunda saída é opcional, para outro dispositivo físico.
 

@@ -18,6 +18,9 @@ public:
     ~SonoPlaybackProgressButton() override;
 
     void setPlaybackPosition(double value);
+    void setPadNumber(int number) { padNumber = number; }
+    void setShortcutLabel(const String& label) { shortcutLabel = label; }
+    bool isReorderGesture() const { return reorderGesture; }
     void setPadStyle(bool enabled) { padStyle = enabled; repaint(); }
 
     /**
@@ -60,6 +63,8 @@ public:
 
     void mouseDown (const MouseEvent& e) override
     {
+        reorderGesture = padStyle && e.mods.isLeftButtonDown() && e.getPosition().x < 48 && e.getPosition().y < 30;
+        ignoreNextClick = reorderGesture;
         clickIsEdit = e.mods.isPopupMenu();
 
         if (showEditArea && editBounds.contains(e.getPosition())) {
@@ -108,7 +113,9 @@ public:
     bool isPositionDragging() const { return posDragging; }
     
 private:
-    bool padStyle = false;
+    bool padStyle = false, reorderGesture = false;
+    int padNumber = 1;
+    String shortcutLabel;
 
     void initStuff();
 

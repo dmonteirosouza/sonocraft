@@ -671,6 +671,61 @@ int main()
     std::cout << "PASS: explicit complete/individual modes, no full-feed fallback after disabling a source, virtual outputs reject audio" << std::endl;
     sender.releaseResources(); receiver.releaseResources();
     std::cout << "PASS: remote pads and audio remain available to physical playback" << std::endl;
+    // A sender can block its virtual output while the receiver has no main
+    // device at all. Network negotiation and the independent listening bus
+    // must still work, including separate application lanes.
+    sender.removeAllRemotePeers(); receiver.removeAllRemotePeers();
+    resetTestParameters(sender); resetTestParameters(receiver);
+    for (auto* processor : { &sender, &receiver }) {
+        processor->setDefaultAutoresizeBufferMode(SonobusAudioProcessor::AutoNetBufferModeOff);
+        setParameter(*processor, SonobusAudioProcessor::paramDefaultNetbufMs, 0.040f);
+    }
+    sender.setStandaloneAudioDevices("CABLE Output", "CABLE Input");
+    receiver.setStandaloneAudioDevices("VB-Cable", "");
+    receiver.setPlayConfigDetails(2, 0, 48000, 128);
+    sender.prepareToPlay(48000,128); receiver.prepareToPlay(48000,128);
+    auto onlyOutputDevice=std::make_unique<TestListeningDevice>(); auto* earsOnly=onlyOutputDevice.get();
+    if(receiver.getPadMonitor().startWithDevice(std::move(onlyOutputDevice),{"Regression","Speakers fixture"}).isNotEmpty())return 1;
+    const auto appOnly=sender.getSourceMixer().addTab();
+    const juce::URL appUrl(appOnly.url);juce::StreamingSocket appSocket;
+    const auto appHost="127.0.0.1:"+juce::String(appUrl.getPort());
+    if(!appSocket.connect("127.0.0.1",appUrl.getPort(),3000))return 1;
+    const auto appRequest="GET /stream?key="+appUrl.getParameterValues()[0]+" HTTP/1.1\r\nHost: "+appHost
+        +"\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nOrigin: http://"+appHost+"\r\n\r\n";
+    appSocket.write(appRequest.toRawUTF8(),int(appRequest.getNumBytesAsUTF8()));
+    if(!readHttpHeaders(appSocket).contains("101 Switching"))return 1;
+    const juce::String appRate="rate=48000";
+    if(!sendBrowserFrame(appSocket,1,appRate.toRawUTF8(),int(appRate.getNumBytesAsUTF8())))return 1;
+    sender.getSourceMixer().setSend(appOnly.id,true);
+    if(!sender.connectRemotePeer("127.0.0.1",receiver.getUdpLocalPort(),"listening-only","",true))return 1;
+    float appPacket[2048];
+    double listeningOnlyEnergy=0;int listeningOnlyBlocks=0;
+    auto listeningClock=juce::Time::getMillisecondCounterHiRes();
+    for(int block=0;block<900;++block) {
+        if(block%8==0) {
+            // A real tone survives the codec's DC removal; a constant does not.
+            for(int frame=0;frame<1024;++frame) {
+                const float tone=float(0.2*std::sin(2*3.141592653589793*660*(block*128+frame)/48000));
+                appPacket[frame*2]=tone;appPacket[frame*2+1]=tone;
+            }
+            if(!sendBrowserFrame(appSocket,2,appPacket,sizeof(appPacket)))return 1;
+        }
+        juce::AudioBuffer<float> tx(2,128),rx(2,128),ears(2,128);tx.clear();rx.clear();
+        sender.processBlock(tx,midi);receiver.processBlock(rx,midi);earsOnly->render(ears);
+        if(tx.getMagnitude(0,128)>0.00001f){std::cerr<<"FAIL: virtual output protection lost while sending\n";return 1;}
+        if(block>650){listeningOnlyEnergy+=ears.getRMSLevel(0,0,128);++listeningOnlyBlocks;}
+        advanceAudioClock(listeningClock,128);
+    }
+    if(receiver.getMainBusNumOutputChannels()!=0 || !receiver.getRemotePeerRecvActive(0)
+        || receiver.getRemotePeerRecvChannelCount(0)<4 || listeningOnlyEnergy/listeningOnlyBlocks<0.05) {
+        std::cerr<<"FAIL: no-main-output receive: receiving="<<receiver.getRemotePeerRecvActive(0)
+            <<" channels="<<receiver.getRemotePeerRecvChannelCount(0)<<" listening="<<listeningOnlyEnergy/listeningOnlyBlocks
+            <<" capture="<<sender.getSourceMixer().views()[0].level<<" send="<<sender.getSendMeterSource().getMaxLevel(2)
+            <<" peer="<<receiver.getMixerChannelStates()[0].left<<" safety="<<receiver.getMixerChannelStates()[0].safetyMuted<<"\n";return 1;
+    }
+    appSocket.close();sender.getSourceMixer().remove(appOnly.id);receiver.getPadMonitor().stop();
+    sender.releaseResources();receiver.releaseResources();
+    std::cout<<"PASS: separate source crosses UDP with sender virtual output blocked and receiver main output disabled\n";
     const auto reuseDir = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("pad-reuse-test", "", false);
     if (reuseDir.createDirectory().failed()) return 1;
     {
@@ -701,6 +756,27 @@ int main()
             std::cerr << "FAIL: reused pad did not survive reload\n"; return 1;
         }
     }
+    {
+        SoundboardProcessor ordered(roster->getSoundboardProcessor(), reuseDir);
+        ordered.selectSoundboard(1);
+        ordered.addSoundSample("B", padFile.getFile().getFullPathName());
+        ordered.addSoundSample("C", padFile.getFile().getFullPathName());
+        if (ordered.moveSoundSample(0, -1, 1) || ordered.moveSoundSample(0, 4, 1)
+            || ordered.moveSoundSample(0, 1, 1) || !ordered.moveSoundSample(0, 3, 1)
+            || ordered.getSoundboard(1).getSamples()[2].getName() != "Abertura"
+            || !ordered.moveSoundSample(1, 0, 1)) {
+            std::cerr << "FAIL: pad ordering or boundary validation\n"; return 1;
+        }
+    }
+    {
+        SoundboardProcessor ordered(roster->getSoundboardProcessor(), reuseDir);
+        const auto& samples = ordered.getSoundboard(1).getSamples();
+        if (samples.size() != 3 || samples[0].getName() != "C" || samples[1].getName() != "B"
+            || samples[2].getName() != "Abertura" || std::abs(samples[2].getGain()-0.7f)>0.001f) {
+            std::cerr << "FAIL: pad order/settings did not survive reload\n"; return 1;
+        }
+    }
+    std::cout << "PASS: pad ordering in both directions, invalid targets and saved order\n";
     reuseDir.deleteRecursively();
     std::cout << "PASS: reuse pad in another board, independent settings and persistence" << std::endl;
     roster->releaseResources();

@@ -179,6 +179,7 @@ private:
     /**
      * All the buttons that can play a sound.
      */
+    Label padOrderingHint;
     std::vector<std::unique_ptr<SonoPlaybackProgressButton>> mSoundButtons;
 
     /**

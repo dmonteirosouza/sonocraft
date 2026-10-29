@@ -20,6 +20,12 @@ SoundboardView::SoundboardView(SonobusAudioProcessor& audioproc, SoundboardChann
     createControlPanel();
     createBasePanels();
 
+    padOrderingHint.setText(String::fromUTF8("Ordenar: arraste pela alça numerada ou use o menu do pad."), dontSendNotification);
+    padOrderingHint.setFont(11.0f);
+    padOrderingHint.setColour(Label::textColourId, SonoCraftTheme::secondary());
+    addAndMakeVisible(padOrderingHint);
+
+
     sendPadsToAll.setButtonText("Enviar pads a todos os conectados");
     addAndMakeVisible(sendPadsToAll);
     mSendAudioAttachment.reset();
@@ -285,7 +291,8 @@ void SoundboardView::updateButton(SonoPlaybackProgressButton * playbackButton, S
     playbackButton->setButtonColour(sample.getButtonColour());
 
     playbackButton->setButtonText(sample.getName());
-    playbackButton->setTooltip(sample.getName());
+    playbackButton->setTooltip(sample.getName() + String::fromUTF8("\nArraste pela alça numerada para ordenar. O menu permite mover e editar. Ordenar interrompe os pads em reprodução."));
+    playbackButton->setShortcutLabel(sample.getHotkeyCode() > 0 ? KeyPress(sample.getHotkeyCode()).getTextDescription() : String());
 
     auto buttonAddress = playbackButton;
     if (sample.getButtonBehaviour() == SoundSample::ButtonBehaviour::HOLD) {
@@ -392,6 +399,7 @@ void SoundboardView::rebuildButtons()
     for (auto& sample : selectedBoard.getSamples()) {
         auto playbackButton = std::make_unique<SonoPlaybackProgressButton>(sample.getName(), sample.getName());
         playbackButton->setPadStyle(true);
+        playbackButton->setPadNumber(int(mSoundButtons.size()) + 1);
         playbackButton->setShowEditArea(true);
         auto buttonAddress = playbackButton.get();
 
@@ -469,7 +477,7 @@ void SoundboardView::mouseDrag (const MouseEvent& event)
             auto adjpos =  getLocalPoint(event.eventComponent, event.getPosition());
             DBG("Dragging sample button: " << adjpos.toString());
             
-            if (abs(event.getDistanceFromDragStartY()) > thresh && !mReorderDragging && !sbutton->isPositionDragging()) {
+            if (sbutton->isReorderGesture() && event.getDistanceFromDragStart() > thresh && !mReorderDragging) {
                 // start reorder dragging
                 mReorderDragSourceIndex = i;
                 mReorderDragging = true;
@@ -486,7 +494,7 @@ void SoundboardView::mouseDrag (const MouseEvent& event)
                 int sampind = getSampleIndexForPoint(adjpos, true);
                 DBG("In sample: " << sampind);
 
-                mDragDrawable->setBounds(mDragDrawable->getX(), adjpos.getY() - mDragDrawable->getHeight()/2, mDragDrawable->getWidth(), mDragDrawable->getHeight());
+                mDragDrawable->setBounds(adjpos.getX() - mDragDrawable->getWidth()/2, adjpos.getY() - mDragDrawable->getHeight()/2, mDragDrawable->getWidth(), mDragDrawable->getHeight());
 
                 if (auto viewport = &buttonViewport) {
                     auto vppos = viewport->getLocalPoint(this, adjpos);
@@ -506,9 +514,7 @@ void SoundboardView::mouseDrag (const MouseEvent& event)
                     mReorderDragPos = sampind;
 
                     auto groupbounds = getBoundsForSampleIndex(mReorderDragPos);
-                    groupbounds.setHeight(0);
-                    groupbounds.setWidth(getWidth() - 16);
-                    groupbounds.setX(7);
+                    groupbounds.setWidth(3);
                     mInsertLine->setRectangle (groupbounds.toFloat());
 
                     int delta = mReorderDragPos - mReorderDragSourceIndex;
@@ -540,7 +546,8 @@ void SoundboardView::mouseUp (const MouseEvent& event)
                 if (canmove && processor->moveSoundSample(mReorderDragSourceIndex, mReorderDragPos, selectedBoardIndex)) {
                     DBG("Move from " << mReorderDragSourceIndex << " to " << mReorderDragPos << " success");
                     // moved it
-                    rebuildButtons();
+                    Component::SafePointer<SoundboardView> safeThis(this);
+                    MessageManager::callAsync([safeThis] { if (safeThis) safeThis->rebuildButtons(); });
                 }
 
                 mInsertLine->setVisible(false);
@@ -556,11 +563,18 @@ void SoundboardView::mouseUp (const MouseEvent& event)
 
 int SoundboardView::getSampleIndexForPoint(Point<int> pos, bool inbetween)
 {
+    int nearest = int(mSoundButtons.size());
+    int bestDistance = std::numeric_limits<int>::max();
     for (int i = 0; i < int(mSoundButtons.size()); ++i) {
-        auto box = getLocalArea(&buttonContainer, mSoundButtons[i]->getBounds());
-        if (box.contains(pos)) return inbetween && pos.x > box.getCentreX() ? i+1 : i;
+        const auto box = getLocalArea(&buttonContainer, mSoundButtons[i]->getBounds());
+        const auto closest = box.getConstrainedPoint(pos);
+        const int distance = (pos - closest).getDistanceSquaredFromOrigin();
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            nearest = inbetween && pos.x > box.getCentreX() ? i+1 : i;
+        }
     }
-    return int(mSoundButtons.size());
+    return nearest;
 }
 
 Rectangle<int> SoundboardView::getBoundsForSampleIndex(int sampind)
@@ -572,7 +586,7 @@ Rectangle<int> SoundboardView::getBoundsForSampleIndex(int sampind)
     if (!mSoundButtons.empty()) {
         auto & lastone = mSoundButtons.back();
         auto bounds = lastone->getBounds();
-        return getLocalArea(lastone->getParentComponent(), Rectangle<int>(bounds.getX(), bounds.getBottom(), bounds.getWidth(), 0));
+        return getLocalArea(lastone->getParentComponent(), Rectangle<int>(bounds.getRight(), bounds.getY(), 3, bounds.getHeight()));
     }
     return {};
 }
@@ -824,11 +838,27 @@ void SoundboardView::showPadActions(Component& button, SoundSample& sample)
     Component::SafePointer<SoundboardView> safeThis(this);
     Component::SafePointer<Component> safeButton(&button);
     const auto snapshot = sample;
+    int position = -1;
+    if (current >= 0) {
+        const auto& samples = processor->getSoundboard(current).getSamples();
+        for (int i = 0; i < int(samples.size()); ++i) if (&samples[i] == &sample) position = i;
+        menu.addSeparator();
+        menu.addSectionHeader(String::fromUTF8("Ordenar (interrompe a reprodução)"));
+        menu.addItem(10, "Mover para antes", position > 0);
+        menu.addItem(11, "Mover para depois", position >= 0 && position + 1 < int(samples.size()));
+        menu.addItem(12, String::fromUTF8("Mover para o início"), position > 0);
+        menu.addItem(13, "Mover para o final", position >= 0 && position + 1 < int(samples.size()));
+    }
     menu.showMenuAsync(PopupMenu::Options().withTargetComponent(&button),
-        [safeThis, safeButton, snapshot, current, source = &sample](int result) {
+        [safeThis, safeButton, snapshot, current, position, source = &sample](int result) {
             if (!safeThis) return;
             if (result == 1 && safeButton && safeThis->processor->getSelectedSoundboardIndex() == current)
                 safeThis->clickedEditSoundSample(*safeButton, *source);
+            else if (result >= 10 && result <= 13 && safeThis->processor->getSelectedSoundboardIndex() == current) {
+                const auto count = int(safeThis->processor->getSoundboard(current).getSamples().size());
+                const int target = result == 10 ? position-1 : result == 11 ? position+2 : result == 12 ? 0 : count;
+                if (safeThis->processor->moveSoundSample(position, target, current)) safeThis->rebuildButtons();
+            }
             else if (result >= 100)
                 safeThis->processor->addExistingSample(snapshot, result-100);
         });
@@ -966,6 +996,7 @@ void SoundboardView::resized()
     bounds.removeFromTop(8);
     auto groups = bounds.removeFromTop(32);
     mBoardSelectComboBox->setBounds(groups);
+    padOrderingHint.setBounds(bounds.removeFromTop(24));
     bounds.removeFromTop(8);
     sendPadsToAll.setBounds(bounds.removeFromBottom(28));
     auto controls = bounds.removeFromBottom(48);
@@ -973,15 +1004,15 @@ void SoundboardView::resized()
     bounds.removeFromTop(10); bounds.removeFromBottom(8);
     buttonViewport.setBounds(bounds);
     const int width = jmax(100, bounds.getWidth() - buttonViewport.getScrollBarThickness() - 4);
-    const int columns = jmax(1, width / 134);
+    const int columns = jmax(1, width / 150);
     const int tileWidth = (width - (columns-1)*10) / columns;
     const int count = int(mSoundButtons.size()) + (mAddSampleButton ? 1 : 0);
-    buttonContainer.setSize(width, jmax(bounds.getHeight(), ((count + columns-1)/columns)*112));
+    buttonContainer.setSize(width, jmax(bounds.getHeight(), ((count + columns-1)/columns)*132));
     int i = 0;
     for (auto& button : mSoundButtons) {
-        button->setBounds((i%columns)*(tileWidth+10), (i/columns)*112, tileWidth, 102); ++i;
+        button->setBounds((i%columns)*(tileWidth+10), (i/columns)*132, tileWidth, 122); ++i;
     }
-    if (mAddSampleButton) mAddSampleButton->setBounds((i%columns)*(tileWidth+10), (i/columns)*112, tileWidth, 102);
+    if (mAddSampleButton) mAddSampleButton->setBounds((i%columns)*(tileWidth+10), (i/columns)*132, tileWidth, 122);
 }
 
 bool SoundboardView::processKeystroke(const KeyPress& keyPress)
@@ -1135,14 +1166,16 @@ HoldSampleButtonMouseListener::HoldSampleButtonMouseListener(SonoPlaybackProgres
 void HoldSampleButtonMouseListener::mouseDown(const MouseEvent& event)
 {
     posDragging = false;
+    button->setPositionDragging(false);
 
-    if (sample->getButtonBehaviour() == SoundSample::ButtonBehaviour::HOLD && event.mods.isLeftButtonDown() && !button->isClickEdit()) {
+    if (!button->isReorderGesture() && sample->getButtonBehaviour() == SoundSample::ButtonBehaviour::HOLD && event.mods.isLeftButtonDown() && !button->isClickEdit()) {
         view->playSample(*sample, button);
     }
 }
 
 void HoldSampleButtonMouseListener::mouseDrag(const MouseEvent &event)
 {
+    if (button->isReorderGesture()) return;
     auto thresh = 5;
 #if JUCE_IOS || JUCE_ANDROID
     thresh = 12;
@@ -1174,6 +1207,7 @@ void HoldSampleButtonMouseListener::mouseDrag(const MouseEvent &event)
 
 void HoldSampleButtonMouseListener::mouseUp(const MouseEvent& event)
 {
+    if (button->isReorderGesture()) return;
     if (sample->getButtonBehaviour() == SoundSample::ButtonBehaviour::HOLD) {
         view->stopSample(*sample);
     }

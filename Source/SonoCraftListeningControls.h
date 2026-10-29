@@ -57,7 +57,7 @@ public:
         volume.setBounds(box.removeFromTop(32)); hint.setBounds(box);
     }
     juce::String audioDiagnostic() {
-        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 3\n";
+        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 4\n";
         const auto line = [&text](const char* key, const juce::String& value) { text += juce::String(key) + ": " + value + "\n"; };
         const auto flag = [this,&line](const char* key, const juce::String& parameter) {
             line(key, processor.getValueTreeState().getRawParameterValue(parameter)->load()>0.5f ? "on" : "off");
@@ -90,7 +90,8 @@ public:
             const auto& s=sources[i];
             text += "source_"+juce::String(i+1)+": type="+(s.tab?"tab":"app")
                 +" active="+(s.active?"yes":"no")+" send="+(s.sending?"on":"off")
-                +" muted="+(s.muted?"yes":"no")+" gain="+juce::String(s.gain,2)+"\n";
+                +" muted="+(s.muted?"yes":"no")+" gain="+juce::String(s.gain,2)
+                +" source_level="+juce::String(juce::Decibels::gainToDecibels(s.level,-100.0f),1)+" dBFS\n";
         }
         line("system_input_suppressed", processor.isSystemInputSuppressed() ? "yes" : "no");
         line("local_capture_active",processor.getSourceMixer().anyActive() ? "yes" : "no");
@@ -104,6 +105,7 @@ public:
             return juce::String(juce::Decibels::gainToDecibels(value,-100.0f),1)+" dBFS";
         };
         line("input_meter",peak(processor.getInputMeterSource()));
+        line("network_send_meter",peak(processor.getSendMeterSource()));
         line("output_meter",peak(processor.getOutputMeterSource()));
         line("listening_meter",peak(processor.getListeningMeterSource()));
         const auto peers = processor.getMixerChannelStates();
@@ -111,7 +113,11 @@ public:
         for (int i=0;i<peers.size();++i) {
             text += "connection_"+juce::String(i+1)+": muted="+(peers[i].muted ? "yes" : "no")
                 +" receiving="+(processor.getRemotePeerRecvActive(i) ? "yes" : "no")
-                +" channels="+juce::String(processor.getRemotePeerRecvChannelCount(i))+"\n";
+                +" channels="+juce::String(processor.getRemotePeerRecvChannelCount(i))
+                +" send_enabled="+(processor.getRemotePeerSendAllow(i)?"yes":"no")
+                +" send_active="+(processor.getRemotePeerSendActive(i)?"yes":"no")
+                +" packets_sent="+juce::String(processor.getRemotePeerPacketsSent(i))
+                +" packets_received="+juce::String(processor.getRemotePeerPacketsReceived(i))+"\n";
         }
         return text;
     }

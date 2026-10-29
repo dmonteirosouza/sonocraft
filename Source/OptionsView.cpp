@@ -638,7 +638,7 @@ void OptionsView::configurePages()
     auto& audio = *mAudioPage;
     audio.heading("Entrada e saída principal");
     if (mAudioDeviceSelector) {
-        audio.help("Entrada é o microfone ou a captura que você compartilha. Saída principal é onde você ouve os participantes e os pads. Escolher Nenhum na saída permite apenas transmitir. As alterações são aplicadas na hora.");
+        audio.help("Entrada é o microfone ou a captura que você compartilha. Saída principal é onde você ouve os participantes e os pads. Escolher Nenhum desativa a saída principal. Você ainda pode transmitir e ouvir pela segunda saída. As alterações são aplicadas na hora.");
         audio.control(*mAudioDeviceSelector, 0);
         audio.help("Opções avançadas do dispositivo ajustam a taxa de amostragem e o tempo de processamento. Um tempo maior pode reduzir cortes, mas aumenta o atraso.");
         audio.control(*mOptionsOverrideSamplerateButton);

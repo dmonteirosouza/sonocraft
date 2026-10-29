@@ -57,7 +57,8 @@ public:
         auto header=r.removeFromTop(32);close.setBounds(header.removeFromRight(68));title.setBounds(header); help.setBounds(r.removeFromTop(72));
         if(mode.isVisible()){modeHelp.setBounds(r.removeFromTop(36));mode.setBounds(r.removeFromTop(30));r.removeFromTop(10);}
         kind.setBounds(r.removeFromTop(32));r.removeFromTop(8);
-        apps.setBounds(r.removeFromTop(32)); refresh.setBounds(r.removeFromTop(30));r.removeFromTop(8);
+        apps.setBounds(r.removeFromTop(32)); r.removeFromTop(8);
+        refresh.setBounds(r.removeFromTop(30));r.removeFromTop(8);
         add.setBounds(r.removeFromTop(36));r.removeFromTop(8);status.setBounds(r);
     }
 private:

@@ -16,6 +16,10 @@ Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote.
 
 ## Novidades desta prévia
 
+- Pads com números, atalhos, progresso e edição de reprodução com textos completos. Arraste pela alça numerada ou abra o menu do pad para mudar a ordem; a ordem fica salva. Ordenar interrompe os pads em reprodução.
+- Faders com escala graduada, medidores segmentados e status discreto com indicador colorido.
+- Recebimento corrigido quando a saída principal está em **Nenhum**: ainda é possível ouvir pela segunda saída física.
+
 - Canais padronizados, com volume em dB, medidores e controles nas mesmas posições.
 - Barra única com Conexões, Fontes, Pads, Conversa, Ferramentas e Ajustes. Arquivo, gravação e metrônomo têm painéis próprios.
 - Ajustes reorganizados em Áudio, Conexão, Gravação e Preferências. Dispositivos e segunda saída ficam em um único lugar, com explicações e opções avançadas recolhíveis.
