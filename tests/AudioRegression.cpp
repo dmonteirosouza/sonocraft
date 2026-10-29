@@ -78,6 +78,8 @@ static juce::String readHttpHeaders(juce::StreamingSocket& socket) {
     return text;
 }
 
+#include "SourceMixerRegression.h"
+
 class EmptyPlayHead final : public juce::AudioPlayHead
 {
 public:
@@ -121,6 +123,7 @@ int main()
     monitorQueue.reset();
     std::cout << "Starting audio regression" << std::endl;
     juce::ScopedJuceInitialiser_GUI juceRuntime;
+    if (!testSourceMixer()) return 1;
     // Audio processors contain large DSP buffers. Windows console programs
     // have a smaller default stack than macOS, so mirror the application's
     // factory ownership and keep the two processors on the heap.
@@ -142,6 +145,7 @@ int main()
         set(SonobusAudioProcessor::paramMainRecvMute, 0);
         set(SonobusAudioProcessor::paramMetEnabled, 0);
         set(SonobusAudioProcessor::paramMainReverbEnabled, 0);
+        processor.getSourceMixer().restore({});
         processor.setInputGroupCount(1);
         processor.setInputGroupChannelStartAndCount(0, 0, 2);
         processor.setInputGroupChannelDestStartAndCount(0, 0, 2);
@@ -392,14 +396,14 @@ int main()
     if (!player) { std::cerr << "FAIL: could not load pad fixture\n"; return 1; }
     // Reload a preset from a version that supported virtual microphone mixing.
     auto legacy = roster->getValueTreeState().copyState();
-    for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting" }) {
+    for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting", "sendapplicationaudio" }) {
         juce::ValueTree parameter("PARAM"); parameter.setProperty("id", id, nullptr); parameter.setProperty("value", 1.0f, nullptr);
         legacy.addChild(parameter, -1, nullptr); legacy.setProperty(id, true, nullptr);
     }
     const auto legacyXml = legacy.toXmlString();
     roster->setStateInformationWithOptions(legacyXml.toRawUTF8(), int(legacyXml.getNumBytesAsUTF8()), false, false, true);
     const auto restoredState = roster->getValueTreeState().copyState();
-    for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting" }) {
+    for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting", "sendapplicationaudio" }) {
         if (roster->getValueTreeState().getParameter(id) != nullptr || restoredState.hasProperty(id)
             || restoredState.getChildWithProperty("id", id).isValid()) { std::cerr << "FAIL: removed microphone routing survived preset reload\n"; return 1; }
     }
@@ -488,7 +492,8 @@ int main()
     sender.getSoundboardProcessor()->clearPlayback(); remotePlayer.reset();
     // Browser tab IPC is tested with the same authenticated audio endpoint the
     // Chrome helper uses; no actual user window or microphone is captured.
-    const juce::URL tabUrl(sender.getApplicationAudio().startBrowserTab());
+    const auto tabChannel=sender.getSourceMixer().addTab();
+    const juce::URL tabUrl(tabChannel.url);
     if (tabUrl.getPort()<=0 || tabUrl.getParameterValues().isEmpty()) return 1;
     const auto tabHost="127.0.0.1:"+juce::String(tabUrl.getPort());
     const auto token=tabUrl.getParameterValues()[0];
@@ -499,7 +504,7 @@ int main()
         if (!unauthorized.connect("127.0.0.1",tabUrl.getPort(),3000)) return 1;
         const auto badRequest=request.replace("Origin: http://"+tabHost,"Origin: https://unrelated.invalid");
         unauthorized.write(badRequest.toRawUTF8(),int(badRequest.getNumBytesAsUTF8()));
-        if (readHttpHeaders(unauthorized).contains("101 Switching") || sender.getApplicationAudio().isActive()) { std::cerr << "FAIL: cross-origin tab capture accepted\n"; return 1; }
+        if (readHttpHeaders(unauthorized).contains("101 Switching") || sender.getSourceMixer().anyActive()) { std::cerr << "FAIL: cross-origin tab capture accepted\n"; return 1; }
     }
     juce::StreamingSocket browser;
     if (!browser.connect("127.0.0.1",tabUrl.getPort(),3000)) return 1;
@@ -509,14 +514,16 @@ int main()
     const juce::String rateMessage="rate=48000";
     sendBrowserFrame(browser,1,rateMessage.toRawUTF8(),int(rateMessage.getNumBytesAsUTF8()));
     const auto activationDeadline=juce::Time::getMillisecondCounterHiRes()+3000;
-    while (!sender.getApplicationAudio().isActive() && juce::Time::getMillisecondCounterHiRes()<activationDeadline) juce::Thread::sleep(1);
-    if (!sender.getApplicationAudio().isActive()) { std::cerr << "FAIL: authenticated tab capture did not activate\n"; return 1; }
+    while (!sender.getSourceMixer().anyActive() && juce::Time::getMillisecondCounterHiRes()<activationDeadline) juce::Thread::sleep(1);
+    if (!sender.getSourceMixer().anyActive()) { std::cerr << "FAIL: authenticated tab capture did not activate\n"; return 1; }
     sender.setStandaloneAudioDevices("VB-Cable",{});
-    // The complete Mac feed must remain available to headphones while the
-    // chosen tab travels in a separate network source.
+    // Individual capture suppresses the virtual full-system input; disabling
+    // the last send must not unexpectedly transmit the complete system.
     setParameter(sender,SonobusAudioProcessor::paramMainInMute,0);
-    setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,1);
+    sender.getSourceMixer().setSend(tabChannel.id,true);
     double completeFeedPlayback=0, tabInHeadphones=0, fullPlaybackAfterStop=0, fullListeningAfterStop=0, duplicateSelectedAudio=0;
+    double selectedReal[2]{}, selectedImag[2]{}, completeReal[2]{}, completeImag[2]{};
+    int selectedSamples=0,completeSamples=0;
     auto earsDevice=std::make_unique<TestListeningDevice>(); auto* tabEars=earsDevice.get();
     receiver.getPadMonitor().startWithDevice(std::move(earsDevice),{"Regression","Headset fixture"});
     double tabPhase=0, fullPhase=0; auto tabDeadline=juce::Time::getMillisecondCounterHiRes();
@@ -526,23 +533,40 @@ int main()
             for (int i=0;i<1024;++i) { packet[i*2]=packet[i*2+1]=float(0.12*std::sin(tabPhase)); tabPhase+=2*3.141592653589793*660/48000; }
             if (!sendBrowserFrame(browser,2,packet,sizeof(packet))) return 1;
         }
-        if (block==320) setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,0);
+        if (block==180) sender.getSourceMixer().useCompleteInput();
+        if (block==270) sender.getSourceMixer().setSend(tabChannel.id,true);
+        if (block==320) sender.getSourceMixer().setSend(tabChannel.id,false);
         juce::AudioBuffer<float> local(2,128), remote(2,128), ears(2,128); local.clear(); remote.clear();
         for (int sample=0;sample<128;++sample) {
-            // Artificial silence in the authoritative complete feed proves the
-            // extra selected track isn't added again to headphone playback.
-            const auto full=(block>=240 && block<330) ? 0.0f : float(0.1*std::sin(fullPhase));
+            // A different full-feed tone must never leak through individual mode.
+            const auto full=float(0.1*std::sin(fullPhase));
             fullPhase+=2*3.141592653589793*440/48000;
             for (int ch=0;ch<2;++ch) local.setSample(ch,sample,full);
         }
         sender.processBlock(local,midi); receiver.processBlock(remote,midi); tabEars->render(ears);
         if (block>80 && block<130) { completeFeedPlayback+=remote.getRMSLevel(0,0,128); tabInHeadphones+=ears.getRMSLevel(0,0,128); }
-        if (block>300 && block<320) duplicateSelectedAudio+=ears.getRMSLevel(0,0,128);
+        if (block>230 && block<260) duplicateSelectedAudio+=ears.getRMSLevel(0,0,128);
+        if ((block>80 && block<130) || (block>230 && block<260)) {
+            const bool selected=block<130; auto* real=selected?selectedReal:completeReal; auto* imag=selected?selectedImag:completeImag;
+            for(int sample=0;sample<128;++sample) for(int tone=0;tone<2;++tone) {
+                const auto angle=2*3.141592653589793*(tone==0?440:660)*(block*128+sample)/48000;
+                real[tone]+=remote.getSample(0,sample)*std::cos(angle); imag[tone]+=remote.getSample(0,sample)*std::sin(angle);
+            }
+            (selected?selectedSamples:completeSamples)+=128;
+        }
         if (block>440) { fullPlaybackAfterStop+=remote.getRMSLevel(0,0,128); fullListeningAfterStop+=ears.getRMSLevel(0,0,128); }
         const auto tabNow=juce::Time::getMillisecondCounterHiRes(); if (tabNow-tabDeadline>100) tabDeadline=tabNow;
         tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
     }
-    // Keep a remote pad playing while a live tab is repeatedly added/removed
+    const auto selectedLeak=2*std::hypot(selectedReal[0],selectedImag[0])/selectedSamples;
+    const auto selectedTone=2*std::hypot(selectedReal[1],selectedImag[1])/selectedSamples;
+    const auto completeTone=2*std::hypot(completeReal[0],completeImag[0])/completeSamples;
+    const auto completeLeak=2*std::hypot(completeReal[1],completeImag[1])/completeSamples;
+    if(selectedLeak>0.015 || selectedTone<0.025 || completeTone<0.025 || completeLeak>0.015) {
+        std::cerr << "FAIL: overlapping full/selected sources: selected=" << selectedTone << " leak=" << selectedLeak
+                  << " full=" << completeTone << " leak=" << completeLeak << "\n";return 1;
+    }
+    // Keep a remote pad playing while a live tab is repeatedly enabled/disabled
     // from the transmitted channels. The receiver's physical input is muted,
     // headphones stay open, and only the selected source may disappear.
     receiver.setStandaloneAudioDevices("Headset microphone", "CABLE Input");
@@ -554,7 +578,7 @@ int main()
     tabDeadline=juce::Time::getMillisecondCounterHiRes();
     for (int block=0;block<900;++block) {
         const int phase=block/180;
-        if (block%180==0) setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,phase%2);
+        if (block%180==0) sender.getSourceMixer().setSend(tabChannel.id,phase%2!=0);
         if (block%8==0) {
             float packet[2048];
             for (int i=0;i<1024;++i) { packet[i*2]=packet[i*2+1]=float(0.12*std::sin(tabPhase)); tabPhase+=2*3.141592653589793*660/48000; }
@@ -585,7 +609,7 @@ int main()
     sender.setStandaloneAudioDevices("Headset microphone", "Headset");
     receiver.setStandaloneAudioDevices("Headset microphone", "Headset");
     setParameter(sender,SonobusAudioProcessor::paramMainInMute,1);
-    setParameter(sender,SonobusAudioProcessor::paramSendApplicationAudio,1);
+    sender.getSourceMixer().setSend(tabChannel.id,true);
     double selectedOnlyPlayback=0;
     for (int block=0;block<240;++block) {
         if (block%8==0) {
@@ -599,7 +623,7 @@ int main()
         const auto now=juce::Time::getMillisecondCounterHiRes(); if (now-tabDeadline>100) tabDeadline=now;
         tabDeadline+=128*1000.0/48000.0; waitForAudioDeadline(tabDeadline);
     }
-    receiver.getPadMonitor().stop(); browser.close(); sender.getApplicationAudio().stop();
+    receiver.getPadMonitor().stop(); browser.close(); sender.getSourceMixer().stop(tabChannel.id);
     // No supported virtual output can receive physical input or any mix.
     setParameter(sender,SonobusAudioProcessor::paramDry,1);
     setParameter(sender,SonobusAudioProcessor::paramMainInMute,0);
@@ -613,11 +637,11 @@ int main()
             std::cerr << "FAIL: virtual independent listening accepted\n"; return 1;
         }
     }
-    if (completeFeedPlayback<=0.01 || tabInHeadphones<=0.01 || fullPlaybackAfterStop<=0.01 || fullListeningAfterStop<=0.01 || duplicateSelectedAudio>0.005 || selectedOnlyPlayback<=0.01) {
+    if (completeFeedPlayback<=0.01 || tabInHeadphones<=0.01 || fullPlaybackAfterStop>0.005 || fullListeningAfterStop>0.005 || duplicateSelectedAudio<=0.01 || selectedOnlyPlayback<=0.01) {
         std::cerr << "FAIL: network source listening: full=" << completeFeedPlayback << " ears=" << tabInHeadphones
                   << " afterStop=" << fullPlaybackAfterStop << " duplicate=" << duplicateSelectedAudio << " selectedOnly=" << selectedOnlyPlayback << "\n"; return 1;
     }
-    std::cout << "PASS: full feeds and isolated selected tabs remain audible without duplicate playback; virtual outputs reject audio" << std::endl;
+    std::cout << "PASS: explicit complete/individual modes, no full-feed fallback after disabling a source, virtual outputs reject audio" << std::endl;
     sender.releaseResources(); receiver.releaseResources();
     std::cout << "PASS: remote pads and audio remain available to physical playback" << std::endl;
     const auto reuseDir = juce::File::getCurrentWorkingDirectory().getNonexistentChildFile("pad-reuse-test", "", false);

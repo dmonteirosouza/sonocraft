@@ -6,7 +6,7 @@
 #pragma once
 #include "SonoCraftPadMonitor.h"
 #include "SonoCraftAudioRouting.h"
-#include "SonoCraftApplicationAudio.h"
+#include "SonoCraftSourceMixer.h"
 
 #include "JuceHeader.h"
 
@@ -242,7 +242,6 @@ public:
     static String paramInMonitorMonoPan;
     static String paramInMonitorPan1;
     static String paramInMonitorPan2;
-    static String paramSendApplicationAudio;
     static String paramDry;
     static String paramWet;
     static String paramSendChannels;
@@ -849,8 +848,9 @@ public:
         const auto error = SonoCraftAudioRouting::listeningError(selected.name, getStandaloneOutputName());
         return error.isNotEmpty() ? error : padMonitor.start(selected);
     }
-    SonoCraftApplicationAudio& getApplicationAudio() { return applicationAudio; }
-    bool isSendingApplicationAudio() const { return mSendApplicationAudio.get() && applicationAudio.isActive(); }
+    SonoCraftSourceMixer& getSourceMixer() { return sourceMixer; }
+    bool isSendingApplicationAudio() const { return sourceMixer.hasChannels(); }
+    bool isSystemInputSuppressed() const { return standaloneInputIsVirtual.load() && sourceMixer.usesIndividualSources(); }
     bool mustKeepSourcesSeparate() const { return mSendSoundboardAudio.get() || isSendingApplicationAudio() || standaloneInputIsVirtual.load(); }
     int getEffectiveSendChannelMode() const { return mustKeepSourcesSeparate() ? 0 : mSendChannels.get(); }
 
@@ -994,7 +994,8 @@ private:
     String standaloneInput, standaloneOutput;
     std::atomic<bool> standaloneOutputBlocked { false }, standaloneInputIsVirtual { false };
     std::atomic<bool> mNeedsUserLayout { false };
-    SonoCraftApplicationAudio applicationAudio;
+    SonoCraftSourceMixer sourceMixer;
+    bool lastSystemInputSuppressed = false;
     AudioSampleBuffer applicationBuffer;
     AudioSampleBuffer monitorBuffer;
     AudioSampleBuffer receivedListeningWorkBuffer;
@@ -1018,7 +1019,6 @@ private:
     Atomic<double>   mBufferTime     { 0.001 };
     Atomic<double>   mMaxBufferTime     { 1.0 };
     Atomic<bool>   mMainSendMute    {   false };
-    Atomic<bool> mSendApplicationAudio { false };
     Atomic<bool>   mMainRecvMute    {   false };
     Atomic<bool>   mMainInMute    {   false };
     Atomic<bool>   mMainMonitorSolo    {   false };

@@ -1,101 +1,129 @@
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 #pragma once
-#pragma push_macro("Component")
-#undef Component
 #include "SonobusPluginProcessor.h"
 #include "SonoCraftTheme.h"
+#include "SonoCraftFaderLookAndFeel.h"
 
-class SonoCraftSourceControls final : public juce::Component, private juce::Timer {
+// A short add-source dialog, launched from the mixer, not a settings tab.
+class SonoCraftSourceControls final : public juce::Component {
 public:
-    explicit SonoCraftSourceControls(SonobusAudioProcessor& value) : processor(value) {
-        for (auto* item : std::initializer_list<juce::Component*> { &intro,&mode,&applications,&refresh,&begin,&end,&network,&status,&explanation,&inputNotice,&sourceHeading,&destinationsHeading }) addAndMakeVisible(item);
-        intro.setText(juce::String::fromUTF8("Escolha uma aba ou aplicativo para enviar aos conectados no SonoCraft. A entrada e os pads continuam com seus próprios controles de envio."), juce::dontSendNotification);
-        mode.addItem("Uma aba do navegador",1);
-        mode.addItem("Um aplicativo inteiro (todas as janelas dele)",2);
-        mode.setSelectedId(1,juce::dontSendNotification);
-        mode.onChange = [this] { processor.getApplicationAudio().stop(); actionError.clear(); inputNotice.setText({},juce::dontSendNotification); updateMode(); scan(); };
-        refresh.setButtonText("Atualizar aplicativos"); refresh.onClick = [this] { scan(); };
-        end.setButtonText("Parar captura"); end.onClick = [this] { actionError.clear(); processor.getApplicationAudio().stop(); };
-        network.setButtonText(juce::String::fromUTF8("Enviar esta fonte aos conectados"));
-        sourceHeading.setText(juce::String::fromUTF8("1. Fonte local (uma seleção por vez)"),juce::dontSendNotification);
-        destinationsHeading.setText(juce::String::fromUTF8("2. Envio desta fonte"),juce::dontSendNotification);
-        network.setTooltip(juce::String::fromUTF8("Envia esta seleção aos participantes da conexão ou grupo do SonoCraft, além da entrada e dos pads habilitados."));
-        for (auto* label : {&sourceHeading,&destinationsHeading}) {
-            label->setFont(juce::Font(14.0f,juce::Font::bold));
-            label->setMinimumHorizontalScale(1);
-        }
-        networkAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.getValueTreeState(),SonobusAudioProcessor::paramSendApplicationAudio,network);
-        begin.onClick = [this] {
-            actionError.clear();
-            if (!network.getToggleState()) {
-                showError(juce::String::fromUTF8("Marque Enviar esta fonte aos conectados antes de iniciar.")); return;
+    explicit SonoCraftSourceControls(SonobusAudioProcessor& p) : processor(p) {
+        for (auto* c : std::initializer_list<juce::Component*>{&close,&title,&help,&kind,&apps,&refresh,&add,&status}) addAndMakeVisible(c);
+        close.setButtonText("Fechar"); close.onClick=[this]{if(onClose)onClose();};
+        title.setText("Adicionar fonte",juce::dontSendNotification); title.setFont(juce::Font(20.0f,juce::Font::bold));
+        help.setText(juce::String::fromUTF8("Cada fonte ganha um canal com volume e envio próprios. O envio começa desligado. O volume original do aplicativo não muda."),juce::dontSendNotification);
+        kind.addItem("Aplicativo inteiro",1); kind.addItem("Uma aba do navegador",2); kind.setSelectedId(1,juce::dontSendNotification);
+        kind.onChange=[this]{update();}; refresh.setButtonText("Atualizar aplicativos"); refresh.onClick=[this]{scan();};
+        add.onClick=[this]{
+            SonoCraftSourceMixer::Added result;
+            if (kind.getSelectedId()==2) result=processor.getSourceMixer().addTab();
+            else {
+                const int i=apps.getSelectedId()-1;
+                if (!juce::isPositiveAndBelow(i,available.size())) { status.setText("Escolha um aplicativo aberto.",juce::dontSendNotification); return; }
+                result=processor.getSourceMixer().addApplication(available[i]);
             }
-            if (mode.getSelectedId()==2 && !juce::isPositiveAndBelow(applications.getSelectedId()-1,apps.size())) {
-                showError("Escolha um aplicativo na lista."); return;
+            if (result.error.isNotEmpty()) { status.setText(result.error,juce::dontSendNotification); return; }
+            if (result.url.isNotEmpty() && !juce::URL(result.url).launchInDefaultBrowser()) {
+                status.setText("Abra o Chrome ou Edge e inicie a captura pelo canal criado.",juce::dontSendNotification); return;
             }
-            if (network.getToggleState()) processor.getValueTreeState().getParameter(SonobusAudioProcessor::paramMainSendMute)->setValueNotifyingHost(0);
-            if (SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName())) {
-                const bool inputMuted = processor.getValueTreeState().getRawParameterValue(SonobusAudioProcessor::paramMainInMute)->load() > 0.5f;
-                inputNotice.setText(juce::String::fromUTF8(inputMuted
-                    ? "Sua entrada continua silenciada. A fonte selecionada e os pads são independentes desse controle. Para voltar a enviar o áudio completo da entrada, desative Silenciar minha entrada."
-                    : "A entrada virtual continua enviando o áudio completo. Esta fonte segue separadamente para os conectados no SonoCraft."),juce::dontSendNotification);
-            }
-            if (mode.getSelectedId()==1) {
-                const auto url=processor.getApplicationAudio().startBrowserTab();
-                if (url.isNotEmpty() && !juce::URL(url).launchInDefaultBrowser()) showError("Abra o Chrome ou Edge e tente novamente.");
-            } else {
-                const int index=applications.getSelectedId()-1;
-                if (!juce::isPositiveAndBelow(index,apps.size())) { showError("Escolha um aplicativo na lista."); return; }
-                processor.getApplicationAudio().start(apps[index]);
-            }
+            if (onClose) onClose();
         };
-        for (auto* label : {&intro,&status,&explanation,&inputNotice}) {
-            label->setFont(14.0f); label->setMinimumHorizontalScale(1); label->setJustificationType(juce::Justification::topLeft);
-        }
-        inputNotice.setFont(12.5f); status.setColour(juce::Label::textColourId,SonoCraftTheme::accent());
-        updateMode(); scan(); startTimer(250);
+        for (auto* l:{&help,&status}) { l->setMinimumHorizontalScale(1); l->setJustificationType(juce::Justification::topLeft); }
+        status.setColour(juce::Label::textColourId,SonoCraftTheme::warning());
+        scan();update();setSize(450,370);
     }
-    ~SonoCraftSourceControls() override { stopTimer(); }
+    std::function<void()> onClose;
+    void paint(juce::Graphics& g) override {
+        g.setColour(SonoCraftTheme::panel());g.fillRoundedRectangle(getLocalBounds().toFloat(),10);
+        g.setColour(SonoCraftTheme::accent());g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(1),10,2);
+    }
     void resized() override {
-        auto box=getLocalBounds().reduced(14);
-        intro.setBounds(box.removeFromTop(92)); sourceHeading.setBounds(box.removeFromTop(30));
-        mode.setBounds(box.removeFromTop(34)); box.removeFromTop(12);
-        if (mode.getSelectedId()==2) { applications.setBounds(box.removeFromTop(34)); refresh.setBounds(box.removeFromTop(30)); box.removeFromTop(8); }
-        auto row=box.removeFromTop(36); end.setBounds(row.removeFromRight(124)); row.removeFromRight(8); begin.setBounds(row);
-        box.removeFromTop(12); explanation.setBounds(box.removeFromTop(108));
-        destinationsHeading.setBounds(box.removeFromTop(30));
-        network.setBounds(box.removeFromTop(32));
-        box.removeFromTop(12); status.setBounds(box.removeFromTop(96)); inputNotice.setBounds(box.removeFromTop(100));
+        auto r=getLocalBounds().reduced(18);
+        auto header=r.removeFromTop(32);close.setBounds(header.removeFromRight(68));title.setBounds(header); help.setBounds(r.removeFromTop(84));
+        kind.setBounds(r.removeFromTop(32));r.removeFromTop(8);
+        apps.setBounds(r.removeFromTop(32)); refresh.setBounds(r.removeFromTop(30));r.removeFromTop(8);
+        add.setBounds(r.removeFromTop(36));r.removeFromTop(8);status.setBounds(r);
     }
 private:
     SonobusAudioProcessor& processor;
-    juce::Label intro,status,explanation,inputNotice,sourceHeading,destinationsHeading;
-    juce::ComboBox mode,applications;
-    juce::TextButton refresh,begin,end;
-    juce::ToggleButton network;
-    juce::Array<SonoCraftApplicationAudio::Application> apps;
-    juce::String actionError;
-    void showError(const juce::String& text) { actionError=text; status.setText(text,juce::dontSendNotification); }
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> networkAttachment;
-    void updateMode() {
-        const bool tab=mode.getSelectedId()==1; applications.setVisible(!tab); refresh.setVisible(!tab); resized();
-        begin.setButtonText(tab ? "Escolher uma aba no navegador" : "Capturar aplicativo selecionado");
-        explanation.setText(juce::String::fromUTF8(tab
-            ? "Abra a página auxiliar no Chrome ou Edge, escolha uma aba com áudio e mantenha a página aberta. Só essa aba entra na seleção; as outras continuam na escuta completa se estiverem chegando pela entrada."
-            : "Inclui todas as janelas e abas do aplicativo. Para compartilhar somente uma aba, use Uma aba do navegador. O sistema pode pedir permissão de áudio/tela. Evite capturar o aplicativo que recebe esta mesma saída, para não criar retorno."),juce::dontSendNotification);
-    }
+    juce::Label title,help,status;
+    juce::ComboBox kind,apps;
+    juce::TextButton refresh,add,close;
+    juce::Array<SonoCraftApplicationAudio::Application> available;
     void scan() {
-        const auto previous=applications.getText(); apps=SonoCraftApplicationAudio::applications(); applications.clear(juce::dontSendNotification);
-        for (int i=0;i<apps.size();++i) { applications.addItem(apps[i].name,i+1); if (apps[i].name==previous) applications.setSelectedId(i+1,juce::dontSendNotification); }
-        applications.setTextWhenNothingSelected("Escolha um aplicativo aberto");
+        const auto previous=apps.getText();available=SonoCraftApplicationAudio::applications();apps.clear(juce::dontSendNotification);
+        for (int i=0;i<available.size();++i) { apps.addItem(available[i].name,i+1);if(available[i].name==previous)apps.setSelectedId(i+1,juce::dontSendNotification); }
+        apps.setTextWhenNothingSelected("Escolha um aplicativo aberto");
     }
-    void timerCallback() override {
-        if (!isShowing()) return;
-        auto& audio=processor.getApplicationAudio();
-        auto text=audio.status();
-        if (actionError.isNotEmpty()) { status.setText(actionError,juce::dontSendNotification); return; }
-        if (audio.isActive()) text=audio.sourceName()+" · "+(audio.level()>0.001f ? juce::String::fromUTF8("recebendo áudio") : juce::String::fromUTF8("aguardando som"))+"\n"+text;
-        status.setText(text,juce::dontSendNotification);
+    void update() {
+        const bool tab=kind.getSelectedId()==2; apps.setVisible(!tab); refresh.setVisible(!tab);
+        add.setButtonText(tab?"Adicionar aba e escolher no navegador":"Adicionar aplicativo");
+        help.setText(juce::String::fromUTF8(tab
+            ? "Escolha a aba no Chrome ou Edge e mantenha a página auxiliar aberta. Adicione cada aba só uma vez: o navegador não identifica repetições. O envio começa desligado."
+            : "Cada aplicativo ganha um canal com volume e envio próprios. O envio começa desligado. O volume original do aplicativo não muda."),juce::dontSendNotification);
     }
 };
-#pragma pop_macro("Component")
+
+class SonoCraftSourceStrip final : public juce::Component {
+public:
+    SonoCraftSourceStrip(SonobusAudioProcessor& p,const juce::String& sourceId) : processor(p),id(sourceId) {
+        for(auto* c:std::initializer_list<juce::Component*>{&name,&type,&status,&level,&send,&mute,&capture,&remove})addAndMakeVisible(c);
+        name.setEditable(false,true,false);name.setTooltip("Duplo clique para renomear este canal");
+        name.onTextChange=[this]{processor.getSourceMixer().rename(id,name.getText());};
+        name.setFont(juce::Font(15.0f,juce::Font::bold));
+        type.setFont(11.0f);type.setColour(juce::Label::textColourId,SonoCraftTheme::secondary());
+        status.setFont(12.0f);status.setMinimumHorizontalScale(1);status.setJustificationType(juce::Justification::topLeft);
+        level.setLookAndFeel(&faderLookAndFeel);level.setDoubleClickReturnValue(true,100);
+        level.setRange(0,200,1);level.setSliderStyle(juce::Slider::LinearVertical);
+        level.setTextBoxStyle(juce::Slider::TextBoxBelow,false,76,24);level.setTextValueSuffix("%");level.setTitle("Volume de envio da fonte");
+        level.onValueChange=[this]{processor.getSourceMixer().setGain(id,float(level.getValue())/100.0f);};
+        send.setButtonText("Enviar");send.setTooltip("Enviar este canal aos conectados no SonoCraft");
+        send.onClick=[this]{processor.getSourceMixer().setSend(id,send.getToggleState());};
+        mute.setButtonText("Silenciar");mute.onClick=[this]{processor.getSourceMixer().setMute(id,mute.getToggleState());};
+        remove.setButtonText("Remover");remove.onClick=[this]{processor.getSourceMixer().remove(id);};
+        capture.onClick=[this]{
+            actionError.clear();
+            if(requested) processor.getSourceMixer().stop(id);
+            else {
+                const auto result=processor.getSourceMixer().restart(id);
+                actionError=result.error;
+                if(result.url.isNotEmpty()) juce::URL(result.url).launchInDefaultBrowser();
+            }
+        };
+    }
+    ~SonoCraftSourceStrip() override {level.setLookAndFeel(nullptr);}
+    const juce::String& sourceId() const {return id;}
+    void sync(const SonoCraftSourceMixer::View& s) {
+        if(!name.isBeingEdited())name.setText(s.name,juce::dontSendNotification);
+        type.setText(s.tab?"ABA DO NAVEGADOR":"APLICATIVO",juce::dontSendNotification);
+        requested=s.requested;capture.setButtonText(requested?"Parar captura":"Iniciar captura");
+        status.setText(actionError.isNotEmpty() ? actionError : s.active ? (s.sending ? (s.muted ? juce::String("Envio silenciado") : juce::String("Enviando aos conectados")) : juce::String::fromUTF8("Capturando · envio desligado")) : s.status,juce::dontSendNotification);
+        status.setTooltip(s.status);
+        if(!level.isMouseButtonDown())level.setValue(s.gain*100,juce::dontSendNotification);
+        send.setToggleState(s.sending,juce::dontSendNotification);mute.setToggleState(s.muted,juce::dontSendNotification);
+        peak=s.level;repaint();
+    }
+    void resized() override {
+        auto r=getLocalBounds().reduced(10);name.setBounds(r.removeFromTop(30));type.setBounds(r.removeFromTop(20));status.setBounds(r.removeFromTop(60));
+        remove.setBounds(r.removeFromBottom(28));r.removeFromBottom(5);capture.setBounds(r.removeFromBottom(28));
+        auto toggles=r.removeFromBottom(30);send.setBounds(toggles.removeFromLeft(toggles.getWidth()/2));mute.setBounds(toggles);
+        meter=r.removeFromRight(12).reduced(2,12).toFloat();level.setBounds(r);
+    }
+    void paint(juce::Graphics& g) override {
+        g.setColour(SonoCraftTheme::panel());g.fillRoundedRectangle(getLocalBounds().toFloat(),8);
+        g.setColour(SonoCraftTheme::border());g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(.5f),8,1);
+        g.fillRoundedRectangle(meter,3);g.setColour(peak>1?SonoCraftTheme::danger():SonoCraftTheme::accent());
+        auto fill=meter;fill.removeFromTop(fill.getHeight()*(1-juce::jlimit(0.0f,1.0f,(juce::Decibels::gainToDecibels(peak,-60.0f)+60)/60)));
+        g.fillRoundedRectangle(fill,3);
+    }
+private:
+    SonobusAudioProcessor& processor;
+    juce::String id,actionError;
+    juce::Label name,type,status;
+    SonoCraftFaderLookAndFeel faderLookAndFeel;
+    juce::Slider level;
+    juce::ToggleButton send,mute;
+    juce::TextButton capture,remove;
+    juce::Rectangle<float> meter;
+    float peak=0;bool requested=false;
+};

@@ -15,7 +15,7 @@ API_AVAILABLE(macos(13.0))
 @implementation SonoCraftAppAudioOutput
 - (void)stream:(SCStream*)stream didStopWithError:(NSError*)error {
     if (state->generation.load() != token) return;
-    state->active = false; state->setStatus(juce::String(error.localizedDescription.UTF8String));
+    state->active = false; state->setStatus(juce::String::fromUTF8(error.localizedDescription.UTF8String));
 }
 - (void)stream:(SCStream*)stream didOutputSampleBuffer:(CMSampleBufferRef)sample ofType:(SCStreamOutputType)type {
     if (type != SCStreamOutputTypeAudio || !CMSampleBufferIsValid(sample) || state->generation.load() != token || !state->active.load()) return;
@@ -62,7 +62,7 @@ public:
             [SCShareableContent getShareableContentExcludingDesktopWindows:YES onScreenWindowsOnly:NO completionHandler:^(SCShareableContent* content, NSError* error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (shared->generation.load() != generation) return;
-                    if (error || content.displays.count == 0) { shared->setStatus(juce::String::fromUTF8("Permita gravar áudio/tela nos Ajustes do macOS e tente novamente. ") + juce::String(error.localizedDescription.UTF8String)); return; }
+                    if (error || content.displays.count == 0) { shared->setStatus(juce::String::fromUTF8("Permita gravar áudio/tela nos Ajustes do macOS e tente novamente. ") + juce::String::fromUTF8(error.localizedDescription.UTF8String)); return; }
                     SCRunningApplication* selected = nil;
                     for (SCRunningApplication* running in content.applications) if (running.processID == pid) { selected = running; break; }
                     if (!selected) { shared->setStatus("O aplicativo foi fechado ou deixou de estar disponivel."); return; }
@@ -73,12 +73,12 @@ public:
                     auto* created = [[SCStream alloc] initWithFilter:filter configuration:config delegate:output];
                     NSError* addError = nil;
                     [created addStreamOutput:output type:SCStreamOutputTypeAudio sampleHandlerQueue:handle->queue error:&addError];
-                    if (addError) { shared->setStatus(juce::String(addError.localizedDescription.UTF8String)); return; }
+                    if (addError) { shared->setStatus(juce::String::fromUTF8(addError.localizedDescription.UTF8String)); return; }
                     handle->stream = created; handle->delegate = output;
                     [created startCaptureWithCompletionHandler:^(NSError* startError) {
                         if (shared->generation.load() != generation) { [created stopCaptureWithCompletionHandler:^(NSError*) {}]; return; }
                         shared->active = startError == nil;
-                        shared->setStatus(startError ? juce::String(startError.localizedDescription.UTF8String) : juce::String::fromUTF8("Capturando somente o áudio do aplicativo selecionado."));
+                        shared->setStatus(startError ? juce::String::fromUTF8(startError.localizedDescription.UTF8String) : juce::String::fromUTF8("Capturando somente o áudio do aplicativo selecionado."));
                     }];
                 });
             }];
@@ -100,7 +100,7 @@ juce::Array<SonoCraftApplicationAudio::Application> listSonoCraftAudioApplicatio
     juce::Array<SonoCraftApplicationAudio::Application> result;
     for (NSRunningApplication* application in NSWorkspace.sharedWorkspace.runningApplications) {
         if (application.processIdentifier == NSProcessInfo.processInfo.processIdentifier || application.activationPolicy != NSApplicationActivationPolicyRegular) continue;
-        result.add({juce::String(application.localizedName.UTF8String), uint32_t(application.processIdentifier)});
+        result.add({juce::String::fromUTF8(application.localizedName.UTF8String), uint32_t(application.processIdentifier)});
     }
     return result;
 }

@@ -97,7 +97,7 @@ private:
     juce::String applyError;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> micMuteAttachment;
     juce::String audioDiagnostic() {
-        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 2\n";
+        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 3\n";
         const auto line = [&text](const char* key, const juce::String& value) { text += juce::String(key) + ": " + value + "\n"; };
         const auto flag = [this,&line](const char* key, const juce::String& parameter) {
             line(key, processor.getValueTreeState().getRawParameterValue(parameter)->load()>0.5f ? "on" : "off");
@@ -123,8 +123,17 @@ private:
         flag("network_send_muted",SonobusAudioProcessor::paramMainSendMute);
         flag("network_receive_muted",SonobusAudioProcessor::paramMainRecvMute);
         flag("pads_to_connections",SonobusAudioProcessor::paramSendSoundboardAudio);
-        flag("selected_source_to_connections",SonobusAudioProcessor::paramSendApplicationAudio);
-        line("local_capture_active",processor.getApplicationAudio().isActive() ? "yes" : "no");
+        const auto sources = processor.getSourceMixer().views();
+        line("source_mixer_channels", juce::String(sources.size()));
+        line("source_mode", processor.getSourceMixer().usesIndividualSources() ? "individual" : "complete_input");
+        for (int i=0;i<sources.size();++i) {
+            const auto& s=sources[i];
+            text += "source_"+juce::String(i+1)+": type="+(s.tab?"tab":"app")
+                +" active="+(s.active?"yes":"no")+" send="+(s.sending?"on":"off")
+                +" muted="+(s.muted?"yes":"no")+" gain="+juce::String(s.gain,2)+"\n";
+        }
+        line("system_input_suppressed", processor.isSystemInputSuppressed() ? "yes" : "no");
+        line("local_capture_active",processor.getSourceMixer().anyActive() ? "yes" : "no");
         auto& monitor = processor.getPadMonitor();
         line("listening_active",monitor.isActive() ? "yes" : "no");
         line("listening_device",monitor.getDeviceName());

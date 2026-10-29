@@ -507,10 +507,6 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
     mListeningViewport = std::make_unique<Viewport>();
     mListeningViewport->setViewedComponent(mListeningControls.get(), false);
     mSettingsTab->addTab(juce::String::fromUTF8("Escuta e saídas"), SonoCraftTheme::canvas(), mListeningViewport.get(), false);
-    mSourceControls = std::make_unique<SonoCraftSourceControls>(processor);
-    mSourceControls->setSize(480,740);
-    mSourceViewport = std::make_unique<Viewport>(); mSourceViewport->setViewedComponent(mSourceControls.get(),false);
-    mSettingsTab->addTab(juce::String::fromUTF8("Fontes"),SonoCraftTheme::canvas(),mSourceViewport.get(),false);
 
 
 
@@ -960,7 +956,6 @@ void OptionsView::resized()  {
 
     auto innerbounds = mSettingsTab->getLocalBounds();
     if (mListeningControls) mListeningControls->setSize(jmax(280, innerbounds.getWidth()-16), 790);
-    if (mSourceControls) mSourceControls->setSize(jmax(280,innerbounds.getWidth()-16),740);
 
     if (mAudioDeviceSelector) {
         mAudioDeviceSelector->setBounds(Rectangle<int>(0,0,innerbounds.getWidth() - 10,mAudioDeviceSelector->getHeight()));
@@ -993,10 +988,9 @@ void OptionsView::showAudioTab()
 
 void OptionsView::showListeningTab()
 {
-    mSettingsTab->setCurrentTabIndex(mSettingsTab->getNumTabs()-2);
+    mSettingsTab->setCurrentTabIndex(mSettingsTab->getNumTabs()-1);
 }
 
-void OptionsView::showSourcesTab() { mSettingsTab->setCurrentTabIndex(mSettingsTab->getNumTabs()-1); }
 
 void OptionsView::showOptionsTab()
 {

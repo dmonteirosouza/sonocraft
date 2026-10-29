@@ -4,23 +4,23 @@ Derivado do SonoBus 1.7.2, com avisos de autoria, GPLv3 e exceção de distribui
 
 ## Começar
 
-O áudio completo pode chegar à escuta enquanto apenas microfone, pads e fontes autorizadas seguem para outros aplicativos. A interface usa os mesmos caminhos em todos os sistemas: **Entrada**, **Escuta**, **Envio aos conectados** e **Saída para aplicativos**.
+O SonoCraft reproduz áudio localmente e transmite para outros participantes do SonoCraft. A saída para microfone virtual permanece removida.
 
 Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote. No repositório, ele está em [docs/SONOCRAFT-SOURCES.md](docs/SONOCRAFT-SOURCES.md).
 
-- Configure entrada, saída principal e escuta em **Áudio e saídas → Escuta e saídas**.
-- Em **Fontes**, escolha uma aba ou aplicativo e marque seus destinos.
-- Para ouvir tudo e compartilhar apenas a seleção, deixe **Enviar também todo o áudio recebido** desligado.
-- Use a mesma versão em todos os dispositivos conectados.
+- Configure entrada e saída física em **Áudio e saídas → Escuta e saídas**.
+- Use **Adicionar fonte** na mesa para criar canais de aplicativos ou abas. Cada canal tem volume, medidor, Enviar e Silenciar.
+- Ative **Enviar** somente nas fontes que deseja compartilhar com os conectados. O volume original do programa não muda.
+- Uma entrada completa do sistema por cabo virtual fica fora do envio enquanto o modo de fontes individuais está ativo. Para voltar, escolha **Usar entrada completa**.
+- Use a mesma versão nos dispositivos conectados.
 
 ## Novidades desta prévia
 
-- Escuta física e transmissão entre usuários, sem mistura para microfone virtual. Configurações antigas dessa função são descartadas.
-- Fontes organizadas por seleção local, destinos e seleções recebidas.
-- Seleção independente de uma aba do Chrome/Edge ou aplicativo inteiro, além da entrada completa e dos pads.
-- Indicação corrigida de entrada/saída desativada na tela de dispositivos.
-- Eventos de conexões temporárias ou antigas não desligam a recepção ativa.
-- Guia atualizado incluído nos pacotes.
+- Até 8 fontes simultâneas, com controles independentes e nomes editáveis na mesa principal.
+- Seletores curtos de aplicativo/aba substituem a antiga aba Fontes nos Ajustes.
+- Bloqueio de aplicativo repetido e de navegador inteiro junto com abas; modos completo/individual exclusivos para evitar sobreposição.
+- Canais e volumes salvos. Ao reabrir, as capturas e os envios ficam desligados.
+- Saídas virtuais conhecidas continuam bloqueadas, inclusive quando restauradas por configurações antigas.
 
 ## Compilar
 
@@ -37,7 +37,7 @@ No Windows, use o gerador Visual Studio instalado. A compilação e o teste de �
 
 ## Limites
 
-Uma seleção de aba/aplicativo por dispositivo de cada vez. Captura nativa de aplicativos requer sistema compatível e permissão. A captura não começa automaticamente.
+Até 8 fontes por dispositivo. Captura nativa de aplicativos requer sistema compatível e permissão. Abas usam Chrome/Edge com página auxiliar aberta; adicione cada aba uma única vez, pois o navegador não fornece identificação estável para reconhecer repetições. No destinatário, as fontes chegam como uma mistura estéreo; os controles individuais ficam na origem.
 
 Os testes com UDP local e fontes sintéticas não substituem o teste com dispositivos físicos e aplicativos de destino. Captura nativa e uso prolongado ainda precisam de validação real. Grupo/senha depende do serviço de conexão existente; não há novo servidor público ou relay SonoCraft.
 

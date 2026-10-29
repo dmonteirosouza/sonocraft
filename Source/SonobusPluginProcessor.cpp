@@ -42,7 +42,6 @@ typedef int socklen_t;
 #define PEER_PING_INTERVAL_MS 2000.0
 
 String SonobusAudioProcessor::paramInGain     ("ingain");
-String SonobusAudioProcessor::paramSendApplicationAudio ("sendapplicationaudio");
 String SonobusAudioProcessor::paramDry     ("dry");
 String SonobusAudioProcessor::paramInMonitorMonoPan     ("inmonmonopan");
 String SonobusAudioProcessor::paramInMonitorPan1     ("inmonpan1");
@@ -634,7 +633,6 @@ mState (*this, &mUndoManager, "SonoBusAoO",
                                           [](const String& s) -> float { return s.getFloatValue()*1e-3f; }),
     std::make_unique<AudioParameterChoice>(ParameterID(paramSendChannels, 1), TRANS ("Send Channels"), StringArray({ "Match # Inputs", "Send Mono", "Send Stereo"}), JUCEApplicationBase::isStandaloneApp() ? mSendChannels.get() : 0),
 
-    std::make_unique<AudioParameterBool>(ParameterID(paramSendApplicationAudio, 1), "Selected application to connections", false),
     std::make_unique<AudioParameterBool>(ParameterID(paramMetEnabled, 1), TRANS ("Metronome Enabled"), mMetEnabled.get()),
     std::make_unique<AudioParameterBool>(ParameterID(paramSendMetAudio, 1), TRANS ("Send Metronome Audio"), mSendMet.get()),
     std::make_unique<AudioParameterFloat>(ParameterID(paramMetGain, 1),     TRANS ("Metronome Gain"),    NormalisableRange<float>(0.0, 1.0, 0.0, 0.5), mMetGain.get(), "", AudioProcessorParameter::genericParameter,
@@ -696,7 +694,6 @@ mState (*this, &mUndoManager, "SonoBusAoO",
 })
 {
     mState.addParameterListener (paramInGain, this);
-    mState.addParameterListener (paramSendApplicationAudio, this);
     mState.addParameterListener (paramDry, this);
     mState.addParameterListener (paramWet, this);
     mState.addParameterListener (paramInMonitorMonoPan, this);
@@ -6468,7 +6465,7 @@ ValueTree SonobusAudioProcessor::getSendUserFormatLayoutTree()
         int chstart = 0;
         for (int i=0; i < mInputChannelGroupCount; ++i) {
             ChannelGroupParams tmpgrp = mInputChannelGroups[i].params;
-            tmpgrp.sourceRole = standaloneInputIsVirtual.load() && !mMainInMute.get() && !tmpgrp.muted && tmpgrp.gain > 0.00001f ? "system" : "input";
+            tmpgrp.sourceRole = standaloneInputIsVirtual.load() && !isSystemInputSuppressed() && !mMainInMute.get() && !tmpgrp.muted && tmpgrp.gain > 0.00001f ? "system" : "input";
             tmpgrp.chanStartIndex = chstart;
             fmttree.appendChild(tmpgrp.getChannelLayoutValueTree(), nullptr);
 
@@ -6495,7 +6492,7 @@ ValueTree SonobusAudioProcessor::getSendUserFormatLayoutTree()
             chstart += tmpgrp.numChannels;
         }
         if (isSendingApplicationAudio()) {
-            ChannelGroupParams app; app.name = applicationAudio.sourceName(); app.sourceRole = "application";
+            ChannelGroupParams app; app.name = "Fontes"; app.sourceRole = "application";
             app.chanStartIndex = chstart; app.numChannels = 2; app.panStereo[0] = -1; app.panStereo[1] = 1;
             fmttree.appendChild(app.getChannelLayoutValueTree(), nullptr);
         }
@@ -6667,8 +6664,7 @@ void SonobusAudioProcessor::applyLayoutFormatToPeer(RemotePeer * remote, const V
 
 void SonobusAudioProcessor::parameterChanged (const String &parameterID, float newValue)
 {
-    if (parameterID == paramSendApplicationAudio) { mSendApplicationAudio = newValue > 0.5f; }
-    else if (parameterID == paramDry) {
+    if (parameterID == paramDry) {
         mDry = newValue;
     }
     else if (parameterID == paramInGain) {
@@ -7397,6 +7393,7 @@ void SonobusAudioProcessor::ensureBuffers(int numSamples)
     if (inputBuffer.getNumSamples() < numSamples || inputBuffer.getNumChannels() != maxchans) {
         inputBuffer.setSize(maxchans, numSamples, false, false, true);
     }
+    sourceMixer.prepare(numSamples);
     if (applicationBuffer.getNumSamples() < numSamples) applicationBuffer.setSize(2,numSamples,false,false,true);
     if (monitorBuffer.getNumSamples() < numSamples || monitorBuffer.getNumChannels() != maxchans) {
         monitorBuffer.setSize(maxchans, numSamples, false, false, true);
@@ -7467,12 +7464,13 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     bool userwritingpossible = userWritingPossible.load();
     bool writingpossible = writingPossible.load();
 
-    // The virtual input is the complete private listening feed. Selected
-    // application audio is sent separately; it must never replace this feed.
-    inGain = mMainInMute.get() ? 0.0f : inGain;
+    // Individual sources replace the complete system input, never the physical microphone.
+    inGain = (mMainInMute.get() || isSystemInputSuppressed()) ? 0.0f : inGain;
 
     drynow = (mAnythingSoloed.get() && !mMainMonitorSolo.get()) ? 0.0f : drynow;
 
+    const bool suppressSystem = isSystemInputSuppressed();
+    if (suppressSystem != lastSystemInputSuppressed) { lastSystemInputSuppressed = suppressSystem; mNeedsUserLayout = true; }
     int numSamples = buffer.getNumSamples();
 
 
@@ -7621,6 +7619,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
     }
 
 
+    if (suppressSystem) inputPostBuffer.clear(0, numSamples);
     postinputMeterSource.measureBlock (inputPostBuffer, 0, numSamples);
 
 
@@ -7802,7 +7801,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
         soundboardChannelProcessor->sendAudioBlock(sendWorkBuffer, numSamples, sendPanChannels, startChannel);
     }
 
-    applicationAudio.render(applicationBuffer, numSamples, getSampleRate());
+    sourceMixer.render(applicationBuffer, numSamples, getSampleRate());
     if (isSendingApplicationAudio()) {
         const int start = filestartch + (sendfileaudio ? fileChannels : 0)
             + (sendsoundboardaudio ? soundboardChannelProcessor->getFileSourceNumberOfChannels() : 0);
@@ -7895,6 +7894,7 @@ void SonobusAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer
             inputRevBuffer.applyGainRamp(0, numSamples, sgain, egain);
         }
 
+        if (suppressSystem) inputRevBuffer.clear(0, numSamples);
         if (sendCh == 1 || sendCh == 2) {
             // mix it into send workbuffer
             for (int channel = 0; channel < sendPanChannels && channel < 2; ++channel) {
@@ -8654,6 +8654,8 @@ void SonobusAudioProcessor::getStateInformationWithOptions(MemoryBlock& destData
     MemoryOutputStream stream(destData, false);
 
     auto tempstate = mState.copyState();
+    tempstate.removeChild(tempstate.getChildWithName("SourceMixer"), nullptr);
+    tempstate.addChild(sourceMixer.save(), -1, nullptr);
 
     ValueTree recentsTree = tempstate.getOrCreateChildWithName(recentsCollectionKey, nullptr);
 
@@ -8781,12 +8783,13 @@ void SonobusAudioProcessor::setStateInformationWithOptions (const void* data, in
 
     if (tree.isValid()) {
         // Old presets must not retain the removed virtual-microphone controls.
-        for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting" }) {
+        for (const auto* id : { "meetingmode", "meetingincludereceived", "applicationtomeeting", "receivedapplicationstomeeting", "sendapplicationaudio" }) {
             tree.removeProperty(id, nullptr);
             for (int i = tree.getNumChildren(); --i >= 0;)
                 if (tree.getChild(i).getProperty("id").toString() == id)
                     tree.removeChild(i, nullptr);
         }
+        sourceMixer.restore(tree.getChildWithName("SourceMixer"));
         mState.state = tree;
         
         DBG("SETSTATE: " << mState.state.toXmlString());

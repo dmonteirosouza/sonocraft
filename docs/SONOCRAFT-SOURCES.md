@@ -7,7 +7,7 @@ O SonoCraft transmite áudio entre seus participantes e reproduz os sons localme
 | Entrada | Recebe um microfone ou captura do sistema por um cabo virtual, para transmitir aos conectados. |
 | Saída local | Reproduz os sons recebidos e os pads em fones ou alto-falantes. |
 | Escuta adicional | Reproduz os recebidos e pads em uma segunda saída física, sem a voz local. É opcional. |
-| Envio aos conectados | Transmite entrada, pads habilitados e uma fonte selecionada para a conexão ou grupo do SonoCraft. |
+| Envio aos conectados | Transmite entrada, pads habilitados e as fontes habilitadas para a conexão ou grupo do SonoCraft. |
 
 ## Ouvir em outro computador
 
@@ -25,15 +25,36 @@ No computador que recebe:
 3. Clique em **Aplicar dispositivos e saída** e mantenha **Receber áudio dos conectados** ligado.
 4. A escuta adicional só é necessária para uma segunda saída física. Não use a mesma saída nos dois caminhos.
 
-## Escolher uma aba ou aplicativo
+## Mixer de fontes
 
-Em **Fontes**, escolha **Uma aba do navegador** ou **Um aplicativo inteiro**, marque **Enviar esta fonte aos conectados** e inicie a captura. O aplicativo inteiro inclui todas as janelas e abas dele.
+Na mesa principal, clique em **Adicionar fonte** e escolha **Aplicativo inteiro** ou **Uma aba do navegador**. Cada fonte cria um canal; a aba Fontes foi retirada dos Ajustes. É possível manter até **8 canais** de aplicativos/abas ao mesmo tempo.
 
-Para uma aba, abra a página auxiliar no Chrome/Edge, escolha a aba com áudio e mantenha a página aberta. O navegador solicita autorização; o SonoCraft encaminha apenas áudio, sem enviar vídeo ou microfone por essa captura.
+| Controle do canal | Efeito |
+| --- | --- |
+| Volume (0–200%) | Ajusta o áudio desta fonte enviado aos conectados. Não muda o volume original do programa no sistema. |
+| Medidor | Mostra se a captura está recebendo áudio, mesmo com o envio desligado. |
+| Enviar | Inclui somente este canal na transmissão do SonoCraft. Começa desligado. |
+| Silenciar | Suspende o áudio enviado por este canal sem perder seu volume. |
+| Parar / Iniciar captura | Libera ou reabre a captura. Ao reiniciar, o envio começa desligado. |
+| Remover | Retira o canal da mesa. Não exclui arquivos nem fecha o programa de origem. |
+| Nome | Duplo clique para renomear. |
 
-A seleção é feita no computador onde o som toca. Uma seleção por dispositivo de cada vez. Nenhuma captura começa automaticamente ao abrir o aplicativo. **Parar captura** ou desligar o envio interrompe apenas a seleção; a entrada e os pads mantêm seus controles independentes.
+Os volumes, nomes e canais são salvos; ao reabrir o SonoCraft, as capturas ficam paradas e o envio desligado. Inicie e habilite os canais que quiser compartilhar. No destino, as fontes chegam em uma mistura estéreo chamada **Fontes**; seus controles independentes ficam no computador que transmite.
 
-Quando o áudio completo da entrada já contém a seleção, ela não toca duas vezes na escuta remota. Para ouvir uma fonte local, mantenha sua reprodução original nos fones do sistema.
+Para uma aba, abra a página auxiliar no **Chrome ou Edge**, escolha a aba e marque **Compartilhar áudio da aba**. Mantenha a página auxiliar aberta. Não são enviados vídeo nem microfone pela captura. **Adicione cada aba apenas uma vez:** o navegador não expõe uma identificação estável que permita detectar a mesma aba escolhida novamente. Essa limitação está indicada no seletor e na página auxiliar.
+
+O aplicativo inteiro inclui todas as janelas/abas dele. O SonoCraft bloqueia aplicativo repetido e a combinação de navegador inteiro com canais de abas. Para mudar entre essas duas opções, remova primeiro os canais sobrepostos. A restrição entre navegador e abas é conservadora e vale mesmo que sejam navegadores diferentes.
+
+## Evitar áudio duplicado
+
+Quando a entrada é um cabo virtual com o sistema completo, a mesa oferece dois modos:
+
+- **Fontes individuais:** transmite os aplicativos/abas habilitados; a entrada completa do sistema fica fora do envio. Adicionar uma fonte ou habilitar Enviar seleciona este modo.
+- **Entrada completa:** transmite a entrada do sistema e desliga o envio de todos os canais individuais. Escolha **Usar entrada completa** para voltar a esse modo.
+
+Desligar Enviar, parar uma captura ou remover o último canal **não reativa automaticamente a entrada completa**. Isso evita enviar outros programas por acidente. A detecção da entrada completa usa os nomes conhecidos de cabos virtuais; interfaces de loopback renomeadas ou desconhecidas não são identificadas automaticamente.
+
+O microfone físico e os pads mantêm seus controles próprios. Para ouvir aplicativos locais, mantenha a reprodução original deles nos fones do sistema; o mixer não toca outra cópia local das capturas. No computador conectado, a saída física reproduz os canais enviados.
 
 ## Reuniões e configurações antigas
 
@@ -51,4 +72,4 @@ Em **Áudio e saídas → Escuta e saídas**, **Copiar diagnóstico de áudio** 
 
 Captura de aplicativo: macOS 13+ com permissão de áudio/tela; Windows com loopback por processo (build 20348+, normalmente Windows 11). Captura de abas pelo Chrome/Edge é uma alternativa separada. Um driver de cabo virtual só é necessário para a captura completa por essa entrada.
 
-Os testes cobrem transmissão UDP, silenciamento de participantes, pads, fontes selecionadas, escuta física, remoção de parâmetros antigos e bloqueio de saída virtual. Dispositivos físicos e uso prolongado continuam exigindo validação real.
+Os testes cobrem transmissão UDP, silenciamento de participantes, pads, fontes simultâneas com volume/envio/silêncio independentes, alternância dos modos completo/individual, escuta física, remoção de parâmetros antigos e bloqueio de saída virtual. Dispositivos físicos e uso prolongado continuam exigindo validação real.

@@ -3,28 +3,8 @@
 #pragma once
 #include "SonobusPluginProcessor.h"
 #include "SonoCraftTheme.h"
-
-class SonoCraftFaderLookAndFeel final : public juce::LookAndFeel_V4 {
-public:
-    void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
-                          float position, float, float, juce::Slider::SliderStyle, juce::Slider&) override
-    {
-        const auto centre = x + width * 0.5f;
-        g.setColour(SonoCraftTheme::border());
-        g.fillRoundedRectangle(centre - 2, float(y), 4, float(height), 2);
-        g.setColour(SonoCraftTheme::accent().withAlpha(0.45f));
-        g.fillRoundedRectangle(centre - 2, position, 4, juce::jmax(0.0f, y + height - position), 2);
-        juce::Rectangle<float> thumb(centre - 17, position - 8, 34, 16);
-        g.setColour(juce::Colours::black.withAlpha(0.08f));
-        g.fillRoundedRectangle(thumb.translated(0, 2), 4);
-        g.setColour(juce::Colours::white);
-        g.fillRoundedRectangle(thumb, 4);
-        g.setColour(juce::Colour(0xffa9b9c7));
-        g.drawRoundedRectangle(thumb, 4, 1);
-        g.setColour(SonoCraftTheme::secondary());
-        g.drawHorizontalLine(juce::roundToInt(position), centre - 10, centre + 10);
-    }
-};
+#include "SonoCraftSourceControls.h"
+#include "SonoCraftFaderLookAndFeel.h"
 
 class SonoCraftChannelStrip final : public juce::Component {
 public:
@@ -98,7 +78,7 @@ public:
     void syncLocal()
     {
         name.setText(role == input ? "Sua entrada" : "Master", juce::dontSendNotification);
-        subtitle.setText(role == input ? "ENVIO" : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
+        subtitle.setText(role == input ? (processor.isSystemInputSuppressed() ? "FORA DO ENVIO" : "ENVIO") : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
         auto& source = role == input ? processor.getInputMeterSource() : processor.getOutputMeterSource();
         source.decayIfNeeded();
         meterLeft = source.getNumChannels() > 0 ? source.getMaxLevel(0) : 0;
@@ -194,12 +174,12 @@ public:
     explicit SonoCraftMixerView(SonobusAudioProcessor& p) : processor(p), input(p, SonoCraftChannelStrip::input), master(p, SonoCraftChannelStrip::master)
     {
         for (auto* c : std::initializer_list<juce::Component*> { &input, &master, &viewport, &session,
-                         &brand, &connectIP, &connectGroup, &audio, &settings, &record, &metronome, &metEnabled, &metTempo, &metLevel, &metSend,
+                         &sourceMode, &sourceRouting, &brand, &connectIP, &connectGroup, &audio, &settings, &record, &metronome, &metEnabled, &metTempo, &metLevel, &metSend,
                          &file, &routing, &effects, &sources, &chat, &soundboard, &play, &stop, &disconnect, &inspector, &bufferMode, &bufferTime })
             addAndMakeVisible(c);
         brand.setImage(juce::ImageCache::getFromMemory(BinaryData::sonocraft_icon_256_png, BinaryData::sonocraft_icon_256_pngSize));
         viewport.setViewedComponent(&channels, false);
-        viewport.setScrollBarsShown(false, true);
+        viewport.setScrollBarsShown(true, true);
         session.setFont(juce::Font(13.0f));
         session.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
         connectIP.setButtonText("Conectar por IP"); connectGroup.setButtonText("Entrar em grupo");
@@ -210,7 +190,14 @@ public:
         stop.onClick = [this] { processor.getTransportSource().stop(); processor.getTransportSource().setPosition(0.0); };
         record.setButtonText("Gravar"); metronome.setButtonText(juce::String::fromUTF8("Metrônomo")); file.setButtonText("Arquivo");
         routing.setButtonText("Roteamento"); effects.setButtonText("Efeitos");
-        sources.setButtonText("Fontes"); sources.setTooltip(juce::String::fromUTF8("Escolher uma aba ou aplicativo e seus destinos de envio"));
+        sources.setButtonText("Adicionar fonte"); sources.setTooltip(juce::String::fromUTF8("Adicionar um canal de aplicativo ou aba à mesa"));
+        sourceRouting.setFont(12.0f); sourceRouting.setMinimumHorizontalScale(1);
+        sourceRouting.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
+        sourceMode.onClick = [this] {
+            auto& mixer=processor.getSourceMixer();
+            if (mixer.usesIndividualSources()) mixer.useCompleteInput(); else mixer.useIndividualSources();
+            refresh();
+        };
         chat.setButtonText("Chat"); soundboard.setButtonText("Soundboard"); disconnect.setButtonText("Desconectar");
         connectIP.onClick = [this] { if (onConnectIP) onConnectIP(); };
         connectGroup.onClick = [this] { if (onConnectGroup) onConnectGroup(); };
@@ -236,7 +223,14 @@ public:
         file.onClick = [this] { if (onFile) onFile(); };
         routing.onClick = [this] { if (onRouting) onRouting(); };
         effects.onClick = [this] { if (onEffects) onEffects(); };
-        sources.onClick = [this] { if (onSources) onSources(); };
+        sources.onClick = [this] {
+            if (!sourceDialog) {
+                sourceDialog=std::make_unique<SonoCraftSourceControls>(processor);
+                addChildComponent(sourceDialog.get());
+                sourceDialog->onClose=[this]{sourceDialog->setVisible(false);};
+            }
+            sourceDialog->setVisible(true); sourceDialog->toFront(true); resized();
+        };
         chat.onClick = [this] { if (onChat) onChat(); };
         soundboard.onClick = [this] { if (onSoundboard) onSoundboard(); };
         disconnect.onClick = [this] { processor.disconnectFromServer(); };
@@ -251,12 +245,13 @@ public:
         refresh(); startTimerHz(24);
     }
     ~SonoCraftMixerView() override { stopTimer(); viewport.setViewedComponent(nullptr, false); }
-    std::function<void()> onConnectIP, onConnectGroup, onAudio, onSettings, onRecord, onMetronome, onFile, onRouting, onEffects, onSources, onChat, onSoundboard, onPlay;
+    std::function<void()> onConnectIP, onConnectGroup, onAudio, onSettings, onRecord, onMetronome, onFile, onRouting, onEffects, onChat, onSoundboard, onPlay;
     juce::Component* settingsAnchor() { return &settings; }
     juce::Component* connectionAnchor() { return &connectIP; }
 
     void resized() override
     {
+        if (sourceDialog) sourceDialog->setBounds(getLocalBounds().withSizeKeepingCentre(juce::jmin(450,getWidth()-24),juce::jmin(370,getHeight()-24)));
         auto bounds = getLocalBounds().reduced(18, 12);
         const bool compact = getWidth() < 840;
         auto header = bounds.removeFromTop(compact ? 82 : 46);
@@ -271,12 +266,15 @@ public:
         auto sessionBar = bounds.removeFromTop(34);
         disconnect.setBounds(sessionBar.removeFromRight(112).reduced(0, 3));
         session.setBounds(sessionBar);
+        auto sourceBar = bounds.removeFromTop(46);
+        if (sourceMode.isVisible()) sourceMode.setBounds(sourceBar.removeFromRight(180).reduced(2, 7));
+        sourceRouting.setBounds(sourceBar);
         bounds.removeFromTop(10);
-        const bool wrapTransport = bounds.getWidth() < 1020;
+        const bool wrapTransport = bounds.getWidth() < 1050;
         auto transportArea = bounds.removeFromBottom(wrapTransport ? 82 : 44);
         auto transport = wrapTransport ? transportArea.removeFromTop(40) : transportArea;
         for (auto* button : { &play, &stop, &record, &metronome, &file, &routing, &effects, &sources, &chat, &soundboard }) {
-            const auto width = button == &soundboard ? 104 : button == &metronome || button == &routing ? 105 : 78;
+            const auto width = button == &sources ? 130 : button == &soundboard ? 104 : button == &metronome || button == &routing ? 105 : 78;
             if (wrapTransport && transport.getWidth() < width) transport = transportArea;
             button->setBounds(transport.removeFromLeft(width).reduced(3, 6));
         }
@@ -305,9 +303,10 @@ public:
         input.setBounds(bounds.removeFromLeft(busWidth).withHeight(channelHeight)); bounds.removeFromLeft(14);
         master.setBounds(bounds.removeFromRight(busWidth).withHeight(channelHeight)); bounds.removeFromRight(14);
         viewport.setBounds(bounds);
-        const auto width = juce::jmax(bounds.getWidth(), strips.size() * 166);
-        channels.setSize(width, juce::jmax(100, bounds.getHeight() - viewport.getScrollBarThickness()));
+        const auto width = juce::jmax(bounds.getWidth(), strips.size() * 166 + sourceStrips.size() * 202);
+        channels.setSize(width, juce::jmax(340, bounds.getHeight() - viewport.getScrollBarThickness()));
         int x = 0;
+        for (auto* strip : sourceStrips) { strip->setBounds(x, 0, 190, channels.getHeight()); x += 202; }
         for (auto* strip : strips) { strip->setBounds(x, 0, 154, channels.getHeight()); x += 166; }
     }
     void paint(juce::Graphics& g) override
@@ -319,14 +318,14 @@ public:
         g.setFont(11.5f); g.setColour(secondary());
         g.drawText(juce::String::fromUTF8("MESA DE ÁUDIO"), 63, 39, 150, 16, juce::Justification::centredLeft);
         g.setColour(border()); g.drawHorizontalLine(getWidth() < 840 ? 102 : 66, 18, float(getWidth() - 18));
-        if (strips.isEmpty()) {
+        if (strips.isEmpty() && sourceStrips.isEmpty()) {
             auto empty = viewport.getBounds().reduced(12);
             g.setColour(panel().withAlpha(0.7f)); g.fillRoundedRectangle(empty.toFloat(), 8);
             g.setColour(text()); g.setFont(juce::Font(empty.getWidth() < 250 ? 14.0f : 18.0f, juce::Font::bold));
             g.drawText(juce::String::fromUTF8("Sua sessão começa aqui"), empty.withHeight(30).withY(empty.getCentreY() - 40), juce::Justification::centred);
             g.setColour(secondary()); g.setFont(13.0f);
             g.drawText("Conecte por IP ou entre em um grupo.", empty.withHeight(24).withY(empty.getCentreY()), juce::Justification::centred);
-            g.drawText(juce::String::fromUTF8("Cada participante terá seu próprio canal."), empty.withHeight(24).withY(empty.getCentreY() + 24), juce::Justification::centred);
+            g.drawText(juce::String::fromUTF8("Use Adicionar fonte para montar sua mesa."), empty.withHeight(24).withY(empty.getCentreY() + 24), juce::Justification::centred);
         }
     }
 private:
@@ -335,6 +334,10 @@ private:
     juce::Viewport viewport;
     juce::Component channels;
     juce::OwnedArray<SonoCraftChannelStrip> strips;
+    juce::OwnedArray<SonoCraftSourceStrip> sourceStrips;
+    std::unique_ptr<SonoCraftSourceControls> sourceDialog;
+    juce::TextButton sourceMode;
+    juce::Label sourceRouting;
     juce::ImageComponent brand;
     juce::Label session, inspector;
     juce::TextButton connectIP, connectGroup, audio, settings, record, metronome, file, routing, effects, sources, chat, soundboard, play, stop, disconnect;
@@ -353,6 +356,24 @@ private:
     }
     void refresh()
     {
+        const auto sourcesState = processor.getSourceMixer().views();
+        bool sourcesChanged = sourcesState.size() != sourceStrips.size();
+        if (!sourcesChanged) for (int i=0;i<sourcesState.size();++i) sourcesChanged |= sourcesState[i].id != sourceStrips[i]->sourceId();
+        if (sourcesChanged) {
+            sourceStrips.clear();
+            for (const auto& state:sourcesState) channels.addAndMakeVisible(sourceStrips.add(new SonoCraftSourceStrip(processor,state.id)));
+        }
+        for (int i=0;i<sourcesState.size();++i) sourceStrips[i]->sync(sourcesState[i]);
+        const bool virtualInput = SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName());
+        const bool modeVisibilityChanged = sourceMode.isVisible() != virtualInput;
+        sourceMode.setVisible(virtualInput);
+        const bool individual = processor.getSourceMixer().usesIndividualSources();
+        sourceMode.setButtonText(individual ? "Usar entrada completa" : "Usar fontes individuais");
+        sourceRouting.setText(juce::String::fromUTF8(virtualInput
+            ? (individual ? "Fontes individuais: a entrada completa do sistema fica fora do envio."
+                          : "Entrada completa: o sistema inteiro pode ser enviado. Fontes individuais desligadas.")
+            : "Fontes: ajuste o volume enviado aos conectados. O volume original dos aplicativos não muda."),juce::dontSendNotification);
+        if (sourcesChanged || modeVisibilityChanged) resized();
         auto states = processor.getMixerChannelStates();
         bool changed = states.size() != strips.size();
         if (!changed) for (int i = 0; i < states.size(); ++i) changed |= states[i].id != strips[i]->connectionId();
