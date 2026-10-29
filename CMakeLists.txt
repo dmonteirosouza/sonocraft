@@ -42,7 +42,7 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-set(BUILDVERSION 101)
+set(BUILDVERSION 102)
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install

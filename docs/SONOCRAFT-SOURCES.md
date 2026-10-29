@@ -14,7 +14,7 @@ O SonoCraft transmite áudio entre seus participantes e reproduz os sons localme
 No computador que transmite:
 
 1. Para enviar o som completo do sistema, use o cabo virtual como saída do sistema e como **entrada** do SonoCraft. Aplicativos com saída própria também precisam usar esse cabo.
-2. Em **Áudio e saídas → Escuta e saídas**, escolha **Sem saída principal (só transmitir)**, ou uma saída física caso também queira ouvir localmente.
+2. Em **Ajustes → Escuta e saídas**, escolha **Sem saída principal (só transmitir)**, ou uma saída física caso também queira ouvir localmente.
 3. Clique em **Aplicar dispositivos e saída**, mantenha a entrada ativa e conecte por IP ou grupo.
 4. Na mesa de sons, **Enviar pads a todos os conectados** controla o envio dos pads pelo SonoCraft.
 
@@ -25,13 +25,28 @@ No computador que recebe:
 3. Clique em **Aplicar dispositivos e saída** e mantenha **Receber áudio dos conectados** ligado.
 4. A escuta adicional só é necessária para uma segunda saída física. Não use a mesma saída nos dois caminhos.
 
+## Navegação da mesa
+
+Os comandos ficam na barra superior. Não há uma segunda barra de botões no rodapé.
+
+| Acesso | O que encontrar |
+| --- | --- |
+| Conexões | Entrar em grupo, conectar por IP e desconectar. |
+| Fontes | Adicionar aplicativo ou aba; escolher entre entrada completa e fontes individuais. |
+| Pads | Abrir ou fechar a mesa de sons. |
+| Conversa | Abrir ou fechar o chat com os participantes. |
+| Ferramentas | Arquivo de áudio, gravação, metrônomo, efeitos da saída e roteamento de canais. |
+| Ajustes | Dispositivos, escuta e saídas, gravação e preferências. |
+
+Arquivo, gravação e metrônomo abrem um painel identificado logo abaixo da navegação. **Fechar painel** apenas oculta os controles: não interrompe o som nem uma gravação. Para interromper, use **Parar**, **Parar gravação** ou desative o metrônomo. Durante uma gravação, a barra indica **Gravando** e o menu Ferramentas oferece **Parar gravação agora**. Pads e Conversa ficam destacados enquanto seus painéis estiverem abertos. Em janelas pequenas, a mesa permite rolar para alcançar todos os canais.
+
 ## Mixer de fontes
 
 Os aplicativos com reprodução de áudio aparecem **automaticamente na mesa**, sem precisar cadastrá-los. A detecção consulta sessões de saída ativas no Windows e processos de áudio no macOS 14.2+. Não grava áudio nem solicita permissão de captura. Uma sessão ativa pode estar momentaneamente silenciosa, como acontece no mixer do sistema.
 
 Cada canal aparece com o envio desligado. Ajuste o volume e ative **Enviar** para iniciar a captura e compartilhar com os conectados. Canais que pausam permanecem na mesa, preservando os ajustes. **Quando o programa é fechado, sua captura é encerrada e o canal sai automaticamente da mesa**, normalmente na próxima atualização (cerca de 1,5 segundo). Reabrir o programa cria um novo canal com envio desligado. A entrada completa do sistema não é reativada quando o último programa fecha. Se remover um canal automático, ele permanece oculto até a reprodução parar e começar novamente.
 
-Use **Adicionar fonte** para escolher uma aba ou antecipar um aplicativo que ainda não começou a tocar. É possível manter até **32 canais**. A aba Fontes foi retirada dos Ajustes. Em macOS anterior a 14.2, use a adição manual.
+Use **Fontes** para escolher uma aba ou antecipar um aplicativo que ainda não começou a tocar. É possível manter até **32 canais**. A aba Fontes foi retirada dos Ajustes. Em macOS anterior a 14.2, use a adição manual.
 
 | Controle do canal | Efeito |
 | --- | --- |
@@ -58,7 +73,7 @@ Entrada, participantes, aplicativos, abas e saída principal usam o mesmo desenh
 Quando a entrada é um cabo virtual com o sistema completo, a mesa oferece dois modos:
 
 - **Fontes individuais:** transmite os aplicativos/abas habilitados; a entrada completa do sistema fica fora do envio. Adicionar manualmente uma fonte ou habilitar Enviar seleciona este modo. A detecção automática não altera o modo.
-- **Entrada completa:** transmite a entrada do sistema e desliga o envio de todos os canais individuais. Escolha **Usar entrada completa** para voltar a esse modo.
+- **Entrada completa:** transmite a entrada do sistema e desliga o envio de todos os canais individuais. Em **Fontes**, escolha **Usar entrada completa** para voltar a esse modo.
 
 Desligar Enviar, parar uma captura ou remover o último canal **não reativa automaticamente a entrada completa**. Isso evita enviar outros programas por acidente. A detecção da entrada completa usa os nomes conhecidos de cabos virtuais; interfaces de loopback renomeadas ou desconhecidas não são identificadas automaticamente.
 
@@ -76,7 +91,7 @@ Esta remoção elimina o envio por microfone virtual oferecido pelo SonoCraft. E
 
 ## Diagnóstico e compatibilidade
 
-Em **Áudio e saídas → Escuta e saídas**, **Copiar diagnóstico de áudio** copia dispositivos, controles e medidores. Não grava áudio nem envia o diagnóstico automaticamente.
+Em **Ajustes → Escuta e saídas**, **Copiar diagnóstico de áudio** copia dispositivos, controles e medidores. Não grava áudio nem envia o diagnóstico automaticamente.
 
 Captura de aplicativo: macOS 13+ com permissão de áudio/tela; Windows com loopback por processo (build 20348+, normalmente Windows 11). Captura de abas pelo Chrome/Edge é uma alternativa separada. Um driver de cabo virtual só é necessário para a captura completa por essa entrada.
 

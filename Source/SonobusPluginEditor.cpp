@@ -1394,8 +1394,16 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     mMixerWorkspace = std::make_unique<SonoCraftMixerView>(processor);
     mMixerWorkspace->onConnectGroup = [this] { showConnectPopup(true); };
     mMixerWorkspace->onConnectIP = [this] { mConnectView->showDirectConnection(mMixerWorkspace->connectionAnchor()); };
-    mMixerWorkspace->onAudio = [this] { showSettings(true); if (mOptionsView) mOptionsView->showListeningTab(); };
-    mMixerWorkspace->onSettings = [this] { showSettings(true); if (mOptionsView) mOptionsView->showOptionsTab(); };
+    mMixerWorkspace->onSettings = [this] {
+        const bool first = !mOptionsView;
+        showSettings(true);
+        if (first && mOptionsView) mOptionsView->showListeningTab();
+    };
+    mMixerWorkspace->isChatVisible = [this] { return mChatView->isVisible(); };
+    mMixerWorkspace->isPadsVisible = [this] { return mSoundboardView->isVisible(); };
+    mMixerWorkspace->isSettingsVisible = [this] { return settingsCalloutBox != nullptr; };
+    mMixerWorkspace->isConnectionVisible = [this] { return mConnectView->isVisible(); };
+    mMixerWorkspace->isAdvancedToolVisible = [this] { return effectsCalloutBox != nullptr || patchbayCalloutBox != nullptr; };
     mMixerWorkspace->onPlay = [this] { mPlayButton->triggerClick(); };
     mMixerWorkspace->onRecord = [this] { buttonClicked(mRecordingButton.get()); };
 
@@ -2314,7 +2322,7 @@ void SonobusAudioProcessorEditor::buttonClicked (Button* buttonThatWasClicked)
                 String filepath;
 
 #if (JUCE_IOS || JUCE_ANDROID)
-                showPopTip(TRANS("Started recording output"), 2000, mRecordingButton.get());
+                showPopTip(TRANS("Started recording output"), 2000, mMixerWorkspace ? mMixerWorkspace->recordingAnchor() : mRecordingButton.get());
 #else
                 //Timer::callAfterDelay(200, []() {
                 //    AccessibilityHandler::postAnnouncement(TRANS("Started recording output"), AccessibilityHandler::AnnouncementPriority::high);
@@ -2365,7 +2373,7 @@ void SonobusAudioProcessorEditor::buttonClicked (Button* buttonThatWasClicked)
             else {
                 // show error starting record
                 String lasterr = processor.getLastErrorMessage();
-                showPopTip(lasterr, 0, mRecordingButton.get());
+                showPopTip(lasterr, 0, mMixerWorkspace ? mMixerWorkspace->recordingAnchor() : mRecordingButton.get());
             }
             
             mFileRecordingLabel->setText("", dontSendNotification);
@@ -3018,7 +3026,7 @@ void SonobusAudioProcessorEditor::showEffectsConfig(bool flag)
         mReverbHeaderBg->setRectangle (headbgbounds.toFloat());
 
         
-        Rectangle<int> bounds =  dw->getLocalArea(nullptr, mEffectsButton->getScreenBounds());
+        Rectangle<int> bounds =  dw->getLocalArea(nullptr, (mMixerWorkspace ? mMixerWorkspace->toolsAnchor() : mEffectsButton.get())->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
         effectsCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(effectsCalloutBox.get())) {
@@ -3063,7 +3071,7 @@ void SonobusAudioProcessorEditor::showPatchbay(bool flag)
         mPatchMatrixView->updateGridLayout();
         mPatchMatrixView->updateGrid();
         
-        Rectangle<int> bounds =  dw->getLocalArea(nullptr, mPatchbayButton->getScreenBounds());
+        Rectangle<int> bounds =  dw->getLocalArea(nullptr, (mMixerWorkspace ? mMixerWorkspace->toolsAnchor() : mPatchbayButton.get())->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
         patchbayCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(patchbayCalloutBox.get())) {
@@ -4686,7 +4694,7 @@ void SonobusAudioProcessorEditor::resized()
     Component* dw = this; 
     
     if (auto * callout = dynamic_cast<CallOutBox*>(effectsCalloutBox.get())) {
-        callout->updatePosition(dw->getLocalArea(nullptr, mEffectsButton->getScreenBounds()), dw->getLocalBounds());
+        callout->updatePosition(dw->getLocalArea(nullptr, (mMixerWorkspace ? mMixerWorkspace->toolsAnchor() : mEffectsButton.get())->getScreenBounds()), dw->getLocalBounds());
     }
 
 

@@ -41,6 +41,7 @@ public:
         remove.setTooltip(juce::String::fromUTF8("Remover somente esta conexão da sua sessão"));
         remove.onClick = [this] { processor.removeRemotePeerByConnectionId(id); };
         remove.setVisible(role == peer);
+        details.setVisible(role == peer);
         secondary.setVisible(role != master);
         fader.setTitle(role == input ? "Volume da entrada (dB)" : role == master ? juce::String::fromUTF8("Volume da saída principal (dB)") : "Volume do participante (dB)");
     }
@@ -88,165 +89,189 @@ private:
 
 class SonoCraftMixerView final : public juce::Component, private juce::Timer {
 public:
-    explicit SonoCraftMixerView(SonobusAudioProcessor& p) : processor(p), input(p, SonoCraftChannelStrip::input), master(p, SonoCraftChannelStrip::master)
-    {
-        for (auto* c : std::initializer_list<juce::Component*> { &input, &master, &viewport, &session,
-                         &sourceMode, &sourceRouting, &brand, &connectIP, &connectGroup, &audio, &settings, &record, &metronome, &metEnabled, &metTempo, &metLevel, &metSend,
-                         &file, &routing, &effects, &sources, &chat, &soundboard, &play, &stop, &disconnect, &inspector, &bufferMode, &bufferTime })
+    explicit SonoCraftMixerView(SonobusAudioProcessor& p) : processor(p), input(p, SonoCraftChannelStrip::input), master(p, SonoCraftChannelStrip::master) {
+        for (auto* c : std::initializer_list<juce::Component*> { &input, &master, &viewport, &session, &sourceRouting, &brand,
+                &connections, &sources, &soundboard, &chat, &tools, &settings,
+                &toolTitle, &toolHelp, &closeTool, &file, &play, &stop, &record,
+                &metEnabled, &metTempo, &metLevel, &metSend, &inspector, &bufferMode, &bufferTime })
             addAndMakeVisible(c);
         brand.setImage(juce::ImageCache::getFromMemory(BinaryData::sonocraft_icon_256_png, BinaryData::sonocraft_icon_256_pngSize));
         viewport.setViewedComponent(&channels, false);
         viewport.setScrollBarsShown(true, true);
-        session.setFont(juce::Font(13.0f));
-        session.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        connectIP.setButtonText("Conectar por IP"); connectGroup.setButtonText("Entrar em grupo");
-        connectIP.setColour(juce::TextButton::buttonColourId, SonoCraftTheme::selection());
-        audio.setButtonText(juce::String::fromUTF8("Áudio e saídas")); settings.setButtonText("Ajustes");
-        play.setButtonText("Reproduzir"); stop.setButtonText("Parar");
-        play.onClick = [this] { if (onPlay) onPlay(); };
-        stop.onClick = [this] { processor.getTransportSource().stop(); processor.getTransportSource().setPosition(0.0); };
-        record.setButtonText("Gravar"); metronome.setButtonText(juce::String::fromUTF8("Metrônomo")); file.setButtonText("Arquivo");
-        routing.setButtonText("Roteamento"); effects.setButtonText("Efeitos");
-        sources.setButtonText("Adicionar fonte"); sources.setTooltip(juce::String::fromUTF8("Adicionar um canal de aplicativo ou aba à mesa"));
+        session.setFont(13.0f); session.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
+        session.setJustificationType(juce::Justification::centredRight);
+        connections.setButtonText(juce::String::fromUTF8("Conexões ▾"));
+        sources.setButtonText("Fontes"); soundboard.setButtonText("Pads"); chat.setButtonText("Conversa");
+        tools.setButtonText(juce::String::fromUTF8("Ferramentas ▾")); settings.setButtonText("Ajustes");
+        for (auto* button : { &connections, &sources, &soundboard, &chat, &tools, &settings }) {
+            button->setColour(juce::TextButton::buttonColourId, SonoCraftTheme::panel());
+            button->setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
+            button->setColour(juce::TextButton::textColourOffId, SonoCraftTheme::text());
+            button->setColour(juce::TextButton::textColourOnId, SonoCraftTheme::accent());
+        }
+        connections.setTooltip(juce::String::fromUTF8("Entrar em grupo, conectar por IP ou desconectar"));
+        sources.setTooltip(juce::String::fromUTF8("Adicionar aplicativos ou abas e escolher o modo de envio"));
+        soundboard.setTooltip("Abrir ou fechar a mesa de pads");
+        chat.setTooltip("Abrir ou fechar a conversa com os participantes");
+        tools.setTooltip(juce::String::fromUTF8("Arquivo, gravação, metrônomo, efeitos e roteamento"));
+        settings.setTooltip(juce::String::fromUTF8("Dispositivos de áudio, saídas, gravação e preferências"));
+        connections.onClick = [this] { showConnections(); };
+        tools.onClick = [this] { showTools(); };
+        settings.onClick = [this] { if (onSettings) onSettings(); };
+        chat.onClick = [this] { if (onChat) onChat(); };
+        soundboard.onClick = [this] { if (onSoundboard) onSoundboard(); };
+        sources.onClick = [this] {
+            if (!sourceDialog) {
+                sourceDialog = std::make_unique<SonoCraftSourceControls>(processor);
+                addChildComponent(sourceDialog.get());
+                sourceDialog->onClose = [this] { sourceDialog->setVisible(false); };
+            }
+            sourceDialog->refreshMode();
+            sourceDialog->setVisible(true); sourceDialog->toFront(true); resized();
+        };
         sourceRouting.setFont(12.0f); sourceRouting.setMinimumHorizontalScale(1);
         sourceRouting.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        sourceMode.onClick = [this] {
-            auto& mixer=processor.getSourceMixer();
-            if (mixer.usesIndividualSources()) mixer.useCompleteInput(); else mixer.useIndividualSources();
-            refresh();
-        };
-        chat.setButtonText("Chat"); soundboard.setButtonText("Soundboard"); disconnect.setButtonText("Desconectar");
-        connectIP.onClick = [this] { if (onConnectIP) onConnectIP(); };
-        connectGroup.onClick = [this] { if (onConnectGroup) onConnectGroup(); };
-        audio.onClick = [this] { if (onAudio) onAudio(); };
-        settings.onClick = [this] { if (onSettings) onSettings(); };
+        toolTitle.setFont(juce::Font(15.0f, juce::Font::bold));
+        toolHelp.setFont(12.0f); toolHelp.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
+        closeTool.setButtonText("Fechar painel");
+        closeTool.setTooltip(juce::String::fromUTF8("Ocultar os controles sem parar a reprodução, a gravação ou o metrônomo"));
+        closeTool.onClick = [this] { selectTool(Tool::none); };
+        file.setButtonText("Abrir arquivo"); play.setButtonText("Reproduzir"); stop.setButtonText("Parar");
+        file.onClick = [this] { if (onFile) onFile(); };
+        play.onClick = [this] { if (onPlay) onPlay(); };
+        stop.onClick = [this] { processor.getTransportSource().stop(); processor.getTransportSource().setPosition(0.0); };
         record.onClick = [this] { if (onRecord) onRecord(); };
-        metronome.setTooltip(juce::String::fromUTF8("Abrir controles de tempo, volume e envio do metrônomo"));
-        metronome.onClick = [this] { metControlsVisible = !metControlsVisible; resized(); };
-        metEnabled.setButtonText("Ativar"); metSend.setButtonText("Enviar ao grupo");
+        record.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffffe6cf));
+        metEnabled.setButtonText("Ativar"); metSend.setButtonText("Enviar aos conectados");
         metTempo.setSliderStyle(juce::Slider::LinearHorizontal);
-        metTempo.setTextBoxStyle(juce::Slider::TextBoxRight, false, 72, 26);
-        metTempo.setTitle("Tempo do metronomo (BPM)");
+        metTempo.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 26);
+        metTempo.setTitle(juce::String::fromUTF8("Tempo do metrônomo (BPM)"));
         metLevel.setSliderStyle(juce::Slider::LinearHorizontal);
-        metLevel.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 26);
-        metLevel.setTitle("Volume do metronomo");
+        metLevel.setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 26);
+        metLevel.setTitle(juce::String::fromUTF8("Volume do metrônomo (dB)"));
         auto& state = processor.getValueTreeState();
         metTempoAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(state, SonobusAudioProcessor::paramMetTempo, metTempo);
         metLevelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(state, SonobusAudioProcessor::paramMetGain, metLevel);
         metEnabledAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(state, SonobusAudioProcessor::paramMetEnabled, metEnabled);
         metSendAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(state, SonobusAudioProcessor::paramSendMetAudio, metSend);
-        metLevel.setTooltip(juce::String::fromUTF8("Volume do metrônomo, de 0 a 1"));
-        soundboard.setTooltip(juce::String::fromUTF8("Abrir pads para carregar e disparar vinhetas, músicas e efeitos"));
-        file.onClick = [this] { if (onFile) onFile(); };
-        routing.onClick = [this] { if (onRouting) onRouting(); };
-        effects.onClick = [this] { if (onEffects) onEffects(); };
-        sources.onClick = [this] {
-            if (!sourceDialog) {
-                sourceDialog=std::make_unique<SonoCraftSourceControls>(processor);
-                addChildComponent(sourceDialog.get());
-                sourceDialog->onClose=[this]{sourceDialog->setVisible(false);};
-            }
-            sourceDialog->setVisible(true); sourceDialog->toFront(true); resized();
-        };
-        chat.onClick = [this] { if (onChat) onChat(); };
-        soundboard.onClick = [this] { if (onSoundboard) onSoundboard(); };
-        disconnect.onClick = [this] { processor.disconnectFromServer(); };
-        input.onDetails = master.onDetails = [this](const juce::String&) { if (onAudio) onAudio(); };
+        metTempo.textFromValueFunction = [](double bpm) { return juce::String(juce::roundToInt(bpm)) + " BPM"; };
+        metTempo.valueFromTextFunction = [](const juce::String& text) { return text.replaceCharacter(',', '.').getDoubleValue(); };
+        metTempo.updateText();
+        metLevel.textFromValueFunction = [](double gain) { return gain <= 0 ? juce::String::fromUTF8("−∞ dB") : juce::String(juce::Decibels::gainToDecibels(gain), 1) + " dB"; };
+        metLevel.valueFromTextFunction = [](const juce::String& text) { return text.contains(juce::String::fromUTF8("∞")) ? 0.0 : juce::Decibels::decibelsToGain(text.replaceCharacter(',', '.').getDoubleValue()); };
+        metLevel.updateText();
+        metLevel.setTooltip(juce::String::fromUTF8("Volume do metrônomo. 0 dB mantém o nível original."));
         bufferMode.addItem(juce::String::fromUTF8("Automático"), 1); bufferMode.addItem("Fixo", 2);
         bufferMode.onChange = [this] { applyBuffer(); };
         bufferTime.setRange(0, 1000, 1); bufferTime.setTextValueSuffix(" ms");
         bufferTime.setSliderStyle(juce::Slider::LinearHorizontal);
         bufferTime.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 24);
         bufferTime.onValueChange = [this] { applyBuffer(); };
-        inspector.setFont(juce::Font(13.0f));
+        inspector.setFont(13.0f);
         processor.getSourceMixer().startDiscovery();
         refresh(); startTimerHz(24);
     }
     ~SonoCraftMixerView() override { stopTimer(); viewport.setViewedComponent(nullptr, false); }
-    std::function<void()> onConnectIP, onConnectGroup, onAudio, onSettings, onRecord, onMetronome, onFile, onRouting, onEffects, onChat, onSoundboard, onPlay;
-    juce::Component* settingsAnchor() { return &settings; }
-    juce::Component* connectionAnchor() { return &connectIP; }
+    std::function<void()> onConnectIP, onConnectGroup, onSettings, onRecord, onFile, onRouting, onEffects, onChat, onSoundboard, onPlay;
+    std::function<bool()> isChatVisible, isPadsVisible, isSettingsVisible, isConnectionVisible, isAdvancedToolVisible;
+    juce::Component* connectionAnchor() { return &connections; }
+    juce::Component* toolsAnchor() { return &tools; }
+    juce::Component* recordingAnchor() { return record.isVisible() ? static_cast<juce::Component*>(&record) : &tools; }
 
-    void resized() override
-    {
-        if (sourceDialog) sourceDialog->setBounds(getLocalBounds().withSizeKeepingCentre(juce::jmin(450,getWidth()-24),juce::jmin(370,getHeight()-24)));
+    void resized() override {
         auto bounds = getLocalBounds().reduced(18, 12);
-        const bool compact = getWidth() < 840;
-        auto header = bounds.removeFromTop(compact ? 82 : 46);
-        auto top = compact ? header.removeFromTop(42) : header;
-        brand.setBounds(top.removeFromLeft(38).reduced(2)); top.removeFromLeft(164);
-        settings.setBounds(top.removeFromRight(74).reduced(2, 6));
-        audio.setBounds(top.removeFromRight(144).reduced(2, 6)); top.removeFromRight(10);
-        auto connections = compact ? header : top;
-        connectGroup.setBounds(connections.removeFromRight(132).reduced(2, compact ? 2 : 6));
-        connectIP.setBounds(connections.removeFromRight(132).reduced(2, compact ? 2 : 6));
+        auto header = bounds.removeFromTop(44);
+        brand.setBounds(header.removeFromLeft(38).reduced(2)); header.removeFromLeft(140);
+        session.setBounds(header);
         bounds.removeFromTop(10);
-        auto sessionBar = bounds.removeFromTop(34);
-        disconnect.setBounds(sessionBar.removeFromRight(112).reduced(0, 3));
-        session.setBounds(sessionBar);
-        auto sourceBar = bounds.removeFromTop(46);
-        if (sourceMode.isVisible()) sourceMode.setBounds(sourceBar.removeFromRight(180).reduced(2, 7));
-        sourceRouting.setBounds(sourceBar);
-        bounds.removeFromTop(10);
-        const bool wrapTransport = bounds.getWidth() < 1050;
-        auto transportArea = bounds.removeFromBottom(wrapTransport ? 82 : 44);
-        auto transport = wrapTransport ? transportArea.removeFromTop(40) : transportArea;
-        for (auto* button : { &play, &stop, &record, &metronome, &file, &routing, &effects, &sources, &chat, &soundboard }) {
-            const auto width = button == &sources ? 130 : button == &soundboard ? 104 : button == &metronome || button == &routing ? 105 : 78;
-            if (wrapTransport && transport.getWidth() < width) transport = transportArea;
-            button->setBounds(transport.removeFromLeft(width).reduced(3, 6));
-        }
-        bounds.removeFromBottom(10);
-        for (auto* control : std::initializer_list<juce::Component*> { &metEnabled, &metTempo, &metLevel, &metSend }) control->setVisible(metControlsVisible);
-        if (metControlsVisible) {
-            auto row = bounds.removeFromBottom(44).reduced(4, 6);
-            metEnabled.setBounds(row.removeFromLeft(78));
-            metSend.setBounds(row.removeFromRight(140));
-            const int half = row.getWidth() / 2;
-            metTempo.setBounds(row.removeFromLeft(half).reduced(6, 0));
-            metLevel.setBounds(row.reduced(6, 0));
-            bounds.removeFromBottom(8);
+        const int columns = bounds.getWidth() >= 660 ? 6 : 3;
+        auto nav = bounds.removeFromTop(columns == 6 ? 38 : 80);
+        juce::TextButton* navigation[] { &connections, &sources, &soundboard, &chat, &tools, &settings };
+        const int cellWidth = juce::jmin(150, nav.getWidth() / columns);
+        for (int i = 0; i < 6; ++i)
+            navigation[i]->setBounds(nav.getX() + (i % columns) * cellWidth, nav.getY() + (i / columns) * 42, cellWidth - 6, 34);
+        bounds.removeFromTop(6);
+        sourceRouting.setBounds(bounds.removeFromTop(34));
+        bounds.removeFromTop(6);
+        const bool hasTool = tool != Tool::none;
+        for (auto* c : std::initializer_list<juce::Component*> { &toolTitle, &toolHelp, &closeTool }) c->setVisible(hasTool);
+        for (auto* c : { &file, &play, &stop }) c->setVisible(tool == Tool::player);
+        record.setVisible(tool == Tool::recorder);
+        for (auto* c : std::initializer_list<juce::Component*> { &metEnabled, &metSend, &metTempo, &metLevel }) c->setVisible(tool == Tool::metronome);
+        toolBounds = {};
+        if (hasTool) {
+            const bool wrapMet = tool == Tool::metronome && bounds.getWidth() < 760;
+            auto area = bounds.removeFromTop(wrapMet ? 146 : 112);
+            toolBounds = area.toFloat();
+            auto content = area.reduced(12, 8);
+            auto titleRow = content.removeFromTop(26);
+            closeTool.setBounds(titleRow.removeFromRight(104)); toolTitle.setBounds(titleRow);
+            toolHelp.setBounds(content.removeFromTop(26));
+            auto row = content.removeFromTop(32).withWidth(juce::jmin(900, content.getWidth()));
+            if (tool == Tool::player) {
+                for (auto* c : { &file, &play, &stop }) c->setBounds(row.removeFromLeft(juce::jmin(140, content.getWidth()/3)).reduced(3, 0));
+            } else if (tool == Tool::recorder) record.setBounds(row.removeFromLeft(170));
+            else {
+                metEnabled.setBounds(row.removeFromLeft(76)); metSend.setBounds(row.removeFromLeft(180));
+                if (wrapMet) row = content.removeFromTop(32).withWidth(juce::jmin(900, content.getWidth()));
+                const int half = row.getWidth()/2;
+                metTempo.setBounds(row.removeFromLeft(half).reduced(4, 0)); metLevel.setBounds(row.reduced(4, 0));
+            }
+            bounds.removeFromTop(10);
         }
         const bool showInspector = selectedId.isNotEmpty();
         inspector.setVisible(showInspector); bufferMode.setVisible(showInspector); bufferTime.setVisible(showInspector);
         if (showInspector) {
-            auto details = bounds.removeFromBottom(94).reduced(12, 6);
-            inspector.setBounds(details.removeFromTop(34));
+            auto details = bounds.removeFromBottom(82).reduced(12, 6);
+            inspector.setBounds(details.removeFromTop(30));
             bufferMode.setBounds(details.removeFromLeft(140).withHeight(28)); details.removeFromLeft(16);
             bufferTime.setBounds(details.removeFromLeft(juce::jmin(380, details.getWidth())).withHeight(28));
-            bounds.removeFromBottom(12);
+            bounds.removeFromBottom(10);
         }
-        const auto busWidth = getWidth() < 700 ? 156 : SonoCraftStrip::preferredWidth;
-        const int channelHeight = juce::jmax(100, bounds.getHeight() - viewport.getScrollBarThickness());
-        input.setBounds(bounds.removeFromLeft(busWidth).withHeight(channelHeight)); bounds.removeFromLeft(14);
-        master.setBounds(bounds.removeFromRight(busWidth).withHeight(channelHeight)); bounds.removeFromRight(14);
-        viewport.setBounds(bounds);
-        const auto width = juce::jmax(bounds.getWidth(), (strips.size() + sourceStrips.size()) * (busWidth + 12));
-        channels.setSize(width, channelHeight);
+        const int busWidth = getWidth() < 700 ? 156 : SonoCraftStrip::preferredWidth;
+        const int availableHeight = juce::jmax(80, bounds.getHeight() - viewport.getScrollBarThickness());
+        const bool scrollAll = availableHeight < 340 || bounds.getWidth() < 2*busWidth + 208;
+        const int channelHeight = juce::jmax(340, availableHeight);
         int x = 0;
-        for (auto* strip : sourceStrips) { strip->setBounds(x, 0, busWidth, channels.getHeight()); x += busWidth + 12; }
-        for (auto* strip : strips) { strip->setBounds(x, 0, busWidth, channels.getHeight()); x += busWidth + 12; }
+        if (scrollAll) {
+            if (input.getParentComponent() != &channels) channels.addAndMakeVisible(input);
+            if (master.getParentComponent() != &channels) channels.addAndMakeVisible(master);
+            input.setBounds(x, 0, busWidth, channelHeight); x += busWidth + 12;
+        } else {
+            if (input.getParentComponent() != this) addAndMakeVisible(input);
+            if (master.getParentComponent() != this) addAndMakeVisible(master);
+            input.setBounds(bounds.removeFromLeft(busWidth).withHeight(channelHeight)); bounds.removeFromLeft(14);
+            master.setBounds(bounds.removeFromRight(busWidth).withHeight(channelHeight)); bounds.removeFromRight(14);
+        }
+        viewport.setBounds(bounds);
+        for (auto* strip : sourceStrips) { strip->setBounds(x, 0, busWidth, channelHeight); x += busWidth + 12; }
+        for (auto* strip : strips) { strip->setBounds(x, 0, busWidth, channelHeight); x += busWidth + 12; }
+        if (scrollAll) { master.setBounds(x, 0, busWidth, channelHeight); x += busWidth + 12; }
+        channels.setSize(juce::jmax(bounds.getWidth(), x), channelHeight);
+        if (sourceDialog) sourceDialog->setBounds(getLocalBounds().withSizeKeepingCentre(juce::jmin(470, getWidth()-24), juce::jmin(470, getHeight()-24)));
     }
-    void paint(juce::Graphics& g) override
-    {
+    void paint(juce::Graphics& g) override {
         using namespace SonoCraftTheme;
         g.fillAll(canvas());
         g.setColour(text()); g.setFont(juce::Font(19.0f, juce::Font::bold));
-        g.drawText("SonoCraft", 62, 13, 150, 26, juce::Justification::centredLeft);
-        g.setFont(11.5f); g.setColour(secondary());
-        g.drawText(juce::String::fromUTF8("MESA DE ÁUDIO"), 63, 39, 150, 16, juce::Justification::centredLeft);
-        g.setColour(border()); g.drawHorizontalLine(getWidth() < 840 ? 102 : 66, 18, float(getWidth() - 18));
+        g.drawText("SonoCraft", 62, 13, 135, 26, juce::Justification::centredLeft);
+        g.setColour(secondary()); g.setFont(11.5f);
+        g.drawText(juce::String::fromUTF8("MESA DE ÁUDIO"), 63, 39, 135, 16, juce::Justification::centredLeft);
+        if (!toolBounds.isEmpty()) {
+            g.setColour(panel()); g.fillRoundedRectangle(toolBounds, radius);
+            g.setColour(border()); g.drawRoundedRectangle(toolBounds.reduced(.5f), radius, 1);
+        }
         if (strips.isEmpty() && sourceStrips.isEmpty()) {
             auto empty = viewport.getBounds().reduced(12);
-            g.setColour(panel().withAlpha(0.7f)); g.fillRoundedRectangle(empty.toFloat(), 8);
-            g.setColour(text()); g.setFont(juce::Font(empty.getWidth() < 250 ? 14.0f : 18.0f, juce::Font::bold));
-            g.drawText(juce::String::fromUTF8("Reproduza um som para começar"), empty.withHeight(30).withY(empty.getCentreY() - 40), juce::Justification::centred);
-            g.setColour(secondary()); g.setFont(13.0f);
-            g.drawText(juce::String::fromUTF8("Os aplicativos com áudio aparecerão aqui."), empty.withHeight(24).withY(empty.getCentreY()), juce::Justification::centred);
-            g.drawText(juce::String::fromUTF8("Use Adicionar fonte para escolher uma aba."), empty.withHeight(24).withY(empty.getCentreY() + 24), juce::Justification::centred);
+            g.setColour(panel().withAlpha(.7f)); g.fillRoundedRectangle(empty.toFloat(), radius);
+            g.setColour(text()); g.setFont(juce::Font(14.0f, juce::Font::bold));
+            g.drawText(juce::String::fromUTF8("Suas fontes aparecem aqui"), empty.withHeight(28).withY(empty.getCentreY()-32), juce::Justification::centred);
+            g.setColour(secondary()); g.setFont(12.0f);
+            g.drawText(juce::String::fromUTF8("Abra Fontes para adicionar uma aba."), empty.withHeight(24).withY(empty.getCentreY()), juce::Justification::centred);
         }
     }
 private:
+    enum class Tool { none, player, recorder, metronome };
     SonobusAudioProcessor& processor;
     SonoCraftChannelStrip input, master;
     juce::Viewport viewport;
@@ -254,23 +279,62 @@ private:
     juce::OwnedArray<SonoCraftChannelStrip> strips;
     juce::OwnedArray<SonoCraftSourceStrip> sourceStrips;
     std::unique_ptr<SonoCraftSourceControls> sourceDialog;
-    juce::TextButton sourceMode;
-    juce::Label sourceRouting;
     juce::ImageComponent brand;
-    juce::Label session, inspector;
-    juce::TextButton connectIP, connectGroup, audio, settings, record, metronome, file, routing, effects, sources, chat, soundboard, play, stop, disconnect;
-    juce::ComboBox bufferMode;
-    juce::Slider bufferTime;
-    juce::String selectedId;
-    bool syncing = false, metControlsVisible = false;
+    juce::Label session, sourceRouting, inspector, toolTitle, toolHelp;
+    juce::TextButton connections, sources, soundboard, chat, tools, settings, closeTool, file, play, stop, record;
     juce::ToggleButton metEnabled, metSend;
-    juce::Slider metTempo, metLevel;
+    juce::Slider metTempo, metLevel, bufferTime;
+    juce::ComboBox bufferMode;
+    juce::String selectedId;
+    juce::Rectangle<float> toolBounds;
+    Tool tool = Tool::none;
+    bool syncing = false;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> metTempoAttachment, metLevelAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> metEnabledAttachment, metSendAttachment;
     void timerCallback() override { refresh(); }
+    void selectTool(Tool next) {
+        tool = next;
+        if (tool == Tool::player) toolTitle.setText(juce::String::fromUTF8("Arquivo de áudio"), juce::dontSendNotification);
+        else if (tool == Tool::recorder) toolTitle.setText(juce::String::fromUTF8("Gravação"), juce::dontSendNotification);
+        else if (tool == Tool::metronome) {
+            toolTitle.setText(juce::String::fromUTF8("Metrônomo"), juce::dontSendNotification);
+            toolHelp.setText(juce::String::fromUTF8("Ajuste o tempo em BPM e o volume em dB. Escolha se os conectados também devem ouvir."), juce::dontSendNotification);
+        }
+        refresh(); resized();
+    }
+    void showConnections() {
+        juce::PopupMenu menu;
+        menu.addItem(1, "Entrar em grupo"); menu.addItem(2, "Conectar por IP"); menu.addSeparator();
+        menu.addItem(3, "Desconectar", processor.getNumberRemotePeers() > 0 || processor.isConnectedToServer());
+        juce::Component::SafePointer<SonoCraftMixerView> safe(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&connections).withParentComponent(this), [safe](int choice) {
+            if (!safe) return;
+            if (choice == 1 && safe->onConnectGroup) safe->onConnectGroup();
+            if (choice == 2 && safe->onConnectIP) safe->onConnectIP();
+            if (choice == 3) safe->processor.disconnectFromServer();
+        });
+    }
+    void showTools() {
+        juce::PopupMenu menu;
+        menu.addItem(1, juce::String::fromUTF8("Arquivo de áudio"), true, tool == Tool::player);
+        menu.addItem(2, juce::String::fromUTF8("Gravação"), true, tool == Tool::recorder);
+        menu.addItem(3, juce::String::fromUTF8("Metrônomo"), true, tool == Tool::metronome);
+        if (processor.isRecordingToFile()) menu.addItem(6, juce::String::fromUTF8("Parar gravação agora"));
+        menu.addSeparator();
+        menu.addItem(4, juce::String::fromUTF8("Efeitos da saída")); menu.addItem(5, "Roteamento de canais");
+        juce::Component::SafePointer<SonoCraftMixerView> safe(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&tools).withParentComponent(this), [safe](int choice) {
+            if (!safe) return;
+            if (choice == 1) safe->selectTool(Tool::player);
+            if (choice == 2) safe->selectTool(Tool::recorder);
+            if (choice == 3) safe->selectTool(Tool::metronome);
+            if (choice == 4 && safe->onEffects) safe->onEffects();
+            if (choice == 5 && safe->onRouting) safe->onRouting();
+            if (choice == 6 && safe->onRecord) safe->onRecord();
+        });
+    }
     void applyBuffer() {
-        if (!syncing && selectedId.isNotEmpty())
-            processor.setMixerChannelBuffer(selectedId, float(bufferTime.getValue()), bufferMode.getSelectedId() == 1);
+        if (!syncing && selectedId.isNotEmpty()) processor.setMixerChannelBuffer(selectedId, float(bufferTime.getValue()), bufferMode.getSelectedId() == 1);
     }
     void refresh()
     {
@@ -284,18 +348,15 @@ private:
         }
         for (int i=0;i<sourcesState.size();++i) sourceStrips[i]->sync(sourcesState[i]);
         const bool virtualInput = SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName());
-        const bool modeVisibilityChanged = sourceMode.isVisible() != virtualInput;
-        sourceMode.setVisible(virtualInput);
         const bool individual = processor.getSourceMixer().usesIndividualSources();
-        sourceMode.setButtonText(individual ? "Usar entrada completa" : "Usar fontes individuais");
         sourceRouting.setText(juce::String::fromUTF8(virtualInput
             ? (individual ? "Fontes individuais: a entrada completa do sistema fica fora do envio."
                           : "Entrada completa: o sistema inteiro pode ser enviado. Fontes individuais desligadas.")
             : "Aplicativos com áudio aparecem automaticamente. Ative Enviar nos canais que deseja compartilhar."),juce::dontSendNotification);
         const auto discoveryStatus=processor.getSourceMixer().discoveryStatus();
-        sourceRouting.setTooltip(discoveryStatus.isEmpty()?juce::String::fromUTF8("A detecção automática não captura nem envia áudio. Abas são escolhidas em Adicionar fonte."):discoveryStatus);
+        sourceRouting.setTooltip(discoveryStatus.isEmpty()?juce::String::fromUTF8("A detecção automática não captura nem envia áudio. Abas são escolhidas em Fontes."):discoveryStatus);
         if(discoveryStatus.isNotEmpty())sourceRouting.setText(discoveryStatus,juce::dontSendNotification);
-        if (sourcesChanged || modeVisibilityChanged) resized();
+        if (sourcesChanged) resized();
         auto states = processor.getMixerChannelStates();
         bool changed = states.size() != strips.size();
         if (!changed) for (int i = 0; i < states.size(); ++i) changed |= states[i].id != strips[i]->connectionId();
@@ -323,12 +384,28 @@ private:
         input.syncLocal(); master.syncLocal();
         const auto group = processor.getCurrentJoinedGroup();
         session.setText((group.isNotEmpty() ? "Grupo: " + group : juce::String::fromUTF8("Sessão local")) + juce::String::fromUTF8("   ·   ") + juce::String(states.size()) + (states.size() == 1 ? " participante" : " participantes"), juce::dontSendNotification);
-        disconnect.setEnabled(!states.isEmpty() || processor.isConnectedToServer());
+        session.setTooltip(session.getText());
+        const bool recording = processor.isRecordingToFile();
+        if (recording) session.setText(session.getText() + juce::String::fromUTF8("   ·   Gravando"), juce::dontSendNotification);
         const bool hasFile = processor.getTransportSource().getLengthInSeconds() > 0;
         play.setEnabled(hasFile); stop.setEnabled(hasFile);
         play.setButtonText(processor.getTransportSource().isPlaying() ? "Pausar" : "Reproduzir");
-        record.setToggleState(processor.isRecordingToFile(), juce::dontSendNotification);
-        metronome.setToggleState(metControlsVisible, juce::dontSendNotification);
+        record.setButtonText(recording ? juce::String::fromUTF8("Parar gravação") : juce::String::fromUTF8("Iniciar gravação"));
+        record.setToggleState(recording, juce::dontSendNotification);
+        tools.setColour(juce::TextButton::buttonOnColourId, recording ? juce::Colour(0xffffe6cf) : SonoCraftTheme::selection());
+        tools.setToggleState(tool != Tool::none || recording || (isAdvancedToolVisible && isAdvancedToolVisible()), juce::dontSendNotification);
+        connections.setToggleState(isConnectionVisible && isConnectionVisible(), juce::dontSendNotification);
+        settings.setToggleState(isSettingsVisible && isSettingsVisible(), juce::dontSendNotification);
+        chat.setToggleState(isChatVisible && isChatVisible(), juce::dontSendNotification);
+        soundboard.setToggleState(isPadsVisible && isPadsVisible(), juce::dontSendNotification);
+        sources.setToggleState(sourceDialog && sourceDialog->isVisible(), juce::dontSendNotification);
+        if (tool == Tool::player) {
+            const auto url = processor.getCurrentLoadedTransportURL();
+            toolHelp.setText(hasFile ? url.getFileName() : juce::String::fromUTF8("Abra um arquivo de áudio para ouvir e transmitir."), juce::dontSendNotification);
+        } else if (tool == Tool::recorder) {
+            toolHelp.setText(juce::String::fromUTF8(recording ? "Gravando áudio. Fechar este painel não interrompe a gravação." : "Salve o áudio em um arquivo. Destino e formato ficam em Ajustes → Gravação."), juce::dontSendNotification);
+        }
+        toolHelp.setTooltip(toolHelp.getText());
         repaint();
     }
 };

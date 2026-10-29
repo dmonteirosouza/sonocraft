@@ -76,22 +76,22 @@ publicGroupsListModel(this)
 
     mLocalAddressLabel = std::make_unique<TextEditor>("localaddr");
     mLocalAddressLabel->setColour(TextEditor::backgroundColourId, Colours::transparentBlack);
-    mLocalAddressLabel->setTitle(TRANS("Local Address:Port"));
+    mLocalAddressLabel->setTitle(String::fromUTF8("Seu IP e porta"));
     mLocalAddressLabel->setReadOnly(true);
     mLocalAddressLabel->setWantsKeyboardFocus(true);
     //mLocalAddressLabel->setJustificationType(Justification::centredLeft);
-    mLocalAddressStaticLabel = std::make_unique<Label>("localaddrst", TRANS("Local Address:"));
+    mLocalAddressStaticLabel = std::make_unique<Label>("localaddrst", String::fromUTF8("Seu IP e porta:"));
     mLocalAddressStaticLabel->setJustificationType(Justification::centredRight);
 
 
-    mRemoteAddressStaticLabel = std::make_unique<Label>("remaddrst", TRANS("Host: "));
+    mRemoteAddressStaticLabel = std::make_unique<Label>("remaddrst", String::fromUTF8("IP e porta:"));
     mRemoteAddressStaticLabel->setJustificationType(Justification::centredRight);
 
-    mDirectConnectDescriptionLabel = std::make_unique<Label>("dirconndesc", TRANS("Connect directly to other instances of SonoBus on your local network with the local address that they advertise. This is experimental, using a private group is recommended instead, and works fine on local networks."));
+    mDirectConnectDescriptionLabel = std::make_unique<Label>("dirconndesc", String::fromUTF8("Digite o IP e a porta mostrados no outro SonoCraft, por exemplo 192.168.1.10:11000. Para alguém conectar a você, compartilhe seu endereço abaixo."));
     mDirectConnectDescriptionLabel->setJustificationType(Justification::topLeft);
 
     mAddRemoteHostEditor = std::make_unique<TextEditor>("remaddredit");
-    mAddRemoteHostEditor->setTitle(TRANS("Remote Host:Port"));
+    mAddRemoteHostEditor->setTitle(String::fromUTF8("IP e porta de destino"));
     mAddRemoteHostEditor->setFont(Font(16 * SonoLookAndFeel::getFontScale()));
     mAddRemoteHostEditor->setText("", false); // 100.36.128.246:11000
     mAddRemoteHostEditor->setTextToShowWhenEmpty(TRANS("IPaddress:port"), Colour(0xff8a9ca8));
@@ -121,7 +121,7 @@ publicGroupsListModel(this)
     mConnectMenuButton->setAlpha(0.7f);
 
     mDirectConnectButton = std::make_unique<TextButton>("directconnect");
-    mDirectConnectButton->setButtonText(TRANS("Direct Connect"));
+    mDirectConnectButton->setButtonText(String::fromUTF8("Conectar"));
     mDirectConnectButton->addListener(this);
     mDirectConnectButton->setColour(TextButton::buttonColourId, SonoCraftTheme::selection());
     mDirectConnectButton->setWantsKeyboardFocus(true);

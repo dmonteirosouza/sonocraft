@@ -8,9 +8,9 @@
 class SonoCraftSourceControls final : public juce::Component {
 public:
     explicit SonoCraftSourceControls(SonobusAudioProcessor& p) : processor(p) {
-        for (auto* c : std::initializer_list<juce::Component*>{&close,&title,&help,&kind,&apps,&refresh,&add,&status}) addAndMakeVisible(c);
+        for (auto* c : std::initializer_list<juce::Component*>{&close,&title,&help,&kind,&apps,&refresh,&add,&status,&mode,&modeHelp}) addAndMakeVisible(c);
         close.setButtonText("Fechar"); close.onClick=[this]{if(onClose)onClose();};
-        title.setText("Adicionar fonte",juce::dontSendNotification); title.setFont(juce::Font(20.0f,juce::Font::bold));
+        title.setText(juce::String::fromUTF8("Fontes de áudio"),juce::dontSendNotification); title.setFont(juce::Font(20.0f,juce::Font::bold));
         help.setText(juce::String::fromUTF8("Cada fonte ganha um canal com volume e envio próprios. O envio começa desligado. O volume original do aplicativo não muda."),juce::dontSendNotification);
         kind.addItem("Aplicativo inteiro",1); kind.addItem("Uma aba do navegador",2); kind.setSelectedId(1,juce::dontSendNotification);
         kind.onChange=[this]{update();}; refresh.setButtonText("Atualizar aplicativos"); refresh.onClick=[this]{scan();};
@@ -30,7 +30,22 @@ public:
         };
         for (auto* l:{&help,&status}) { l->setMinimumHorizontalScale(1); l->setJustificationType(juce::Justification::topLeft); }
         status.setColour(juce::Label::textColourId,SonoCraftTheme::warning());
-        scan();update();setSize(450,370);
+        mode.onClick=[this]{
+            auto& mixer=processor.getSourceMixer();
+            if(mixer.usesIndividualSources())mixer.useCompleteInput();else mixer.useIndividualSources();
+            refreshMode();
+        };
+        modeHelp.setFont(12.0f);modeHelp.setColour(juce::Label::textColourId,SonoCraftTheme::secondary());
+        scan();update();refreshMode();setSize(470,470);
+    }
+    void refreshMode() {
+        const bool visible=SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName());
+        mode.setVisible(visible);modeHelp.setVisible(visible);
+        const bool individual=processor.getSourceMixer().usesIndividualSources();
+        modeHelp.setText(juce::String::fromUTF8(individual?"Modo atual: aplicativos e abas selecionados.":"Modo atual: entrada completa do sistema."),juce::dontSendNotification);
+        mode.setButtonText(individual?"Usar entrada completa":"Usar fontes individuais");
+        mode.setTooltip(juce::String::fromUTF8("A entrada completa e as fontes individuais não são enviadas ao mesmo tempo, para evitar áudio duplicado."));
+        resized();
     }
     std::function<void()> onClose;
     void paint(juce::Graphics& g) override {
@@ -39,16 +54,17 @@ public:
     }
     void resized() override {
         auto r=getLocalBounds().reduced(18);
-        auto header=r.removeFromTop(32);close.setBounds(header.removeFromRight(68));title.setBounds(header); help.setBounds(r.removeFromTop(84));
+        auto header=r.removeFromTop(32);close.setBounds(header.removeFromRight(68));title.setBounds(header); help.setBounds(r.removeFromTop(72));
+        if(mode.isVisible()){modeHelp.setBounds(r.removeFromTop(36));mode.setBounds(r.removeFromTop(30));r.removeFromTop(10);}
         kind.setBounds(r.removeFromTop(32));r.removeFromTop(8);
         apps.setBounds(r.removeFromTop(32)); refresh.setBounds(r.removeFromTop(30));r.removeFromTop(8);
         add.setBounds(r.removeFromTop(36));r.removeFromTop(8);status.setBounds(r);
     }
 private:
     SonobusAudioProcessor& processor;
-    juce::Label title,help,status;
+    juce::Label title,help,status,modeHelp;
     juce::ComboBox kind,apps;
-    juce::TextButton refresh,add,close;
+    juce::TextButton refresh,add,close,mode;
     juce::Array<SonoCraftApplicationAudio::Application> available;
     void scan() {
         const auto previous=apps.getText();available=SonoCraftApplicationAudio::applications();apps.clear(juce::dontSendNotification);
