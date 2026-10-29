@@ -16,18 +16,31 @@ public:
     void pollDiscovery(){
         SonoCraftApplicationAudio::Discovery snapshot;
         {const juce::ScopedLock lock(discoveryLock);if(consumedDiscovery==discoveryRevision)return;consumedDiscovery=discoveryRevision;snapshot=discovered;}
-        updateDiscovered(snapshot.applications);
+        updateDiscovered(snapshot.applications,snapshot.hasProcessList?&snapshot.runningProcessIds:nullptr,&snapshot.runningApplications);
     }
     juce::String discoveryStatus() const {const juce::ScopedLock lock(discoveryLock);return discovered.message;}
     // Reconcile on the GUI thread: enumeration never opens captures or changes the send mode.
-    void updateDiscovered(const juce::Array<SonoCraftApplicationAudio::Application>& apps){
+    void updateDiscovered(const juce::Array<SonoCraftApplicationAudio::Application>& apps,
+                          const juce::Array<uint32_t>* running=nullptr,
+                          const juce::Array<SonoCraftApplicationAudio::Application>* openApps=nullptr){
         const juce::ScopedLock lock(control);
-        for(auto& s:slots)s.producing=false;
+        for(auto& s:slots){
+            s.producing=false;
+            if(!s.occupied.load() || s.tab || !running)continue;
+            if(!s.application.processId && openApps) {
+                for(const auto& app:*openApps)if(sameApplication(s.application,app)){s.application=app;break;}
+            }
+            if((s.application.processId && !running->contains(s.application.processId))
+                || (!s.application.processId && openApps)) {
+                ++s.revision;s.send=false;s.occupied=false;s.audio.stop();
+            }
+        }
         for(int i=hidden.size();--i>=0;) {
             bool present=false;for(const auto& app:apps)present|=applicationKey(app)==hidden[i];
             if(!present)hidden.remove(i);
         }
         for(const auto& app:apps){
+            if(running && !running->contains(app.processId))continue;
             if(hidden.contains(applicationKey(app)))continue;
             Slot* existing=nullptr;
             for(auto& s:slots)if(s.occupied.load() && !s.tab && sameApplication(s.application,app)){existing=&s;break;}

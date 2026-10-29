@@ -87,8 +87,19 @@ static bool testSourceMixer() {
     if(mixer.views().size()!=1)return false;
     mixer.updateDiscovered({});mixer.updateDiscovered(detected);
     if(mixer.views().size()!=2)return false;
+    juce::Array<uint32_t> running;running.add(101);running.add(202);
+    mixer.updateDiscovered({},&running);
+    if(mixer.views().size()!=2 || mixer.views()[0].producing || mixer.views()[1].producing)return false;
+    running.clear();mixer.updateDiscovered({},&running);
+    if(mixer.hasChannels() || mixer.anyActive() || !mixer.usesIndividualSources()){
+        std::cerr << "FAIL: closed applications remained in the mixer or resumed the complete input\n";return false;
+    }
+    mixer.updateDiscovered(detected);
     const auto automaticSaved=mixer.save();mixer.restore(automaticSaved);
     for(const auto& view:mixer.views())if(!view.automatic || view.requested || view.sending)return false;
+    mixer.updateDiscovered({},&running,&detected);
+    if(mixer.hasChannels())return false;
+    std::cout << "PASS: pause keeps channels; process exit closes captures/removes channels without full-input fallback" << std::endl;
     std::cout << "PASS: automatic discovery preserves mode, gains, stable channels and requires opt-in after app restart" << std::endl;
     std::cout << "PASS: concurrent sources, independent gains/send/mute, application overlap prevention, safe restore/removal" << std::endl;
     return true;

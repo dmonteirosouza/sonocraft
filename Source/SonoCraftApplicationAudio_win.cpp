@@ -157,12 +157,15 @@ SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
     if(FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator),nullptr,CLSCTX_ALL,IID_PPV_ARGS(&enumerator))))return result;
     ComPtr<IMMDeviceCollection> devices;
     if(FAILED(enumerator->EnumAudioEndpoints(eRender,DEVICE_STATE_ACTIVE,&devices)))return result;
-    const auto apps=listSonoCraftAudioApplications();
+    const auto apps=listSonoCraftAudioApplications();result.runningApplications=apps;
     std::map<DWORD,DWORD> parents;
     HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
     if(snapshot!=INVALID_HANDLE_VALUE) {
         PROCESSENTRY32W entry{};entry.dwSize=sizeof(entry);
-        if(Process32FirstW(snapshot,&entry))do {parents[entry.th32ProcessID]=entry.th32ParentProcessID;}while(Process32NextW(snapshot,&entry));
+        if(Process32FirstW(snapshot,&entry)) {
+            result.hasProcessList=true;
+            do {parents[entry.th32ProcessID]=entry.th32ParentProcessID;result.runningProcessIds.add(uint32_t(entry.th32ProcessID));}while(Process32NextW(snapshot,&entry));
+        }
         CloseHandle(snapshot);
     }
     UINT count=0;devices->GetCount(&count);
@@ -173,7 +176,7 @@ SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
         int sessionCount=0;sessions->GetCount(&sessionCount);
         for(int i=0;i<sessionCount;++i) {
             ComPtr<IAudioSessionControl> control;ComPtr<IAudioSessionControl2> session;AudioSessionState state=AudioSessionStateInactive;DWORD pid=0;
-            if(FAILED(sessions->GetSession(i,&control)) || FAILED(control->GetState(&state)) || state!=AudioSessionStateActive
+            if(FAILED(sessions->GetSession(i,&control)) || FAILED(control->GetState(&state)) || state==AudioSessionStateExpired
                 || FAILED(control.As(&session)) || session->IsSystemSoundsSession()==S_OK || FAILED(session->GetProcessId(&pid)) || !pid)continue;
             SonoCraftApplicationAudio::Application selected;
             DWORD current=pid;bool own=false;
@@ -192,6 +195,9 @@ SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
                 if(!named)continue;
                 selected={juce::File(juce::String(path)).getFileNameWithoutExtension(),uint32_t(pid),juce::String(path).toLowerCase()};
             }
+            bool runningKnown=false;for(const auto& app:result.runningApplications)runningKnown|=app.processId==selected.processId;
+            if(!runningKnown)result.runningApplications.add(selected);
+            if(state!=AudioSessionStateActive)continue;
             bool known=false;for(const auto& app:result.applications)known|=app.identifier==selected.identifier;
             if(!known)result.applications.add(selected);
         }

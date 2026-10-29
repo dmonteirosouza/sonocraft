@@ -12,7 +12,13 @@ class SonoCraftBrowserAudioBridge;
 class SonoCraftApplicationAudio {
 public:
     struct Application { juce::String name; uint32_t processId = 0; juce::String identifier; };
-    struct Discovery { juce::Array<Application> applications; juce::String message; };
+    struct Discovery {
+        juce::Array<Application> applications;
+        juce::String message;
+        juce::Array<uint32_t> runningProcessIds;
+        juce::Array<Application> runningApplications;
+        bool hasProcessList=false;
+    };
     static Discovery applicationsWithAudio();
     static bool requestCapturePermission();
     bool needsCapturePermission() const;

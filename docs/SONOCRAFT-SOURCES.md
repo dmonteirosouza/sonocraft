@@ -29,7 +29,7 @@ No computador que recebe:
 
 Os aplicativos com reprodução de áudio aparecem **automaticamente na mesa**, sem precisar cadastrá-los. A detecção consulta sessões de saída ativas no Windows e processos de áudio no macOS 14.2+. Não grava áudio nem solicita permissão de captura. Uma sessão ativa pode estar momentaneamente silenciosa, como acontece no mixer do sistema.
 
-Cada canal aparece com o envio desligado. Ajuste o volume e ative **Enviar** para iniciar a captura e compartilhar com os conectados. Canais que pausam permanecem na mesa, preservando os ajustes. Ao reiniciar um aplicativo, o envio volta desligado para não capturar outro processo sem querer. Se remover um canal automático, ele permanece oculto até a reprodução parar e começar novamente.
+Cada canal aparece com o envio desligado. Ajuste o volume e ative **Enviar** para iniciar a captura e compartilhar com os conectados. Canais que pausam permanecem na mesa, preservando os ajustes. **Quando o programa é fechado, sua captura é encerrada e o canal sai automaticamente da mesa**, normalmente na próxima atualização (cerca de 1,5 segundo). Reabrir o programa cria um novo canal com envio desligado. A entrada completa do sistema não é reativada quando o último programa fecha. Se remover um canal automático, ele permanece oculto até a reprodução parar e começar novamente.
 
 Use **Adicionar fonte** para escolher uma aba ou antecipar um aplicativo que ainda não começou a tocar. É possível manter até **32 canais**. A aba Fontes foi retirada dos Ajustes. Em macOS anterior a 14.2, use a adição manual.
 

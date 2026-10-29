@@ -6,7 +6,7 @@ import sys
 root = pathlib.Path(__file__).resolve().parents[1]
 process = subprocess.Popen(['ctest', '--test-dir', 'build', '-C', 'Release', '--output-on-failure'], cwd=root)
 try:
-    result = process.wait(timeout=20)
+    result = process.wait(timeout=45)
 except subprocess.TimeoutExpired:
     if sys.platform == 'darwin':
         out = root / 'diagnostics'

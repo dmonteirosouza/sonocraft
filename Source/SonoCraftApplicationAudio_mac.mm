@@ -127,6 +127,9 @@ bool requestSonoCraftCapturePermission() {
 SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
     @autoreleasepool {
         SonoCraftApplicationAudio::Discovery result;
+        for(NSRunningApplication* app in NSWorkspace.sharedWorkspace.runningApplications)
+            result.runningProcessIds.add(uint32_t(app.processIdentifier));
+        result.runningApplications=listSonoCraftAudioApplications();result.hasProcessList=true;
         if (@available(macOS 14.2, *)) {
             AudioObjectPropertyAddress list{kAudioHardwarePropertyProcessObjectList,kAudioObjectPropertyScopeGlobal,kAudioObjectPropertyElementMain};
             UInt32 size=0;

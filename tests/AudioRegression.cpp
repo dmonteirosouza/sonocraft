@@ -455,6 +455,20 @@ int main()
     auto remotePlayer = sender.getSoundboardProcessor()->loadSample(remotePad);
     if (!remotePlayer) return 1;
     (*remotePlayer)->play();
+    // Reopening the audio engine after the roster/preset phase requires a
+    // real format handshake. Keep processing on an audio clock until audio
+    // returns, with a hard bound; never reconnect or bypass routing checks.
+    const auto resumeLimit=juce::Time::getMillisecondCounterHiRes()+5000;
+    auto resumeClock=juce::Time::getMillisecondCounterHiRes();int audibleBlocks=0;
+    while(audibleBlocks<24 && juce::Time::getMillisecondCounterHiRes()<resumeLimit){
+        juce::AudioBuffer<float> source(2,128),destination(2,128);source.clear();destination.clear();
+        sender.processBlock(source,midi);receiver.processBlock(destination,midi);
+        audibleBlocks=receiver.getRemotePeerRecvActive(0) && destination.getMagnitude(0,128)>0.001f ? audibleBlocks+1 : 0;
+        const auto now=juce::Time::getMillisecondCounterHiRes();if(now-resumeClock>100)resumeClock=now;
+        resumeClock+=128*1000.0/48000.0;waitForAudioDeadline(resumeClock);
+    }
+    if(audibleBlocks<24){std::cerr<<"FAIL: UDP audio did not recover after reopening within 5 seconds\n";return 1;}
+    std::cout<<"PASS: UDP audio recovered after engine reopen before headphone-toggle measurements"<<std::endl;
     double remotePadEnergy = 0, remotePlaybackWithEars = 0, remotePlaybackWithoutEars = 0, remoteHeadphoneEnergy = 0;
     TestListeningDevice* remoteHeadphones = nullptr;
     auto padDeadline = juce::Time::getMillisecondCounterHiRes();

@@ -19,7 +19,7 @@ Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote.
 - Até 32 fontes simultâneas, com controles independentes e nomes editáveis na mesa principal.
 - Seletores curtos de aplicativo/aba substituem a antiga aba Fontes nos Ajustes.
 - Aplicativos detectados automaticamente, com volume preservado nas pausas e captura iniciada somente ao enviar. Bloqueio de aplicativo repetido e de navegador inteiro junto com abas; modos completo/individual exclusivos para evitar sobreposição.
-- Canais e volumes salvos. Ao reabrir, as capturas e os envios ficam desligados.
+- Pausas mantêm os ajustes. Fechar o programa encerra sua captura e remove o canal automaticamente. Reabrir o SonoCraft mantém canais de programas ainda abertos, com capturas e envios desligados.
 - Saídas virtuais conhecidas continuam bloqueadas, inclusive quando restauradas por configurações antigas.
 
 ## Compilar
