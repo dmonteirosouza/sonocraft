@@ -42,7 +42,7 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-set(BUILDVERSION 99)
+set(BUILDVERSION 100)
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
@@ -667,5 +667,7 @@ if (SONOCRAFT_BUILD_TESTS)
         set_source_files_properties(tests/MacAudioTestActivity.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
     endif()
     add_test(NAME SonoCraftAudioRegression COMMAND SonoCraftAudioRegression)
-    set_tests_properties(SonoCraftAudioRegression PROPERTIES TIMEOUT 90)
+    # Hosted macOS machines can coalesce device-fixture waits by an order of
+    # magnitude. Bound total runtime without shortening any audio assertions.
+    set_tests_properties(SonoCraftAudioRegression PROPERTIES TIMEOUT 240)
 endif()

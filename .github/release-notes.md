@@ -1,4 +1,4 @@
-SonoCraft 0.4.0-preview.10 — mixer automático de aplicativos
+SonoCraft 0.4.0-preview.11 — mixer automático de aplicativos
 
 - Aplicativos com reprodução de áudio aparecem automaticamente, com envio inicialmente desligado. Até 32 fontes na mesa principal, com volume, medidor, envio, silêncio e captura independentes.
 - Volume e canais mantidos nas pausas. Fechar um programa encerra sua captura e remove seu canal automaticamente. Reabrir cria um canal com envio desligado. A detecção não abre capturas nem altera o modo de transmissão.

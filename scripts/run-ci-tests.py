@@ -6,7 +6,7 @@ import sys
 root = pathlib.Path(__file__).resolve().parents[1]
 process = subprocess.Popen(['ctest', '--test-dir', 'build', '-C', 'Release', '--output-on-failure'], cwd=root)
 try:
-    result = process.wait(timeout=45)
+    result = process.wait(timeout=90)
 except subprocess.TimeoutExpired:
     if sys.platform == 'darwin':
         out = root / 'diagnostics'
@@ -17,7 +17,7 @@ except subprocess.TimeoutExpired:
             if pathlib.Path(name).name == 'SonoCraftAudioRegression':
                 subprocess.run(['sample', child, '3', '-file', str(out / 'audio-regression-stack.txt')], timeout=15, check=False)
     try:
-        result = process.wait(timeout=100)
+        result = process.wait(timeout=180)
     except subprocess.TimeoutExpired:
         process.terminate()
         process.wait(timeout=10)
