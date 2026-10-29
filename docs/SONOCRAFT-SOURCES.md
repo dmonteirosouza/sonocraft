@@ -35,7 +35,7 @@ Use **Adicionar fonte** para escolher uma aba ou antecipar um aplicativo que ain
 
 | Controle do canal | Efeito |
 | --- | --- |
-| Volume (0–200%) | Ajusta o áudio desta fonte enviado aos conectados. Não muda o volume original do programa no sistema. |
+| Volume (dB) | 0 dB mantém o volume original; valores negativos reduzem e positivos aumentam. O mínimo silencia. Arraste, digite o valor ou dê duplo clique para voltar a 0 dB. Ajusta o envio, sem mudar o volume original do programa no sistema. |
 | Medidor | Mostra o nível após iniciar a captura. Antes disso, “COM ÁUDIO” indica a atividade detectada pelo sistema. |
 | Enviar | Inicia a captura quando necessário e inclui somente este canal na transmissão. Começa desligado. |
 | Silenciar | Suspende o áudio enviado por este canal sem perder seu volume. |
@@ -48,6 +48,10 @@ Os volumes, nomes e canais são salvos; ao reabrir o SonoCraft, as capturas fica
 Para uma aba, abra a página auxiliar no **Chrome ou Edge**, escolha a aba e marque **Compartilhar áudio da aba**. Mantenha a página auxiliar aberta. Não são enviados vídeo nem microfone pela captura. **Adicione cada aba apenas uma vez:** o navegador não expõe uma identificação estável que permita detectar a mesma aba escolhida novamente. Essa limitação está indicada no seletor e na página auxiliar.
 
 O aplicativo inteiro inclui todas as janelas/abas dele. O SonoCraft bloqueia aplicativo repetido. Adicionar uma aba desliga a captura/envio do navegador inteiro; o canal do navegador continua visível, mas fica bloqueado enquanto houver abas configuradas. Para voltar ao navegador inteiro, remova os canais de abas. Essa restrição é conservadora e vale mesmo que sejam navegadores diferentes.
+
+## Padrão dos canais
+
+Entrada, participantes, aplicativos, abas e saída principal usam o mesmo desenho, escala em dB, medidores e posição dos controles. **Silenciar** age no canal indicado. **Ouvir entrada** permite escutar sua entrada local; **Ouvir só este** isola participantes na escuta; **Enviar** compartilha uma fonte com os conectados. São funções diferentes, identificadas por texto completo e explicações ao passar o mouse. Na saída principal, **Silenciar recebidos** afeta os participantes, mantendo os pads locais. O volume da saída principal continua controlando a mistura local.
 
 ## Evitar áudio duplicado
 

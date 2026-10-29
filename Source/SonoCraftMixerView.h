@@ -4,157 +4,78 @@
 #include "SonobusPluginProcessor.h"
 #include "SonoCraftTheme.h"
 #include "SonoCraftSourceControls.h"
-#include "SonoCraftFaderLookAndFeel.h"
+#include "SonoCraftStrip.h"
 
-class SonoCraftChannelStrip final : public juce::Component {
+class SonoCraftChannelStrip final : public SonoCraftStrip {
 public:
     enum Role { input, peer, master };
     SonoCraftChannelStrip(SonobusAudioProcessor& p, Role r, juce::String connection = {})
         : processor(p), role(r), id(std::move(connection))
     {
-        name.setFont(juce::Font(15.0f, juce::Font::bold));
-        name.setColour(juce::Label::textColourId, SonoCraftTheme::text());
-        subtitle.setFont(juce::Font(11.5f));
-        subtitle.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        value.setJustificationType(juce::Justification::centred);
-        value.setFont(juce::Font(13.0f));
-        for (auto* component : std::initializer_list<juce::Component*> { &name, &subtitle, &value,
-                                 &fader, &mute, &solo, &details, &remove })
-            addAndMakeVisible(component);
-        fader.setLookAndFeel(&faderLookAndFeel);
-        fader.setSliderStyle(juce::Slider::LinearVertical);
-        fader.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        fader.setRange(-60.0, role == input ? 12.0 : 6.0, 0.1);
-        fader.setDoubleClickReturnValue(true, 0.0);
-        fader.setScrollWheelEnabled(false);
+        setGainLimit(role == input ? 4.0f : 2.0f);
         fader.onValueChange = [this] {
-            const auto db = float(fader.getValue());
-            const auto gain = db <= -60 ? 0.0f : juce::Decibels::decibelsToGain(db);
+            const auto gain = gainForDb(fader.getValue());
             if (role == peer) processor.setMixerChannelGain(id, gain);
             else writeParameter(role == input ? SonobusAudioProcessor::paramInGain : SonobusAudioProcessor::paramWet, gain);
-            value.setText(db <= -60 ? juce::String::fromUTF8("−∞ dB") : juce::String(db, 1) + " dB", juce::dontSendNotification);
         };
-        fader.onDragStart = [this] { if (auto* p = gainParameter()) p->beginChangeGesture(); };
-        fader.onDragEnd = [this] { if (auto* p = gainParameter()) p->endChangeGesture(); };
-        mute.setButtonText(role == master ? juce::String::fromUTF8("Recepção") : "Silenciar");
-        solo.setButtonText(role == input ? "Monitorar" : "Solo");
-        mute.setClickingTogglesState(true);
-        solo.setClickingTogglesState(true);
-        mute.setColour(juce::TextButton::buttonOnColourId, role == master ? SonoCraftTheme::selection() : juce::Colour(0xffffe6cf));
-        solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffffefb7));
-        mute.setTooltip(role == input ? juce::String::fromUTF8("Silenciar a entrada de áudio, mantendo os pads e fontes selecionadas") : role == master ? juce::String::fromUTF8("Ativar ou suspender a recepção de todos os participantes") : juce::String::fromUTF8("Silenciar o áudio recebido deste participante"));
-        solo.setTooltip(role == input ? "Monitorar a entrada local" : "Ouvir somente este participante e outros canais em solo");
+        fader.onDragStart = [this] { if (auto* parameter = gainParameter()) parameter->beginChangeGesture(); };
+        fader.onDragEnd = [this] { if (auto* parameter = gainParameter()) parameter->endChangeGesture(); };
+        // This existing switch affects received participants, not local pads.
+        // Keep that scope explicit instead of presenting it as a master mute.
+        if (role == master) mute.setButtonText("Silenciar recebidos");
+        secondary.setButtonText(role == input ? "Ouvir entrada" : juce::String::fromUTF8("Ouvir só este"));
+        mute.setTooltip(role == input ? juce::String::fromUTF8("Silenciar a entrada de áudio, mantendo os pads e fontes selecionadas")
+            : juce::String::fromUTF8("Silenciar o áudio recebido, sem interromper a conexão"));
+        secondary.setTooltip(role == input ? juce::String::fromUTF8("Ouvir sua entrada na saída local. Não altera o envio aos conectados.")
+            : juce::String::fromUTF8("Ouvir somente este participante e os outros marcados como Ouvir só este. Não altera o envio."));
         mute.onClick = [this] {
             if (role == peer) processor.setMixerChannelMute(id, mute.getToggleState());
-            else writeParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute, (role == master ? !mute.getToggleState() : mute.getToggleState()) ? 1.0f : 0.0f);
+            else writeParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute, mute.getToggleState() ? 1.0f : 0.0f);
         };
-        solo.onClick = [this] {
-            if (role == peer) processor.setMixerChannelSolo(id, solo.getToggleState());
-            else if (role == input) writeParameter(SonobusAudioProcessor::paramDry, solo.getToggleState() ? 1.0f : 0.0f);
+        secondary.onClick = [this] {
+            if (role == peer) processor.setMixerChannelSolo(id, secondary.getToggleState());
+            else if (role == input) writeParameter(SonobusAudioProcessor::paramDry, secondary.getToggleState() ? 1.0f : 0.0f);
         };
         details.setButtonText(role == peer ? "Detalhes" : "Dispositivo");
         details.onClick = [this] { if (onDetails) onDetails(id); };
-        remove.setButtonText("Remover");
         remove.setTooltip(juce::String::fromUTF8("Remover somente esta conexão da sua sessão"));
-        remove.setColour(juce::TextButton::textColourOffId, SonoCraftTheme::danger());
         remove.onClick = [this] { processor.removeRemotePeerByConnectionId(id); };
         remove.setVisible(role == peer);
-        solo.setVisible(role != master);
-        fader.setTitle(role == input ? "Ganho de entrada" : role == master ? "Volume master" : "Volume do participante");
+        secondary.setVisible(role != master);
+        fader.setTitle(role == input ? "Volume da entrada (dB)" : role == master ? juce::String::fromUTF8("Volume da saída principal (dB)") : "Volume do participante (dB)");
     }
-    ~SonoCraftChannelStrip() override { fader.setLookAndFeel(nullptr); }
-
-    void setState(const SonobusAudioProcessor::MixerChannelState& state)
-    {
+    void setState(const SonobusAudioProcessor::MixerChannelState& state) {
         name.setText(state.name, juce::dontSendNotification);
-        subtitle.setText(state.address, juce::dontSendNotification);
+        subtitle.setText("PARTICIPANTE", juce::dontSendNotification);
         name.setTooltip(state.name + juce::String::fromUTF8(" · ") + state.address);
-        meterLeft = state.left; meterRight = state.right; connected = state.connected;
+        setStatus(state.connected ? (state.muted ? juce::String::fromUTF8("Recepção silenciada") : juce::String::fromUTF8("Conectado · ") + state.address) : juce::String::fromUTF8("Aguardando conexão"));
+        meterLeft = state.left; meterRight = state.right;
         mute.setToggleState(state.muted, juce::dontSendNotification);
-        solo.setToggleState(state.soloed, juce::dontSendNotification);
-        syncGain(state.gain);
-        repaint();
+        secondary.setToggleState(state.soloed, juce::dontSendNotification);
+        syncGain(state.gain); repaint();
     }
-    void syncLocal()
-    {
-        name.setText(role == input ? "Sua entrada" : "Master", juce::dontSendNotification);
-        subtitle.setText(role == input ? (processor.isSystemInputSuppressed() ? "FORA DO ENVIO" : "ENVIO") : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
+    void syncLocal() {
+        name.setText(role == input ? "Sua entrada" : juce::String::fromUTF8("Saída principal"), juce::dontSendNotification);
+        subtitle.setText(role == input ? "ENTRADA" : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
         auto& source = role == input ? processor.getInputMeterSource() : processor.getOutputMeterSource();
         source.decayIfNeeded();
         meterLeft = source.getNumChannels() > 0 ? source.getMaxLevel(0) : 0;
         meterRight = source.getNumChannels() > 1 ? source.getMaxLevel(1) : meterLeft;
         syncGain(readParameter(role == input ? SonobusAudioProcessor::paramInGain : SonobusAudioProcessor::paramWet));
-        const auto muted = readParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute) > 0;
-        mute.setToggleState(role == master ? !muted : muted, juce::dontSendNotification);
-        if (role == input) solo.setToggleState(readParameter(SonobusAudioProcessor::paramDry) > 0, juce::dontSendNotification);
+        const bool muted = readParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute) > 0;
+        mute.setToggleState(muted, juce::dontSendNotification);
+        setStatus(role == input ? juce::String::fromUTF8(processor.isSystemInputSuppressed() ? "Fora do envio: fontes individuais em uso." : muted ? "Entrada silenciada. Pads e fontes continuam." : "Entrada disponível para os conectados.")
+            : juce::String::fromUTF8(muted ? "Recebidos silenciados. Pads locais continuam." : "Volume dos sons na saída principal."));
+        if (role == input) secondary.setToggleState(readParameter(SonobusAudioProcessor::paramDry) > 0, juce::dontSendNotification);
         repaint();
     }
     void setSelected(bool yes) { selected = yes; repaint(); }
     const juce::String& connectionId() const { return id; }
     std::function<void(const juce::String&)> onDetails;
-
-    void resized() override
-    {
-        auto bounds = getLocalBounds().reduced(12);
-        name.setBounds(bounds.removeFromTop(25));
-        subtitle.setBounds(bounds.removeFromTop(22));
-        bounds.removeFromTop(12);
-        auto switches = bounds.removeFromTop(28);
-        mute.setBounds(switches);
-        bounds.removeFromTop(6);
-        auto soloRow = bounds.removeFromTop(28);
-        if (role != master) solo.setBounds(soloRow);
-        bounds.removeFromTop(8);
-        auto removeRow = bounds.removeFromBottom(27);
-        if (role == peer) remove.setBounds(removeRow);
-        bounds.removeFromBottom(6);
-        details.setBounds(bounds.removeFromBottom(29));
-        bounds.removeFromBottom(8);
-        value.setBounds(bounds.removeFromBottom(22));
-        bounds.removeFromBottom(4);
-        meterBounds = bounds.removeFromRight(23).toFloat().reduced(2, 8);
-        bounds.removeFromRight(18);
-        fader.setBounds(bounds.withTrimmedLeft(18));
-        scaleBounds = bounds.withWidth(24).toFloat();
-    }
-    void paint(juce::Graphics& g) override
-    {
-        using namespace SonoCraftTheme;
-        auto box = getLocalBounds().toFloat().reduced(0.5f);
-        g.setColour(role == master ? juce::Colour(0xffeaf2f4) : panel());
-        g.fillRoundedRectangle(box, radius);
-        g.setColour(selected ? accent() : border());
-        g.drawRoundedRectangle(box, radius, selected ? 1.5f : 1.0f);
-        g.setColour(role == peer ? (connected ? accent() : warning()) : accent());
-        g.fillRoundedRectangle(12, 0, float(getWidth() - 24), 3, 1.5f);
-        g.setFont(10.0f);
-        g.setColour(secondary());
-        for (const auto db : { 0, -12, -24, -36, -48, -60 }) {
-            const auto proportion = (fader.getMaximum() - db) / (fader.getMaximum() - fader.getMinimum());
-            const auto y = fader.getY() + 8 + proportion * juce::jmax(1, fader.getHeight() - 16);
-            g.drawText(db == -60 ? juce::String::fromUTF8("−∞") : juce::String(db), int(scaleBounds.getX()), int(y - 6), 26, 12, juce::Justification::centredRight);
-        }
-        const auto left = juce::jlimit(0.0f, 1.0f, (juce::Decibels::gainToDecibels(meterLeft, -60.0f) + 60) / 60);
-        const auto right = juce::jlimit(0.0f, 1.0f, (juce::Decibels::gainToDecibels(meterRight, -60.0f) + 60) / 60);
-        for (int ch = 0; ch < 2; ++ch) {
-            auto bar = meterBounds.withX(meterBounds.getX() + ch * 10).withWidth(7);
-            g.setColour(recessed()); g.fillRoundedRectangle(bar, 2);
-            const auto level = ch == 0 ? left : right;
-            g.setColour(level > 0.98f ? danger() : level > 0.9f ? juce::Colour(0xffca962b) : accent());
-            g.fillRoundedRectangle(bar.removeFromBottom(bar.getHeight() * level), 2);
-        }
-    }
 private:
     SonobusAudioProcessor& processor;
     Role role;
     juce::String id;
-    juce::Label name, subtitle, value;
-    juce::Slider fader;
-    juce::TextButton mute, solo, details, remove;
-    SonoCraftFaderLookAndFeel faderLookAndFeel;
-    juce::Rectangle<float> meterBounds, scaleBounds;
-    float meterLeft = 0, meterRight = 0;
-    bool connected = false, selected = false;
     float readParameter(const juce::String& key) const { return processor.getValueTreeState().getRawParameterValue(key)->load(); }
     void writeParameter(const juce::String& key, float value) {
         auto* parameter = processor.getValueTreeState().getParameter(key);
@@ -162,10 +83,6 @@ private:
     }
     juce::RangedAudioParameter* gainParameter() {
         return role == peer ? nullptr : processor.getValueTreeState().getParameter(role == input ? SonobusAudioProcessor::paramInGain : SonobusAudioProcessor::paramWet);
-    }
-    void syncGain(float gain) {
-        if (!fader.isMouseButtonDown()) fader.setValue(juce::Decibels::gainToDecibels(gain, -60.0f), juce::dontSendNotification);
-        value.setText(gain <= 0 ? juce::String::fromUTF8("−∞ dB") : juce::String(juce::Decibels::gainToDecibels(gain), 1) + " dB", juce::dontSendNotification);
     }
 };
 
@@ -299,16 +216,16 @@ public:
             bufferTime.setBounds(details.removeFromLeft(juce::jmin(380, details.getWidth())).withHeight(28));
             bounds.removeFromBottom(12);
         }
-        const auto busWidth = getWidth() < 700 ? 128 : 148;
+        const auto busWidth = getWidth() < 700 ? 156 : SonoCraftStrip::preferredWidth;
         const int channelHeight = juce::jmax(100, bounds.getHeight() - viewport.getScrollBarThickness());
         input.setBounds(bounds.removeFromLeft(busWidth).withHeight(channelHeight)); bounds.removeFromLeft(14);
         master.setBounds(bounds.removeFromRight(busWidth).withHeight(channelHeight)); bounds.removeFromRight(14);
         viewport.setBounds(bounds);
-        const auto width = juce::jmax(bounds.getWidth(), strips.size() * 166 + sourceStrips.size() * 202);
-        channels.setSize(width, juce::jmax(340, bounds.getHeight() - viewport.getScrollBarThickness()));
+        const auto width = juce::jmax(bounds.getWidth(), (strips.size() + sourceStrips.size()) * (busWidth + 12));
+        channels.setSize(width, channelHeight);
         int x = 0;
-        for (auto* strip : sourceStrips) { strip->setBounds(x, 0, 190, channels.getHeight()); x += 202; }
-        for (auto* strip : strips) { strip->setBounds(x, 0, 154, channels.getHeight()); x += 166; }
+        for (auto* strip : sourceStrips) { strip->setBounds(x, 0, busWidth, channels.getHeight()); x += busWidth + 12; }
+        for (auto* strip : strips) { strip->setBounds(x, 0, busWidth, channels.getHeight()); x += busWidth + 12; }
     }
     void paint(juce::Graphics& g) override
     {

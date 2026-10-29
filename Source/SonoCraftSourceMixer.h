@@ -59,6 +59,7 @@ public:
         bool tab = false, sending = false, muted = false, active = false, requested = false;
         float gain = 1, level = 0;
         bool automatic=false,producing=false,blockedByTabs=false,permissionRequired=false;
+        float leftLevel=0,rightLevel=0;
     };
     struct Added { juce::String id, url, error; };
     static bool isBrowser(const juce::String& name) {
@@ -134,7 +135,7 @@ public:
         const juce::ScopedLock lock(control); juce::Array<View> result;
         for (auto& s:slots) if (s.occupied.load()) result.add({s.id,s.name,s.application.name,s.audio.status(),s.tab,
             s.send.load() && individual.load(),s.muted.load(),s.audio.isActive(),s.audio.isCaptureRequested(),s.gain.load(),s.level.load(),s.automatic,s.producing,
-            !s.tab && isBrowser(s.application.name) && hasTabs(),s.audio.needsCapturePermission()});
+            !s.tab && isBrowser(s.application.name) && hasTabs(),s.audio.needsCapturePermission(),s.leftLevel.load(),s.rightLevel.load()});
         return result;
     }
     void prepare(int samples) { if (scratch.getNumSamples()<samples) scratch.setSize(2,samples,false,false,true); }
@@ -142,12 +143,15 @@ public:
         output.clear(0,samples);
         if (scratch.getNumSamples()<samples) return;
         for (auto& s:slots) {
-            if (!s.occupied.load()) { s.lastGain=0; s.level=0; continue; }
+            if (!s.occupied.load()) { s.lastGain=0; s.level=0; s.leftLevel=0; s.rightLevel=0; continue; }
             const auto revision=s.revision.load();
             if (revision!=s.renderedRevision) { s.lastGain=0; s.renderedRevision=revision; }
             s.audio.render(scratch,samples,rate); // Drain even unsent/muted sources: no stale playback later.
             const auto target=(individual.load() && s.send.load() && !s.muted.load()) ? s.gain.load() : 0.0f;
-            s.level=s.audio.isActive()?scratch.getMagnitude(0,samples):0.0f;
+            const bool active=s.audio.isActive();
+            s.leftLevel=active?scratch.getMagnitude(0,0,samples):0.0f;
+            s.rightLevel=active?scratch.getMagnitude(1,0,samples):0.0f;
+            s.level=juce::jmax(s.leftLevel.load(),s.rightLevel.load());
             for (int ch=0;ch<2;++ch) scratch.applyGainRamp(ch,0,samples,s.lastGain,target);
             s.lastGain=target;
             // Disabling send/mute is immediate, including a simultaneous UI removal.
@@ -189,7 +193,7 @@ private:
         SonoCraftApplicationAudio::Application application;
         bool tab=false,automatic=false,producing=false;
         std::atomic<bool> occupied{false},send{false},muted{false};
-        std::atomic<float> gain{1},level{0};
+        std::atomic<float> gain{1},level{0},leftLevel{0},rightLevel{0};
         std::atomic<uint64_t> revision{0};
         uint64_t renderedRevision=0;
         float lastGain=0; // Audio thread only.
@@ -219,7 +223,7 @@ private:
     Slot* allocate(bool tab,const juce::String& name,bool chooseIndividual=true) {
         for (auto& s:slots) if (!s.occupied.load()) {
             ++s.revision; s.id=juce::Uuid().toString(); s.name=name; s.application={}; s.tab=tab;s.automatic=false;s.producing=false;
-            s.send=false; s.muted=false; s.gain=1; s.level=0; if(chooseIndividual)individual=true; s.occupied=true; return &s;
+            s.send=false; s.muted=false; s.gain=1; s.level=0; s.leftLevel=0; s.rightLevel=0; if(chooseIndividual)individual=true; s.occupied=true; return &s;
         }
         return nullptr;
     }

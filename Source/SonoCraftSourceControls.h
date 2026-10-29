@@ -2,7 +2,7 @@
 #pragma once
 #include "SonobusPluginProcessor.h"
 #include "SonoCraftTheme.h"
-#include "SonoCraftFaderLookAndFeel.h"
+#include "SonoCraftStrip.h"
 
 // A short add-source dialog, launched from the mixer, not a settings tab.
 class SonoCraftSourceControls final : public juce::Component {
@@ -64,28 +64,22 @@ private:
     }
 };
 
-class SonoCraftSourceStrip final : public juce::Component {
+class SonoCraftSourceStrip final : public SonoCraftStrip {
 public:
     SonoCraftSourceStrip(SonobusAudioProcessor& p,const juce::String& sourceId) : processor(p),id(sourceId) {
-        for(auto* c:std::initializer_list<juce::Component*>{&name,&type,&status,&level,&send,&mute,&capture,&remove})addAndMakeVisible(c);
         name.setEditable(false,true,false);name.setTooltip("Duplo clique para renomear este canal");
         name.onTextChange=[this]{processor.getSourceMixer().rename(id,name.getText());};
-        name.setFont(juce::Font(15.0f,juce::Font::bold));
-        type.setFont(11.0f);type.setColour(juce::Label::textColourId,SonoCraftTheme::secondary());
-        status.setFont(12.0f);status.setMinimumHorizontalScale(1);status.setJustificationType(juce::Justification::topLeft);
-        level.setLookAndFeel(&faderLookAndFeel);level.setDoubleClickReturnValue(true,100);
-        level.setRange(0,200,1);level.setSliderStyle(juce::Slider::LinearVertical);
-        level.setTextBoxStyle(juce::Slider::TextBoxBelow,false,76,24);level.setTextValueSuffix("%");level.setTitle("Volume de envio da fonte");
-        level.onValueChange=[this]{processor.getSourceMixer().setGain(id,float(level.getValue())/100.0f);};
-        send.setButtonText("Enviar");send.setTooltip("Enviar este canal aos conectados no SonoCraft");
-        send.onClick=[this]{
+        fader.setTitle("Volume de envio da fonte (dB)");
+        fader.onValueChange=[this]{processor.getSourceMixer().setGain(id,gainForDb(fader.getValue()));};
+        secondary.setButtonText("Enviar");secondary.setTooltip("Enviar este canal aos conectados no SonoCraft");
+        secondary.onClick=[this]{
             actionError.clear();
-            if(send.getToggleState() && !requested && !beginCapture()) {send.setToggleState(false,juce::dontSendNotification);return;}
-            processor.getSourceMixer().setSend(id,send.getToggleState());
+            if(secondary.getToggleState() && !requested && !beginCapture()) {secondary.setToggleState(false,juce::dontSendNotification);return;}
+            processor.getSourceMixer().setSend(id,secondary.getToggleState());
         };
-        mute.setButtonText("Silenciar");mute.onClick=[this]{processor.getSourceMixer().setMute(id,mute.getToggleState());};
+        mute.setTooltip("Silenciar o envio desta fonte, mantendo o volume escolhido");mute.onClick=[this]{processor.getSourceMixer().setMute(id,mute.getToggleState());};
         remove.setButtonText("Remover");remove.onClick=[this]{processor.getSourceMixer().remove(id);};
-        capture.onClick=[this]{
+        details.onClick=[this]{
             actionError.clear();
             if(permissionRequired){
                 if(SonoCraftApplicationAudio::requestCapturePermission())beginCapture();
@@ -94,42 +88,22 @@ public:
             else beginCapture();
         };
     }
-    ~SonoCraftSourceStrip() override {level.setLookAndFeel(nullptr);}
     const juce::String& sourceId() const {return id;}
     void sync(const SonoCraftSourceMixer::View& s) {
         if(!name.isBeingEdited())name.setText(s.name,juce::dontSendNotification);
-        type.setText(s.tab?juce::String("ABA DO NAVEGADOR"):juce::String::fromUTF8(s.producing?"APLICATIVO · COM ÁUDIO":"APLICATIVO"),juce::dontSendNotification);
-        requested=s.requested;permissionRequired=s.permissionRequired;capture.setButtonText(permissionRequired?"Autorizar captura":requested?"Parar captura":"Iniciar captura");
-        capture.setEnabled(!s.blockedByTabs);send.setEnabled(!s.blockedByTabs);
+        subtitle.setText(s.tab?juce::String("ABA DO NAVEGADOR"):juce::String::fromUTF8(s.producing?"APLICATIVO · COM ÁUDIO":"APLICATIVO"),juce::dontSendNotification);
+        requested=s.requested;permissionRequired=s.permissionRequired;details.setButtonText(permissionRequired?"Autorizar captura":requested?"Parar captura":"Iniciar captura");
+        details.setEnabled(!s.blockedByTabs);secondary.setEnabled(!s.blockedByTabs);
         status.setText(s.blockedByTabs ? juce::String::fromUTF8("Abas individuais em uso. Remova as abas para enviar o navegador inteiro.") : actionError.isNotEmpty() ? actionError : s.automatic && !s.requested ? juce::String::fromUTF8(s.producing?"Áudio detectado. Ative Enviar para compartilhar.":"Sem áudio agora. Seus ajustes foram mantidos.") : s.active ? (s.sending ? (s.muted ? juce::String("Envio silenciado") : juce::String("Enviando aos conectados")) : juce::String::fromUTF8("Capturando · envio desligado")) : s.status,juce::dontSendNotification);
-        status.setTooltip(s.status);
-        if(!level.isMouseButtonDown())level.setValue(s.gain*100,juce::dontSendNotification);
-        send.setToggleState(s.sending,juce::dontSendNotification);mute.setToggleState(s.muted,juce::dontSendNotification);
-        peak=s.level;repaint();
-    }
-    void resized() override {
-        auto r=getLocalBounds().reduced(10);name.setBounds(r.removeFromTop(30));type.setBounds(r.removeFromTop(20));status.setBounds(r.removeFromTop(60));
-        remove.setBounds(r.removeFromBottom(28));r.removeFromBottom(5);capture.setBounds(r.removeFromBottom(28));
-        auto toggles=r.removeFromBottom(30);send.setBounds(toggles.removeFromLeft(toggles.getWidth()/2));mute.setBounds(toggles);
-        meter=r.removeFromRight(12).reduced(2,12).toFloat();level.setBounds(r);
-    }
-    void paint(juce::Graphics& g) override {
-        g.setColour(SonoCraftTheme::panel());g.fillRoundedRectangle(getLocalBounds().toFloat(),8);
-        g.setColour(SonoCraftTheme::border());g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(.5f),8,1);
-        g.fillRoundedRectangle(meter,3);g.setColour(peak>1?SonoCraftTheme::danger():SonoCraftTheme::accent());
-        auto fill=meter;fill.removeFromTop(fill.getHeight()*(1-juce::jlimit(0.0f,1.0f,(juce::Decibels::gainToDecibels(peak,-60.0f)+60)/60)));
-        g.fillRoundedRectangle(fill,3);
+        status.setTooltip(status.getText());
+        syncGain(s.gain);
+        secondary.setToggleState(s.sending,juce::dontSendNotification);mute.setToggleState(s.muted,juce::dontSendNotification);
+        meterLeft=s.leftLevel;meterRight=s.rightLevel;repaint();
     }
 private:
     SonobusAudioProcessor& processor;
     juce::String id,actionError;
-    juce::Label name,type,status;
-    SonoCraftFaderLookAndFeel faderLookAndFeel;
-    juce::Slider level;
-    juce::ToggleButton send,mute;
-    juce::TextButton capture,remove;
-    juce::Rectangle<float> meter;
-    float peak=0;bool requested=false,permissionRequired=false;
+    bool requested=false,permissionRequired=false;
     bool beginCapture(){
         const auto result=processor.getSourceMixer().restart(id);actionError=result.error;
         if(result.url.isNotEmpty())juce::URL(result.url).launchInDefaultBrowser();
