@@ -159,7 +159,7 @@ SonoCraftApplicationAudio::Discovery discoverSonoCraftAudioApplications() {
                     pid=pid_t(info.pbi_ppid);
                 }
             }
-        } else result.message=juce::String::fromUTF8("Detecção automática requer macOS 14.2+. Use Adicionar fonte neste sistema.");
+        } else result.message=juce::String::fromUTF8("Detecção automática requer macOS 14.2+. Use Fontes para adicionar um aplicativo neste sistema.");
         return result;
     }
 }

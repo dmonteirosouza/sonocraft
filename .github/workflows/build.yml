@@ -54,6 +54,8 @@ jobs:
           retention-days: 7
       - name: Package application and licenses
         run: python scripts/package-sonocraft.py --platform ${{ matrix.package }}
+      - name: Verify downloadable package
+        run: python scripts/verify-package.py --platform ${{ matrix.package }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: SonoCraft-${{ matrix.package }}

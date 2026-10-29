@@ -8,13 +8,19 @@ O SonoCraft reproduz áudio localmente e transmite para outros participantes do 
 
 Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote. No repositório, ele está em [docs/SONOCRAFT-SOURCES.md](docs/SONOCRAFT-SOURCES.md).
 
-- Configure entrada e saída física em **Áudio e saídas → Escuta e saídas**.
-- Aplicativos com áudio aparecem automaticamente na mesa. Use **Adicionar fonte** para abas ou adição manual. Cada canal tem volume, medidor, Enviar e Silenciar.
+- Configure entrada e saída física em **Ajustes → Áudio**.
+- Aplicativos com áudio aparecem automaticamente na mesa. Use **Fontes** para abas ou adição manual. Cada canal tem volume, medidor, Enviar e Silenciar.
 - Ative **Enviar** somente nas fontes que deseja compartilhar com os conectados. O volume original do programa não muda.
-- Uma entrada completa do sistema por cabo virtual fica fora do envio enquanto o modo de fontes individuais está ativo. Para voltar, escolha **Usar entrada completa**.
+- Uma entrada completa do sistema por cabo virtual fica fora do envio enquanto o modo de fontes individuais está ativo. Para voltar, abra **Fontes** e escolha **Usar entrada completa**.
 - Use a mesma versão nos dispositivos conectados.
 
 ## Novidades desta prévia
+
+- Canais padronizados, com volume em dB, medidores e controles nas mesmas posições.
+- Barra única com Conexões, Fontes, Pads, Conversa, Ferramentas e Ajustes. Arquivo, gravação e metrônomo têm painéis próprios.
+- Ajustes reorganizados em Áudio, Conexão, Gravação e Preferências. Dispositivos e segunda saída ficam em um único lugar, com explicações e opções avançadas recolhíveis.
+- Nomes e traduções em português revisados, inclusive nos controles de reprodução dos pads.
+
 
 - Até 32 fontes simultâneas, com controles independentes e nomes editáveis na mesa principal.
 - Seletores curtos de aplicativo/aba substituem a antiga aba Fontes nos Ajustes.
