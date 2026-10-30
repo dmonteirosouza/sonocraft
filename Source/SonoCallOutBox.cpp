@@ -84,9 +84,9 @@ void SonoCallOutBox::paint(Graphics& g)
 {
     g.fillAll(Colours::black.withAlpha(0.25f));
     g.setColour(SonoCraftTheme::panel());
-    g.fillRoundedRectangle(panelBounds.toFloat(), 12);
+    g.fillRoundedRectangle(panelBounds.toFloat(), SonoCraftTheme::radius);
     g.setColour(SonoCraftTheme::border());
-    g.drawRoundedRectangle(panelBounds.toFloat().reduced(0.5f), 12, 1);
+    g.drawRoundedRectangle(panelBounds.toFloat().reduced(0.5f), SonoCraftTheme::radius, 1);
 }
 
 void SonoCallOutBox::mouseDown(const MouseEvent& event)

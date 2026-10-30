@@ -216,8 +216,8 @@ PeersContainerView::PeersContainerView(SonobusAudioProcessor& proc)
     
     droppedTextColor = Colour(0xc0ee8888);
 
-    outlineColor = Colour::fromFloatRGBA(0.25, 0.25, 0.25, 1.0);
-    bgColor = SonoCraftTheme::recessed();
+    outlineColor = SonoCraftTheme::border();
+    bgColor = SonoCraftTheme::panel();
 
     peerModeFull = processor.getPeerDisplayMode() == SonobusAudioProcessor::PeerDisplayModeFull;
 

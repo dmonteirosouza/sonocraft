@@ -415,7 +415,7 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
         viewport = std::make_unique<Viewport>();
         viewport->setViewedComponent(&page, false);
         viewport->setScrollBarsShown(true, false);
-        mSettingsTab->addTab(String::fromUTF8(name), SonoCraftTheme::canvas(), viewport.get(), false);
+        mSettingsTab->addTab(String::fromUTF8(name), SonoCraftTheme::panel(), viewport.get(), false);
     };
     addPage(mAudioOptionsViewport, *mAudioPage, "Áudio");
     addPage(mConnectionViewport, *mConnectionPage, "Conexão");
@@ -1086,17 +1086,6 @@ void OptionsView::showPopTip(const String & message, int timeoutMs, Component * 
 
 void OptionsView::paint(Graphics & g)
 {
-    /*
-    //g.fillAll (Colours::black);
-    Rectangle<int> bounds = getLocalBounds();
-
-    bounds.reduce(1, 1);
-    bounds.removeFromLeft(3);
-    
-    g.setColour(bgColor);
-    g.fillRoundedRectangle(bounds.toFloat(), 6.0f);
-    g.setColour(outlineColor);
-    g.drawRoundedRectangle(bounds.toFloat(), 6.0f, 0.5f);
-*/
+    g.fillAll(SonoCraftTheme::panel());
 }
 

@@ -82,7 +82,7 @@ GenericItemChooser::GenericItemChooser(const Array<GenericItemChooserItem> & ite
     // give it a border
 
     table.setColour (ListBox::outlineColourId, Colour::fromFloatRGBA(0.0, 0.0, 0.0, 0.0));
-    table.setColour (ListBox::backgroundColourId, Colour(0xfff7fafc));
+    table.setColour (ListBox::backgroundColourId, SonoCraftTheme::panel());
     table.setColour (ListBox::textColourId, SonoCraftTheme::text());
     
     setColour (nameTextColourId, SonoCraftTheme::text());
@@ -330,7 +330,7 @@ void GenericItemChooser::buttonClicked (Button* buttonThatWasClicked)
 
 void GenericItemChooser::paint (Graphics& g)
 {
-    //g.fillAll (Colour (0xff000000));
+    g.fillAll(SonoCraftTheme::panel());
 }
  
 

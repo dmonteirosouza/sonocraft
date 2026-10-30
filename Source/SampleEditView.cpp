@@ -549,7 +549,7 @@ bool SampleEditView::keyPressed(const KeyPress& keyPress)
 
 void SampleEditView::paint(Graphics& g)
 {
-    g.fillAll(SonoCraftTheme::canvas());
+    g.fillAll(SonoCraftTheme::panel());
 }
 
 void SampleEditView::resized()

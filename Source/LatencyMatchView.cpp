@@ -112,7 +112,7 @@ LatencyMatchView::~LatencyMatchView()
 
 void LatencyMatchView::paint (Graphics& g)
 {
-    //g.fillAll (SonoCraftTheme::canvas());
+    g.fillAll(SonoCraftTheme::panel());
 }
 
 void LatencyMatchView::resized()

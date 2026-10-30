@@ -120,7 +120,12 @@ SonoLookAndFeel::SonoLookAndFeel(bool useUniversalFont) : mUseUniversalFont(useU
     setColour(PopupMenu::textColourId, ink);
     setColour(PopupMenu::highlightedBackgroundColourId, SonoCraftTheme::selection());
     setColour(PopupMenu::highlightedTextColourId, ink);
-    setColour(SidePanel::backgroundColour, canvas);
+    setColour(SidePanel::backgroundColour, surface);
+    setColour(TabbedComponent::backgroundColourId, surface);
+    setColour(TabbedComponent::outlineColourId, border);
+    setColour(TabbedButtonBar::tabOutlineColourId, border);
+    setColour(AlertWindow::backgroundColourId, surface);
+    setColour(AlertWindow::outlineColourId, border);
     setColour(DrawableButton::textColourId, ink);
     setColour(DrawableButton::textColourOnId, ink);
     setColour(DrawableButton::backgroundOnColourId, Colour(0xffc7e8e9));
@@ -387,7 +392,7 @@ void SonoLookAndFeel::drawTabButton(TabBarButton& button, Graphics& g, bool hove
 {
     auto bounds = button.getLocalBounds().toFloat().reduced(3, 4);
     const bool selected = button.isFrontTab();
-    g.setColour(selected ? SonoCraftTheme::panel() : (hovered || down) ? SonoCraftTheme::recessed() : SonoCraftTheme::canvas());
+    g.setColour(selected ? SonoCraftTheme::selection() : (hovered || down) ? SonoCraftTheme::recessed() : SonoCraftTheme::panel());
     g.fillRoundedRectangle(bounds, 6);
     if (selected) {
         g.setColour(SonoCraftTheme::border());
@@ -402,48 +407,14 @@ void SonoLookAndFeel::drawTabbedButtonBarBackground (TabbedButtonBar&, Graphics&
 
 void SonoLookAndFeel::drawTabAreaBehindFrontButton (TabbedButtonBar& bar, Graphics& g, const int w, const int h)
 {
-    const float shadowSize = 0.15f;
-    
-    Rectangle<int> shadowRect, line;
-    ColourGradient gradient (Colours::black.withAlpha (bar.isEnabled() ? 0.08f : 0.04f), 0, 0,
-                             Colours::transparentBlack, 0, 0, false);
-    
-    switch (bar.getOrientation())
-    {
-        case TabbedButtonBar::TabsAtLeft:
-            gradient.point1.x = (float) w;
-            gradient.point2.x = w * (1.0f - shadowSize);
-            shadowRect.setBounds ((int) gradient.point2.x, 0, w - (int) gradient.point2.x, h);
-            line.setBounds (w - 1, 0, 1, h);
-            break;
-            
-        case TabbedButtonBar::TabsAtRight:
-            gradient.point2.x = w * shadowSize;
-            shadowRect.setBounds (0, 0, (int) gradient.point2.x, h);
-            line.setBounds (0, 0, 1, h);
-            break;
-            
-        case TabbedButtonBar::TabsAtTop:
-            gradient.point1.y = (float) h;
-            gradient.point2.y = h * (1.0f - shadowSize);
-            shadowRect.setBounds (0, (int) gradient.point2.y, w, h - (int) gradient.point2.y);
-            line.setBounds (0, h - 1, w, 1);
-            break;
-            
-        case TabbedButtonBar::TabsAtBottom:
-            gradient.point2.y = h * shadowSize;
-            shadowRect.setBounds (0, 0, w, (int) gradient.point2.y);
-            line.setBounds (0, 0, w, 1);
-            break;
-            
+    g.setColour(SonoCraftTheme::border());
+    switch (bar.getOrientation()) {
+        case TabbedButtonBar::TabsAtLeft:   g.fillRect(w-1, 0, 1, h); break;
+        case TabbedButtonBar::TabsAtRight:  g.fillRect(0, 0, 1, h); break;
+        case TabbedButtonBar::TabsAtTop:    g.fillRect(0, h-1, w, 1); break;
+        case TabbedButtonBar::TabsAtBottom: g.fillRect(0, 0, w, 1); break;
         default: break;
     }
-    
-    g.setGradientFill (gradient);
-    g.fillRect (shadowRect.expanded (2, 2));
-    
-    g.setColour (bar.findColour (TabbedButtonBar::tabOutlineColourId));
-    g.fillRect (line);
 }
 
 void SonoLookAndFeel::drawTabButtonText (TabBarButton& button, Graphics& g, bool isMouseOver, bool isMouseDown)

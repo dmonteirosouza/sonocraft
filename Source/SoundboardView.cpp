@@ -972,7 +972,7 @@ void SoundboardView::applyOptionsToAll(SoundSample & fromsample)
 
 void SoundboardView::paint(Graphics& g)
 {
-    g.fillAll(SonoCraftTheme::canvas());
+    g.fillAll(SonoCraftTheme::panel());
 }
 
 void SoundboardView::componentVisibilityChanged (Component& component)

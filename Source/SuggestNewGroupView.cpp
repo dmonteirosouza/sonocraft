@@ -229,7 +229,7 @@ void SuggestNewGroupView::dismissSelf()
 
 void SuggestNewGroupView::paint (Graphics& g)
 {
-    //g.fillAll (SonoCraftTheme::canvas());
+    g.fillAll(SonoCraftTheme::panel());
 }
 
 void SuggestNewGroupView::resized()

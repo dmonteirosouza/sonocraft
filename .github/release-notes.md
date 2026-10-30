@@ -1,5 +1,6 @@
-SonoCraft 0.4.0-preview.16 — mesa com painéis laterais e ferramentas reorganizadas
+SonoCraft 0.4.0-preview.17 — painéis integrados e visual uniforme
 
+- Padroniza o fundo branco dos painéis e modais, incluindo Ajustes, Conexões, Conversa, Pads e edição de pads. Abas, bordas e cantos usam o mesmo tema; a seleção permanece destacada.
 - No desktop, Conversa e Pads ficam integrados à lateral da mesa, sem modal e sem bloquear os canais. Os painéis alternam na mesma área; texto e configurações são preservados ao fechar e reabrir.
 - Ferramentas abre diretamente o painel lateral e lembra a última ferramenta usada. Arquivo, Gravação e Metrônomo ficam em abas internas; efeitos e roteamento estão em Mais controles.
 - Abrir ferramentas não adiciona mais um bloco acima dos canais. Controles verticais, rótulos claros e rolagem interna permitem usar janelas menores sem cortar opções.

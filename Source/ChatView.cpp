@@ -211,7 +211,7 @@ ChatView::~ChatView()
 
 void ChatView::paint (Graphics& g)
 {
-    g.fillAll (SonoCraftTheme::recessed());
+    g.fillAll (SonoCraftTheme::panel());
 }
 
 void ChatView::resized()

@@ -67,9 +67,9 @@ publicGroupsListModel(this)
     mRecentsGroup->setColour(GroupComponent::outlineColourId, Colour::fromFloatRGBA(0.8, 0.8, 0.8, 0.1));
     mRecentsGroup->setTextLabelPosition(Justification::centred);
 
-    mConnectTab->addTab(TRANS("Recent sessions"), SonoCraftTheme::canvas(), mRecentsContainer.get(), false);
-    mConnectTab->addTab(TRANS("Private group"), SonoCraftTheme::canvas(), mServerConnectViewport.get(), false);
-    mConnectTab->addTab(TRANS("Public groups"), SonoCraftTheme::canvas(), mPublicServerConnectContainer.get(), false);
+    mConnectTab->addTab(TRANS("Recent sessions"), SonoCraftTheme::panel(), mRecentsContainer.get(), false);
+    mConnectTab->addTab(TRANS("Private group"), SonoCraftTheme::panel(), mServerConnectViewport.get(), false);
+    mConnectTab->addTab(TRANS("Public groups"), SonoCraftTheme::panel(), mPublicServerConnectContainer.get(), false);
     //mConnectTab->addTab(TRANS("DIRECT"), SonoCraftTheme::canvas(), mDirectConnectContainer.get(), false);
 
 
@@ -702,7 +702,7 @@ void ConnectView::resized()  {
             mRecentsGroup->removeChildComponent(mRecentsContainer.get());
             mRecentsGroup->setVisible(false);
 
-            mConnectTab->addTab(TRANS("Recent sessions"), SonoCraftTheme::canvas(), mRecentsContainer.get(), false);
+            mConnectTab->addTab(TRANS("Recent sessions"), SonoCraftTheme::panel(), mRecentsContainer.get(), false);
             mConnectTab->moveTab(2, 0);
             mConnectTab->setCurrentTabIndex(tabsel + 1);
             updateLayout();
@@ -1495,18 +1495,7 @@ void ConnectView::showPopTip(const String & message, int timeoutMs, Component * 
 
 void ConnectView::paint(Graphics & g)
 {
-    /*
-    //g.fillAll (Colours::black);
-    Rectangle<int> bounds = getLocalBounds();
-
-    bounds.reduce(1, 1);
-    bounds.removeFromLeft(3);
-    
-    g.setColour(bgColor);
-    g.fillRoundedRectangle(bounds.toFloat(), 6.0f);
-    g.setColour(outlineColor);
-    g.drawRoundedRectangle(bounds.toFloat(), 6.0f, 0.5f);
-*/
+    g.fillAll(SonoCraftTheme::panel());
 }
 
 

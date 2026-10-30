@@ -929,10 +929,10 @@ ChannelGroupsView::ChannelGroupsView(SonobusAudioProcessor& proc, bool peerMode,
     
     droppedTextColor = Colour(0xc0ee8888);
 
-    outlineColor = Colour::fromFloatRGBA(0.25, 0.25, 0.25, 1.0);
+    outlineColor = SonoCraftTheme::border();
 
     //bgColor = Colour::fromFloatRGBA(0.045f, 0.045f, 0.05f, 1.0f);
-    bgColor = SonoCraftTheme::recessed();
+    bgColor = SonoCraftTheme::panel();
 
     mInGainSlider     = std::make_unique<Slider>(Slider::LinearHorizontal,  Slider::TextBoxAbove);
     mInGainSlider->setName("ingain");

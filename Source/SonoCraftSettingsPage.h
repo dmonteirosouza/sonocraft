@@ -20,6 +20,7 @@ public:
     }
     void heading(const char* text) { label(text, true); }
     void help(const char* text) { label(text, false); }
+    void paint(juce::Graphics& g) override { g.fillAll(SonoCraftTheme::panel()); }
     void resized() override {
         if (layingOut) return;
         const juce::ScopedValueSetter<bool> guard(layingOut, true);
