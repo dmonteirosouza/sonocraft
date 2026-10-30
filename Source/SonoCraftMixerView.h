@@ -391,12 +391,12 @@ public:
             bounds.removeFromRight(14);
             if (hasPanel) {
                 desktopPanelBounds = area.toFloat();
-                desktopPanel->setBounds(area.reduced(1));
+                desktopPanel->setBounds(area.reduced(8));
             } else {
                 toolBounds = area.toFloat();
                 auto content = area.reduced(16, 12);
-                auto titleRow = content.removeFromTop(40);
-                closeTool.setBounds(titleRow.removeFromRight(36)); toolTitle.setBounds(titleRow);
+                auto titleRow = content.removeFromTop(SonoCraftTheme::headerHeight);
+                closeTool.setBounds(titleRow.removeFromRight(SonoCraftTheme::headerHeight)); toolTitle.setBounds(titleRow);
                 content.removeFromTop(8);
                 auto tabs = content.removeFromTop(34);
                 const int tabWidth = tabs.getWidth()/3;
@@ -489,20 +489,15 @@ public:
 #if JUCE_IOS || JUCE_ANDROID
         g.setColour(text()); g.setFont(juce::Font(21.0f,juce::Font::bold));
         g.drawText("SonoCraft",56,12,160,30,juce::Justification::centredLeft);
-        if(!toolBounds.isEmpty()){g.setColour(panel());g.fillRoundedRectangle(toolBounds,12);}
+        if (!toolBounds.isEmpty()) drawPanel(g, toolBounds);
         return;
 #endif
         g.setColour(text()); g.setFont(juce::Font(19.0f, juce::Font::bold));
         g.drawText("SonoCraft", 62, 13, 135, 26, juce::Justification::centredLeft);
         g.setColour(secondary()); g.setFont(11.5f);
         g.drawText(juce::String::fromUTF8("MESA DE ÁUDIO"), 63, 39, 135, 16, juce::Justification::centredLeft);
-        if (!toolBounds.isEmpty()) {
-            g.setColour(panel()); g.fillRoundedRectangle(toolBounds, radius);
-            g.setColour(border()); g.drawRoundedRectangle(toolBounds.reduced(.5f), radius, 1);
-        }
-        if (!desktopPanelBounds.isEmpty()) {
-            g.setColour(border()); g.drawRoundedRectangle(desktopPanelBounds.reduced(.5f), radius, 1);
-        }
+        if (!toolBounds.isEmpty()) drawPanel(g, toolBounds);
+        if (!desktopPanelBounds.isEmpty()) drawPanel(g, desktopPanelBounds);
         if (strips.isEmpty() && sourceStrips.isEmpty() && input.getParentComponent() != &channels) {
             auto empty = viewport.getBounds().reduced(12);
             g.setColour(panel().withAlpha(.7f)); g.fillRoundedRectangle(empty.toFloat(), radius);

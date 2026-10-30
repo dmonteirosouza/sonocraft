@@ -159,7 +159,7 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     titleBox.items.add(FlexItem(4, 4).withMargin(0).withFlex(0));
     titleBox.items.add(FlexItem(minButtonWidth, 4, *mTitleLabel).withMargin(0).withFlex(1));
     titleBox.items.add(FlexItem(menubuttw, 4, *mMenuButton).withMargin(0).withFlex(0));
-    titleBox.items.add(FlexItem(menubuttw, 4, *mCloseButton).withMargin(0).withFlex(0));
+    titleBox.items.add(FlexItem(titleheight, 4, *mCloseButton).withMargin(0).withFlex(0));
     titleBox.items.add(FlexItem(4, 4).withMargin(0).withFlex(0));
 
     chatTextBox.items.clear();

@@ -14,4 +14,18 @@ inline juce::Colour danger() { return juce::Colour(0xffb43d4b); }
 inline juce::Colour warning() { return juce::Colour(0xff9a581b); }
 constexpr int space = 8;
 constexpr float radius = 8.0f;
+constexpr int panelInset = 12;
+#if JUCE_IOS || JUCE_ANDROID
+constexpr int headerHeight = 48;
+#else
+constexpr int headerHeight = 44;
+#endif
+// Shared frame for floating dialogs and docked panels. Keep child content
+// inset so rectangular child backgrounds cannot cover the rounded corners.
+inline void drawPanel(juce::Graphics& g, juce::Rectangle<float> bounds) {
+    g.setColour(panel());
+    g.fillRoundedRectangle(bounds, radius);
+    g.setColour(border());
+    g.drawRoundedRectangle(bounds.reduced(0.5f), radius, 1.0f);
+}
 }

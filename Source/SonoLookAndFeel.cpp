@@ -72,10 +72,10 @@ SonoLookAndFeel::SonoLookAndFeel(bool useUniversalFont) : mUseUniversalFont(useU
     setColourScheme(getLightColourScheme());
     const auto canvas = SonoCraftTheme::canvas(), surface = SonoCraftTheme::panel(), ink = SonoCraftTheme::text();
     const auto muted = SonoCraftTheme::secondary(), border = SonoCraftTheme::border(), accent = SonoCraftTheme::accent();
-    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::windowBackground, canvas);
+    getCurrentColourScheme().setUIColour(ColourScheme::UIColour::windowBackground, surface);
     getCurrentColourScheme().setUIColour(ColourScheme::UIColour::widgetBackground, surface);
     getCurrentColourScheme().setUIColour(ColourScheme::UIColour::outline, border);
-    setColour(ResizableWindow::backgroundColourId, canvas);
+    setColour(ResizableWindow::backgroundColourId, surface);
     setColour(Label::textColourId, ink);
     setColour(Label::textWhenEditingColourId, ink);
     setColour(TextButton::buttonColourId, SonoCraftTheme::recessed());
@@ -278,18 +278,16 @@ void SonoLookAndFeel::drawCallOutBoxBackground (CallOutBox& box, Graphics& g,
         cachedImage = Image (Image::ARGB, box.getWidth(), box.getHeight(), true);
         Graphics g2 (cachedImage);
         
-        DropShadow (Colours::black.withAlpha (0.7f), 8, Point<int> (0, 2)).drawForPath (g2, path);
+        DropShadow (Colours::black.withAlpha (0.12f), 8, Point<int> (0, 2)).drawForPath (g2, path);
     }
     
     g.setColour (Colours::black);
     g.drawImageAt (cachedImage, 0, 0);
     
-    //g.setColour (getCurrentColourScheme().getUIColour (ColourScheme::UIColour::widgetBackground).withAlpha (0.8f));
-    g.setColour (getCurrentColourScheme().getUIColour (ColourScheme::UIColour::widgetBackground));
-    g.fillPath (path);
-    
-    g.setColour (getCurrentColourScheme().getUIColour (ColourScheme::UIColour::outline).withAlpha (0.8f));
-    g.strokePath (path, PathStrokeType (1.0f));
+    g.setColour(SonoCraftTheme::panel());
+    g.fillPath(path);
+    g.setColour(SonoCraftTheme::border());
+    g.strokePath(path, PathStrokeType(1.0f));
 }
 
 

@@ -43,7 +43,7 @@ void SonoDrawableButton::paint (Graphics& g)
     if (closeControl) {
         if (isDown() || isMouseOver() || hasKeyboardFocus(false)) {
             g.setColour(SonoCraftTheme::selection());
-            g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(4), 8);
+            g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(4), SonoCraftTheme::radius);
         }
         return; // The vector cross is the DrawableButton child.
     }

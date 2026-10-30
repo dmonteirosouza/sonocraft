@@ -51,14 +51,13 @@ void SonoCallOutBox::resized()
     const ScopedValueSetter<bool> guard(layingOut, true);
 #if JUCE_IOS || JUCE_ANDROID
     panelBounds = getLocalBounds().reduced(12);
-    constexpr int headerHeight = 48;
 #else
     auto available = getLocalBounds().reduced(24);
     panelBounds = available.withSizeKeepingCentre(jmin(available.getWidth(), jmax(360, preferredWidth + 24)),
                                                   jmin(available.getHeight(), jmax(180, preferredHeight + (ownHeader ? 24 : 68))));
-    constexpr int headerHeight = 44;
 #endif
-    auto area = panelBounds.reduced(12);
+    constexpr int headerHeight = SonoCraftTheme::headerHeight;
+    auto area = panelBounds.reduced(SonoCraftTheme::panelInset);
     if (!ownHeader) {
         auto header = area.removeFromTop(headerHeight);
         close.setBounds(header.removeFromRight(headerHeight));
@@ -83,10 +82,7 @@ void SonoCallOutBox::resized()
 void SonoCallOutBox::paint(Graphics& g)
 {
     g.fillAll(Colours::black.withAlpha(0.25f));
-    g.setColour(SonoCraftTheme::panel());
-    g.fillRoundedRectangle(panelBounds.toFloat(), SonoCraftTheme::radius);
-    g.setColour(SonoCraftTheme::border());
-    g.drawRoundedRectangle(panelBounds.toFloat().reduced(0.5f), SonoCraftTheme::radius, 1);
+    SonoCraftTheme::drawPanel(g, panelBounds.toFloat());
 }
 
 void SonoCallOutBox::mouseDown(const MouseEvent& event)
