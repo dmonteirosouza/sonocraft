@@ -21,7 +21,7 @@ Leia [o guia de fontes e dispositivos](COMO-USAR-FONTES.md) incluído no pacote.
 - Recebimento corrigido quando a saída principal está em **Nenhum**: ainda é possível ouvir pela segunda saída física.
 
 - Canais padronizados, com volume em dB, medidores e controles nas mesmas posições.
-- Barra única com Conexões, Fontes, Pads, Conversa, Ferramentas e Ajustes. Arquivo, gravação e metrônomo têm painéis próprios.
+- Barra única com Conexões, Fontes, Pads, Conversa, Ferramentas e Ajustes. No desktop, Conversa e Pads ficam integrados à lateral da mesa, sem bloquear os canais. Ferramentas abre diretamente a última ferramenta usada, com abas Arquivo, Gravação e Metrônomo; efeitos e roteamento ficam em Mais controles. Fechar o painel não interrompe a reprodução ou a gravação. No mobile, Conversa e Pads mantêm os painéis adaptados à tela.
 - Ajustes reorganizados em Áudio, Conexão, Gravação e Preferências. Dispositivos e segunda saída ficam em um único lugar, com explicações e opções avançadas recolhíveis.
 - Nomes e traduções em português revisados, inclusive nos controles de reprodução dos pads.
 

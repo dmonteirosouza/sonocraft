@@ -2,6 +2,8 @@
 // the topmost sheet. No audio hardware, network connection or visible window.
 #include "../Source/SonoCallOutBox.h"
 #include "../Source/SonoLookAndFeel.h"
+#include "../Source/SonoCraftMixerView.h"
+#include "../Source/ChatView.h"
 #include <iostream>
 
 class DialogChecks final : private juce::Timer {
@@ -69,10 +71,77 @@ private:
         }
     }
 };
+static juce::Component* findComponent(juce::Component& root, const juce::String& id) {
+    if (root.getComponentID() == id) return &root;
+    for (auto* child : root.getChildren()) if (auto* found = findComponent(*child, id)) return found;
+    return nullptr;
+}
+static juce::Button* findButton(juce::Component& root, const juce::String& text) {
+    if (auto* button = dynamic_cast<juce::Button*>(&root)) if (button->getButtonText() == text) return button;
+    for (auto* child : root.getChildren()) if (auto* found = findButton(*child, text)) return found;
+    return nullptr;
+}
+static bool checkDesktopDock() {
+    auto processor = std::make_unique<SonobusAudioProcessor>();
+    SonoLookAndFeel look;
+    juce::TextEditor conversation, pads;
+    conversation.setText("Texto preservado");
+    SonoCraftMixerView mixer(*processor, false);
+    mixer.setLookAndFeel(&look);
+    bool ok = true;
+    for (const auto size : {juce::Point<int>(820,580), juce::Point<int>(1040,680), juce::Point<int>(1440,900)}) {
+        mixer.setSize(size.x,size.y);
+        auto* channels = findComponent(mixer,"mixer.channels");
+        const auto fullArea = channels->getBounds();
+        mixer.showDesktopPanel(conversation);
+        ok &= mixer.isEnabled() && conversation.getParentComponent()==&mixer && conversation.isVisible();
+        ok &= juce::Component::getCurrentlyModalComponent()==nullptr;
+        ok &= channels->getRight() <= conversation.getX() && channels->getY()==fullArea.getY();
+        ok &= mixer.getLocalBounds().contains(conversation.getBounds());
+        mixer.showDesktopPanel(pads);
+        ok &= !conversation.isVisible() && pads.isVisible();
+        mixer.hideDesktopPanel(pads);
+        ok &= channels->getBounds()==fullArea && conversation.getText()=="Texto preservado";
+        mixer.showDesktopPanel(conversation);
+        for (const auto text : {"Arquivo", "Gravação", "Metrônomo"}) {
+            auto* tab = findButton(mixer,juce::String::fromUTF8(text));
+            if (!tab || !tab->onClick) return false;
+            tab->onClick();
+            ok &= !conversation.isVisible() && channels->getY()==fullArea.getY();
+            auto* tools = dynamic_cast<juce::Viewport*>(findComponent(mixer,"tools.viewport"));
+            ok &= tools && tools->isVisible() && channels->getRight() < tools->getX();
+            if (tools) for (auto* control : tools->getViewedComponent()->getChildren())
+                if (control->isVisible()) ok &= tools->getViewedComponent()->getLocalBounds().contains(control->getBounds());
+            ok &= juce::Component::getCurrentlyModalComponent()==nullptr;
+        }
+        const auto preview = juce::SystemStats::getEnvironmentVariable("SONOCRAFT_DOCK_PREVIEW",{});
+        if (preview.isNotEmpty() && size.x==1040) {
+            juce::FileOutputStream out{juce::File(preview)};
+            out.setPosition(0); out.truncate();
+            ok &= out.openedOk() && juce::PNGImageFormat().writeImageToStream(mixer.createComponentSnapshot(mixer.getLocalBounds()),out);
+        }
+        auto* close = dynamic_cast<juce::Button*>(findComponent(mixer,"tools.close"));
+        if (!close || !close->onClick) return false;
+        close->onClick();
+        ok &= channels->getBounds()==fullArea;
+        if (preview.isNotEmpty() && size.x==1040) {
+            AooServerConnectionInfo connection;
+            ChatView chat(*processor, connection);
+            mixer.showDesktopPanel(chat);
+            juce::FileOutputStream out{juce::File(preview).getSiblingFile("desktop-chat-preview.png")};
+            out.setPosition(0); out.truncate();
+            ok &= out.openedOk() && juce::PNGImageFormat().writeImageToStream(mixer.createComponentSnapshot(mixer.getLocalBounds()),out);
+            mixer.hideDesktopPanel(chat);
+        }
+    }
+    mixer.setLookAndFeel(nullptr);
+    std::cout << (ok ? "Desktop dock geometry, non-modal navigation and tool scrolling passed\n" : "Desktop dock regression failed\n");
+    return ok;
+}
 int main() {
     juce::ScopedJuceInitialiser_GUI gui;
     DialogChecks checks;
     juce::MessageManager::getInstance()->runDispatchLoop();
     if (!checks.failures) std::cout << "Dialog lifecycle checks passed\n";
-    return checks.failures ? 1 : 0;
+    return checks.failures || !checkDesktopDock() ? 1 : 0;
 }

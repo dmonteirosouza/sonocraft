@@ -1,18 +1,17 @@
-SonoCraft 0.4.0-preview.15 — medidores isolados e interface padronizada
+SonoCraft 0.4.0-preview.16 — mesa com painéis laterais e ferramentas reorganizadas
 
-- Corrige o medidor automático do Windows que podia acompanhar a saída inteira do computador no canal de um aplicativo de chamada, como o Teams. A medição passa a usar o áudio reproduzido pelo processo do aplicativo, separado das sessões usadas para cancelamento de eco.
-- A medição automática não grava, reproduz nem envia áudio. O botão Enviar continua independente. Medidores são liberados quando a sessão fica inativa; falhas não voltam a usar o medidor misturado.
-- Diagnóstico identifica os nomes das fontes e dos participantes, a origem da medição e o estado da captura.
-- Configurações, conexões, conversa, pads e editores usam painéis consistentes, com título e botão de fechar à direita, sem moldura permanente. Canais de entrada e saída usam checkbox e texto proporcionais aos demais campos.
-- Preserva edições ao fechar e reabrir painéis; mantém o salvamento das opções dos pads.
-- Inclui no código as melhorias mobile: identificador net.sonocraft.audio, layout para toque, seletores legíveis e menor custo de atualização da interface. Os downloads desta publicação são para Windows e macOS; não inclui instalador iOS ou nova versão Android.
+- No desktop, Conversa e Pads ficam integrados à lateral da mesa, sem modal e sem bloquear os canais. Os painéis alternam na mesma área; texto e configurações são preservados ao fechar e reabrir.
+- Ferramentas abre diretamente o painel lateral e lembra a última ferramenta usada. Arquivo, Gravação e Metrônomo ficam em abas internas; efeitos e roteamento estão em Mais controles.
+- Abrir ferramentas não adiciona mais um bloco acima dos canais. Controles verticais, rótulos claros e rolagem interna permitem usar janelas menores sem cortar opções.
+- Fechar um painel apenas oculta seus controles: reprodução, pads, gravação e metrônomo continuam funcionando.
+- Corrige a mensagem de mesa vazia que poderia aparecer atrás dos canais em janelas estreitas.
+- Mantém a correção de medição isolada dos aplicativos no Windows da prévia 15 e a remoção da saída para microfone virtual.
+- No mobile, Conversa e Pads mantêm os painéis adaptados à tela. Esta publicação contém downloads para Windows e macOS, sem novo APK ou instalador iOS.
 
 **Downloads:** Windows x64 e macOS Universal (Apple Silicon e Intel). Extraia o ZIP antes de executar. Use a mesma prévia nos computadores conectados.
 
-**Validação:** a publicação depende das compilações dos dois sistemas, testes de áudio/UDP e ciclo de vida dos painéis, e verificação dos pacotes. No Mac, o pacote é conferido nas duas arquiteturas e recebe assinatura provisória. Os testes automatizados não substituem a validação com o Teams e os dispositivos físicos; essa confirmação continua necessária no Windows.
+**Validação:** publicação condicionada às compilações dos dois sistemas, testes de áudio/UDP, testes de navegação sem modal, preservação de texto e geometria dos painéis em três tamanhos de janela, além da verificação dos ZIPs. No Mac, o pacote é conferido nas duas arquiteturas e recebe assinatura provisória. Testes automatizados não substituem a validação com dispositivos físicos.
 
-**Como verificar a correção:** com o Teams em chamada e sem áudio dos participantes, reproduza e pause o Chrome do outro computador. O canal do participante remoto deve acompanhar o som; o canal local do Teams deve acompanhar apenas o áudio reproduzido pelo próprio Teams, inclusive com o envio desligado.
-
-**Compatibilidade:** a medição isolada e a captura por aplicativo no Windows requerem build 20348 ou posterior (normalmente Windows 11). Em sistemas incompatíveis, o medidor informa que a leitura está indisponível. No Mac, detecção automática requer macOS 14.2+ e captura por aplicativo requer macOS 13+. A saída para microfone virtual permanece removida. Captura local de aplicativos/abas não está disponível no mobile.
+**Compatibilidade:** medição isolada e captura por aplicativo no Windows requerem build 20348 ou posterior (normalmente Windows 11). No Mac, detecção automática requer macOS 14.2+ e captura por aplicativo requer macOS 13+. Captura local de aplicativos/abas não está disponível no mobile.
 
 Prévia experimental, sem assinatura comercial/notarização. O Mac usa assinatura provisória e pode exigir nova autorização de captura após a atualização. Leia COMO-USAR-FONTES.md dentro do pacote.

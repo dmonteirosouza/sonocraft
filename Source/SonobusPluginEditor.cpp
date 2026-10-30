@@ -3365,6 +3365,7 @@ void SonobusAudioProcessorEditor::componentVisibilityChanged (Component& compone
         processor.setLastChatShown(mChatWasVisible);
 
         mAboutToShowChat = false;
+        if (mMixerWorkspace) { mMixerWorkspace->resized(); mMixerWorkspace->repaint(); }
     }
     else if (&component == mSoundboardView.get()) {
         if (!mSoundboardView->isVisible() && mSoundboardWasVisible) {
@@ -3380,6 +3381,7 @@ void SonobusAudioProcessorEditor::componentVisibilityChanged (Component& compone
         mSoundboardWasVisible = mSoundboardView->isVisible();
         processor.setLastSoundboardShown(mSoundboardWasVisible);
         mAboutToShowSoundboard = false;
+        if (mMixerWorkspace) { mMixerWorkspace->resized(); mMixerWorkspace->repaint(); }
     }
     else if (&component == mConnectView.get()) {
         mTopLevelContainer->setEnabled(!mConnectView->isVisible());
@@ -4428,25 +4430,37 @@ void SonobusAudioProcessorEditor::showSuggestedGroupPrompt(const String &name, c
 void SonobusAudioProcessorEditor::showChatPanel(bool show, bool allowresize)
 {
     ignoreUnused(allowresize);
+#if JUCE_IOS || JUCE_ANDROID
     if (show) {
         if (chatPanelDialog) { chatPanelDialog->toFront(true); return; }
         chatPanelDialog = &SonoCallOutBox::launchForComponent(*mChatView, *this, 600, 700);
     } else if (auto* dialog = dynamic_cast<CallOutBox*>(chatPanelDialog.getComponent())) {
         dialog->dismiss();
     } else mChatView->setVisible(false);
-
+#else
+    if (mMixerWorkspace) {
+        if (show) mMixerWorkspace->showDesktopPanel(*mChatView);
+        else mMixerWorkspace->hideDesktopPanel(*mChatView);
+    } else mChatView->setVisible(show);
+#endif
 }
 
 void SonobusAudioProcessorEditor::showSoundboardPanel(bool show, bool allowresize)
 {
     ignoreUnused(allowresize);
+#if JUCE_IOS || JUCE_ANDROID
     if (show) {
         if (padsPanelDialog) { padsPanelDialog->toFront(true); return; }
         padsPanelDialog = &SonoCallOutBox::launchForComponent(*mSoundboardView, *this, 720, 720);
     } else if (auto* dialog = dynamic_cast<CallOutBox*>(padsPanelDialog.getComponent())) {
         dialog->dismiss();
     } else mSoundboardView->setVisible(false);
-
+#else
+    if (mMixerWorkspace) {
+        if (show) mMixerWorkspace->showDesktopPanel(*mSoundboardView);
+        else mMixerWorkspace->hideDesktopPanel(*mSoundboardView);
+    } else mSoundboardView->setVisible(show);
+#endif
 }
 
 

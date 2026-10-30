@@ -146,20 +146,32 @@ private:
 
 class SonoCraftMixerView final : public juce::Component, private juce::Timer {
 public:
-    explicit SonoCraftMixerView(SonobusAudioProcessor& p) : processor(p), input(p, SonoCraftChannelStrip::input), master(p, SonoCraftChannelStrip::master) {
+    explicit SonoCraftMixerView(SonobusAudioProcessor& p, bool discoverSources = true) : processor(p), input(p, SonoCraftChannelStrip::input), master(p, SonoCraftChannelStrip::master) {
         for (auto* c : std::initializer_list<juce::Component*> { &input, &master, &viewport, &session, &sourceRouting, &brand,
                 &connections, &sources, &soundboard, &chat, &tools, &settings,
                 &toolTitle, &toolHelp, &closeTool, &file, &play, &stop, &record, &playingActivity, &recordingActivity, &metronomeActivity,
+                &playerTab, &recorderTab, &metronomeTab, &moreTools, &tempoLabel, &levelLabel,
                 &metEnabled, &metTempo, &metLevel, &metSend, &inspector, &bufferMode, &bufferTime })
             addAndMakeVisible(c);
         brand.setImage(juce::ImageCache::getFromMemory(BinaryData::sonocraft_icon_256_png, BinaryData::sonocraft_icon_256_pngSize));
+        viewport.setComponentID("mixer.channels");
+        toolViewport.setComponentID("tools.viewport");
+        closeTool.setComponentID("tools.close");
         viewport.setViewedComponent(&channels, false);
+#if !(JUCE_IOS || JUCE_ANDROID)
+        addAndMakeVisible(toolViewport);
+        toolViewport.setViewedComponent(&toolContent, false);
+        toolViewport.setScrollBarsShown(true, false);
+        for (auto* c : std::initializer_list<juce::Component*> { &toolHelp, &file, &play, &stop, &record,
+                &metEnabled, &metSend, &metTempo, &metLevel, &tempoLabel, &levelLabel, &moreTools })
+            toolContent.addAndMakeVisible(c);
+#endif
         viewport.setScrollBarsShown(true, true);
         session.setFont(13.0f); session.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
         session.setJustificationType(juce::Justification::centredRight);
         connections.setButtonText(juce::String::fromUTF8("Conexões")); connections.opensMenu = true;
         sources.setButtonText("Fontes"); soundboard.setButtonText("Pads"); chat.setButtonText("Conversa");
-        tools.setButtonText("Ferramentas"); tools.opensMenu = true; settings.setButtonText("Ajustes");
+        tools.setButtonText("Ferramentas"); tools.opensMenu = false; settings.setButtonText("Ajustes");
         for (auto* button : { &connections, &sources, &soundboard, &chat, &tools, &settings }) {
             button->setColour(juce::TextButton::buttonColourId, SonoCraftTheme::panel());
             button->setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
@@ -200,8 +212,28 @@ public:
         };
         sourceRouting.setFont(12.0f); sourceRouting.setMinimumHorizontalScale(1);
         sourceRouting.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        toolTitle.setFont(juce::Font(15.0f, juce::Font::bold));
+        playerTab.setButtonText("Arquivo"); recorderTab.setButtonText(juce::String::fromUTF8("Gravação"));
+        metronomeTab.setButtonText(juce::String::fromUTF8("Metrônomo"));
+        moreTools.setButtonText("Mais controles");
+        moreTools.onClick = [this] { showAdvancedTools(); };
+        playerTab.onClick = [this] { selectTool(Tool::player); };
+        recorderTab.onClick = [this] { selectTool(Tool::recorder); };
+        metronomeTab.onClick = [this] { selectTool(Tool::metronome); };
+        for (auto* tab : { &playerTab, &recorderTab, &metronomeTab }) {
+            tab->setColour(juce::TextButton::buttonColourId, SonoCraftTheme::recessed());
+            tab->setColour(juce::TextButton::buttonOnColourId, SonoCraftTheme::selection());
+            tab->setColour(juce::TextButton::textColourOnId, SonoCraftTheme::accent());
+        }
+        tempoLabel.setText("Tempo", juce::dontSendNotification);
+        levelLabel.setText("Volume", juce::dontSendNotification);
+        for (auto* label : { &tempoLabel, &levelLabel }) {
+            label->setFont(juce::Font(13.0f, juce::Font::bold));
+            label->setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
+        }
+        toolTitle.setFont(juce::Font(17.0f, juce::Font::bold));
         toolHelp.setFont(12.0f); toolHelp.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
+        toolHelp.setMinimumHorizontalScale(1.0f);
+        toolHelp.setJustificationType(juce::Justification::topLeft);
         closeTool.configureAsCloseControl();
         closeTool.setTooltip(juce::String::fromUTF8("Ocultar os controles sem parar a reprodução, a gravação ou o metrônomo"));
         closeTool.onClick = [this] { selectTool(Tool::none); };
@@ -238,11 +270,12 @@ public:
         bufferTime.onValueChange = [this] { applyBuffer(); };
         inspector.setFont(13.0f);
 #if !(JUCE_IOS || JUCE_ANDROID)
-        processor.getSourceMixer().startDiscovery();
+        if (discoverSources) processor.getSourceMixer().startDiscovery();
 #endif
 #if JUCE_IOS || JUCE_ANDROID
+        juce::ignoreUnused(discoverSources);
         sources.setVisible(false); sourceRouting.setVisible(false);
-        connections.setButtonText("Conectar"); tools.setButtonText("Mais");
+        connections.setButtonText("Conectar"); tools.setButtonText("Mais"); tools.opensMenu = true;
         viewport.setScrollBarsShown(true, false);
 #endif
         refresh();
@@ -252,13 +285,27 @@ public:
         startTimerHz(24);
 #endif
     }
-    ~SonoCraftMixerView() override { stopTimer(); viewport.setViewedComponent(nullptr, false); }
+    ~SonoCraftMixerView() override { stopTimer(); viewport.setViewedComponent(nullptr, false); toolViewport.setViewedComponent(nullptr, false); }
     std::function<void()> onConnectIP, onConnectGroup, onSettings, onRecord, onFile, onRouting, onEffects, onChat, onSoundboard, onPlay;
     std::function<bool()> isChatVisible, isPadsVisible, isSettingsVisible, isConnectionVisible, isAdvancedToolVisible;
     juce::Component* connectionAnchor() { return &connections; }
     juce::Component* toolsAnchor() { return &tools; }
     juce::Component* recordingAnchor() { return record.isVisible() ? static_cast<juce::Component*>(&record) : &tools; }
 
+    // Views remain owned by the editor. Docking never enters a modal loop or
+    // disables the mixer; closing a panel keeps its contents and transport alive.
+    void showDesktopPanel(juce::Component& content) {
+        tool = Tool::none;
+        if (desktopPanel && desktopPanel != &content) desktopPanel->setVisible(false);
+        desktopPanel = &content;
+        addAndMakeVisible(content);
+        resized(); refresh(); repaint();
+    }
+    void hideDesktopPanel(juce::Component& content) {
+        content.setVisible(false);
+        if (desktopPanel == &content) desktopPanel = nullptr;
+        resized(); repaint();
+    }
     void resized() override {
         auto bounds = getLocalBounds().reduced(18, 12);
 #if JUCE_IOS || JUCE_ANDROID
@@ -309,6 +356,9 @@ public:
         record.setVisible(tool == Tool::recorder);
         for (auto* c : std::initializer_list<juce::Component*> { &metEnabled, &metSend, &metTempo, &metLevel }) c->setVisible(tool == Tool::metronome);
         toolBounds = {};
+        desktopPanelBounds = {};
+#if JUCE_IOS || JUCE_ANDROID
+        for (auto* c : std::initializer_list<juce::Component*> { &playerTab, &recorderTab, &metronomeTab, &moreTools, &tempoLabel, &levelLabel }) c->setVisible(false);
         if (hasTool) {
             const bool wrapMet = tool == Tool::metronome && bounds.getWidth() < 760;
             auto area = bounds.removeFromTop(wrapMet ? 164 : 130);
@@ -329,6 +379,59 @@ public:
             }
             bounds.removeFromTop(10);
         }
+#else
+        const bool hasPanel = desktopPanel && desktopPanel->isVisible();
+        toolViewport.setVisible(hasTool); moreTools.setVisible(hasTool);
+        for (auto* c : { &playerTab, &recorderTab, &metronomeTab }) c->setVisible(hasTool);
+        tempoLabel.setVisible(tool == Tool::metronome); levelLabel.setVisible(tool == Tool::metronome);
+        if (hasTool || hasPanel) {
+            const int preferred = hasPanel ? 400 : 330;
+            const int width = juce::jlimit(300, preferred, juce::roundToInt(bounds.getWidth() * .42f));
+            auto area = bounds.removeFromRight(width);
+            bounds.removeFromRight(14);
+            if (hasPanel) {
+                desktopPanelBounds = area.toFloat();
+                desktopPanel->setBounds(area.reduced(1));
+            } else {
+                toolBounds = area.toFloat();
+                auto content = area.reduced(16, 12);
+                auto titleRow = content.removeFromTop(40);
+                closeTool.setBounds(titleRow.removeFromRight(36)); toolTitle.setBounds(titleRow);
+                content.removeFromTop(8);
+                auto tabs = content.removeFromTop(34);
+                const int tabWidth = tabs.getWidth()/3;
+                playerTab.setBounds(tabs.removeFromLeft(tabWidth).reduced(2, 0));
+                recorderTab.setBounds(tabs.removeFromLeft(tabWidth).reduced(2, 0));
+                metronomeTab.setBounds(tabs.reduced(2, 0));
+                playerTab.setToggleState(tool == Tool::player, juce::dontSendNotification);
+                recorderTab.setToggleState(tool == Tool::recorder, juce::dontSendNotification);
+                metronomeTab.setToggleState(tool == Tool::metronome, juce::dontSendNotification);
+                content.removeFromTop(16);
+                toolViewport.setBounds(content);
+                toolContent.setSize(content.getWidth() - toolViewport.getScrollBarThickness(),
+                                    juce::jmax(content.getHeight(), tool == Tool::metronome ? 380 : 240));
+                content = toolContent.getLocalBounds();
+                toolHelp.setBounds(content.removeFromTop(68)); content.removeFromTop(12);
+                if (tool == Tool::player) {
+                    file.setBounds(content.removeFromTop(38)); content.removeFromTop(12);
+                    auto transport = content.removeFromTop(38);
+                    play.setBounds(transport.removeFromLeft(transport.getWidth()/2).withTrimmedRight(4));
+                    stop.setBounds(transport.withTrimmedLeft(4));
+                } else if (tool == Tool::recorder) {
+                    record.setBounds(content.removeFromTop(40));
+                } else {
+                    metEnabled.setBounds(content.removeFromTop(32)); content.removeFromTop(12);
+                    tempoLabel.setBounds(content.removeFromTop(24));
+                    metTempo.setBounds(content.removeFromTop(36)); content.removeFromTop(16);
+                    levelLabel.setBounds(content.removeFromTop(24));
+                    metLevel.setBounds(content.removeFromTop(36)); content.removeFromTop(16);
+                    metSend.setBounds(content.removeFromTop(32));
+                }
+                content.removeFromTop(24);
+                moreTools.setBounds(content.removeFromTop(36));
+            }
+        }
+#endif
         const bool showInspector = selectedId.isNotEmpty();
         inspector.setVisible(showInspector); bufferMode.setVisible(showInspector); bufferTime.setVisible(showInspector);
         if (showInspector) {
@@ -397,7 +500,10 @@ public:
             g.setColour(panel()); g.fillRoundedRectangle(toolBounds, radius);
             g.setColour(border()); g.drawRoundedRectangle(toolBounds.reduced(.5f), radius, 1);
         }
-        if (strips.isEmpty() && sourceStrips.isEmpty()) {
+        if (!desktopPanelBounds.isEmpty()) {
+            g.setColour(border()); g.drawRoundedRectangle(desktopPanelBounds.reduced(.5f), radius, 1);
+        }
+        if (strips.isEmpty() && sourceStrips.isEmpty() && input.getParentComponent() != &channels) {
             auto empty = viewport.getBounds().reduced(12);
             g.setColour(panel().withAlpha(.7f)); g.fillRoundedRectangle(empty.toFloat(), radius);
             g.setColour(text()); g.setFont(juce::Font(14.0f, juce::Font::bold));
@@ -416,7 +522,12 @@ private:
     juce::OwnedArray<SonoCraftSourceStrip> sourceStrips;
     std::unique_ptr<SonoCraftSourceControls> sourceDialog;
     juce::ImageComponent brand;
-    juce::Label session, sourceRouting, inspector, toolTitle, toolHelp;
+    juce::Label session, sourceRouting, inspector, toolTitle, toolHelp, tempoLabel, levelLabel;
+    juce::TextButton playerTab, recorderTab, metronomeTab, moreTools;
+    juce::Component toolContent;
+    juce::Viewport toolViewport;
+    juce::Component::SafePointer<juce::Component> desktopPanel;
+    juce::Rectangle<float> desktopPanelBounds;
     SonoCraftNavigationButton connections, sources, soundboard, chat, tools, settings;
     SonoDrawableButton closeTool { "Close", juce::DrawableButton::ImageFitted };
     juce::TextButton file, play, stop, record, playingActivity, recordingActivity, metronomeActivity;
@@ -426,7 +537,7 @@ private:
     juce::ComboBox bufferMode;
     juce::String selectedId;
     juce::Rectangle<float> toolBounds;
-    Tool tool = Tool::none;
+    Tool tool = Tool::none, lastTool = Tool::player;
     bool syncing = false;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> metTempoAttachment, metLevelAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> metEnabledAttachment, metSendAttachment;
@@ -443,14 +554,21 @@ private:
         refresh();
     }
     void selectTool(Tool next) {
+#if !(JUCE_IOS || JUCE_ANDROID)
+        if (next != Tool::none && desktopPanel) {
+            desktopPanel->setVisible(false);
+            desktopPanel = nullptr;
+        }
+#endif
         tool = next;
+        if (next != Tool::none) lastTool = next;
         if (tool == Tool::player) toolTitle.setText(juce::String::fromUTF8("Arquivo de áudio"), juce::dontSendNotification);
         else if (tool == Tool::recorder) toolTitle.setText(juce::String::fromUTF8("Gravação"), juce::dontSendNotification);
         else if (tool == Tool::metronome) {
             toolTitle.setText(juce::String::fromUTF8("Metrônomo"), juce::dontSendNotification);
             toolHelp.setText(juce::String::fromUTF8("Ajuste o tempo em BPM e o volume em dB. Escolha se os conectados também devem ouvir."), juce::dontSendNotification);
         }
-        refresh(); resized();
+        refresh(); resized(); repaint();
     }
     void showConnections() {
         juce::PopupMenu menu;
@@ -464,7 +582,22 @@ private:
             if (choice == 3) safe->processor.disconnectFromServer();
         });
     }
+    void showAdvancedTools() {
+        juce::PopupMenu menu;
+        menu.addItem(1, juce::String::fromUTF8("Efeitos da saída"));
+        menu.addItem(2, "Roteamento de canais");
+        juce::Component::SafePointer<SonoCraftMixerView> safe(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&moreTools).withParentComponent(this), [safe](int choice) {
+            if (!safe) return;
+            if (choice == 1 && safe->onEffects) safe->onEffects();
+            if (choice == 2 && safe->onRouting) safe->onRouting();
+        });
+    }
     void showTools() {
+#if !(JUCE_IOS || JUCE_ANDROID)
+        selectTool(tool == Tool::none ? lastTool : Tool::none);
+        return;
+#endif
         juce::PopupMenu menu;
         menu.addItem(1, juce::String::fromUTF8("Arquivo de áudio"), true, tool == Tool::player);
         menu.addItem(2, juce::String::fromUTF8("Gravação"), true, tool == Tool::recorder);
