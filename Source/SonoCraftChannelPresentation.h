@@ -42,6 +42,9 @@ inline Source describeSource(const SonoCraftSourceMixer::View& s, bool hasRecipi
         result.state = "Aguardando captura"; result.tone = Tone::attention;
         result.detail = s.status;
         if (s.sending) result.sending = "Envio: aguardando";
+    } else if (s.meterStatus.isNotEmpty()) {
+        result.state = juce::String::fromUTF8("Verificando áudio");
+        result.detail = s.meterStatus;
     } else {
         const bool playing = s.systemMeter ? s.level > 0.0001f : s.producing;
         result.state = playing ? "Tocando" : "Sem som agora";

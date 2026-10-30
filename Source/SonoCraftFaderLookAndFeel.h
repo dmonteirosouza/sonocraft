@@ -15,8 +15,20 @@ public:
         setColour(juce::TextEditor::highlightColourId,SonoCraftTheme::selection());
     }
     void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
-                          float position, float, float, juce::Slider::SliderStyle, juce::Slider&) override
+                          float position, float, float, juce::Slider::SliderStyle style, juce::Slider&) override
     {
+        if (style == juce::Slider::LinearHorizontal) {
+            const float cy = y + height * 0.5f;
+            g.setColour(SonoCraftTheme::border());
+            g.fillRoundedRectangle(float(x), cy - 3, float(width), 6, 3);
+            g.setColour(SonoCraftTheme::accent());
+            g.fillRoundedRectangle(float(x), cy - 3, juce::jmax(0.0f, position-x), 6, 3);
+            g.setColour(juce::Colours::black.withAlpha(.08f));
+            g.fillEllipse(position-15, cy-13, 30, 30);
+            g.setColour(juce::Colours::white); g.fillEllipse(position-14, cy-14, 28, 28);
+            g.setColour(SonoCraftTheme::accent()); g.drawEllipse(position-14, cy-14, 28, 28, 2);
+            return;
+        }
         const auto centre = x + width * 0.5f;
         g.setColour(juce::Colour(0xffc6cfd7));
         g.fillRoundedRectangle(centre - 7, float(y)-2, 14, float(height)+4, 6);

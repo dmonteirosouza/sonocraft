@@ -1,3 +1,4 @@
+#include "SonoCallOutBox.h"
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2020 Jesse Chappell
 
@@ -109,8 +110,8 @@ void SoundboardView::createSoundboardTitle()
 void SoundboardView::createSoundboardTitleLabel()
 {
     mTitleLabel = std::make_unique<Label>("title", "Mesa de pads");
-    mTitleLabel->setJustificationType(Justification::centred);
-    mTitleLabel->setFont(Font(TITLE_FONT_HEIGHT, Font::bold));
+    mTitleLabel->setJustificationType(Justification::centredLeft);
+    mTitleLabel->setFont(Font(17, Font::bold));
     mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
     addAndMakeVisible(mTitleLabel.get());
 }
@@ -121,6 +122,7 @@ void SoundboardView::createSoundboardTitleCloseButton()
     std::unique_ptr<Drawable> imageCross(
             Drawable::createFromImageData(BinaryData::x_icon_svg, BinaryData::x_icon_svgSize));
     mCloseButton->setImages(imageCross.get());
+    mCloseButton->configureAsCloseControl();
     mCloseButton->setTitle(TRANS("Close Soundboard"));
     mCloseButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mCloseButton->onClick = [this]() {
@@ -710,7 +712,8 @@ void SoundboardView::clickedAddSoundboard()
     if (!dw) dw = this;
     Rectangle<int> abounds =  dw ? dw->getLocalArea(nullptr, mTitleLabel->getScreenBounds()) : mTitleLabel->getScreenBounds();
 
-    CallOutBox::launchAsynchronously(
+    content->setName(juce::String::fromUTF8("Nova mesa"));
+    SonoCallOutBox::launchAsynchronously(
             std::move(content),
             abounds,
             dw
@@ -734,7 +737,8 @@ void SoundboardView::clickedRenameSoundboard()
     if (!dw) dw = this;
     Rectangle<int> abounds =  dw ? dw->getLocalArea(nullptr, mBoardSelectComboBox->getScreenBounds()) : mBoardSelectComboBox->getScreenBounds();
 
-    CallOutBox::launchAsynchronously(
+    content->setName(juce::String::fromUTF8("Renomear mesa"));
+    SonoCallOutBox::launchAsynchronously(
             std::move(content),
             abounds,
             dw
@@ -764,7 +768,8 @@ void SoundboardView::clickedDuplicateSoundboard()
     if (!dw) dw = this;
     Rectangle<int> abounds =  dw ? dw->getLocalArea(nullptr, mTitleLabel->getScreenBounds()) : mTitleLabel->getScreenBounds();
 
-    CallOutBox::launchAsynchronously(
+    content->setName(juce::String::fromUTF8("Duplicar mesa"));
+    SonoCallOutBox::launchAsynchronously(
             std::move(content),
             abounds,
             dw
@@ -933,7 +938,9 @@ void SoundboardView::clickedEditSoundSample(Component& button, SoundSample& samp
 
     content.release();
 
-    mSampleEditCalloutBox = & CallOutBox::launchAsynchronously(std::move(wrap),
+    wrap->getProperties().set("dialogResponsiveChild", true);
+    wrap->setName(juce::String::fromUTF8("Editar pad"));
+    mSampleEditCalloutBox = & SonoCallOutBox::launchAsynchronously(std::move(wrap),
                                                             bounds, dw, false);
     mSampleEditCalloutBox->addComponentListener(this);
 }
@@ -973,8 +980,8 @@ void SoundboardView::componentVisibilityChanged (Component& component)
     if (&component == mSampleEditCalloutBox.get()) {
         if (!component.isVisible()) {
             DBG("sample edit dismissal, commit it");
-            if (auto * box = dynamic_cast<CallOutBox*>(mSampleEditCalloutBox.get())) {
-                if (auto * wrap = dynamic_cast<Viewport*>(box->getChildComponent(0))) {
+            if (auto * box = dynamic_cast<SonoCallOutBox*>(mSampleEditCalloutBox.get())) {
+                if (auto * wrap = dynamic_cast<Viewport*>(&box->getPanelContent())) {
                     if (auto * sev = dynamic_cast<SampleEditView*>(wrap->getViewedComponent())) {
                         if (sev->submitCallback) {
                             sev->submitCallback(*sev);
@@ -989,16 +996,27 @@ void SoundboardView::componentVisibilityChanged (Component& component)
 void SoundboardView::resized()
 {
     auto bounds = getLocalBounds().reduced(12);
-    auto title = bounds.removeFromTop(34);
-    mCloseButton->setBounds(title.removeFromLeft(28));
+#if JUCE_IOS || JUCE_ANDROID
+    auto title = bounds.removeFromTop(48);
+    mCloseButton->setBounds(title.removeFromRight(48));
+    mMenuButton->setBounds(title.removeFromRight(48));
+#else
+    auto title = bounds.removeFromTop(44);
+    mCloseButton->setBounds(title.removeFromRight(44));
     mMenuButton->setBounds(title.removeFromRight(28));
+#endif
     mTitleLabel->setBounds(title);
     bounds.removeFromTop(8);
-    auto groups = bounds.removeFromTop(32);
+#if JUCE_IOS || JUCE_ANDROID
+    const int selectorHeight = 44, sendHeight = 44;
+#else
+    const int selectorHeight = 32, sendHeight = 28;
+#endif
+    auto groups = bounds.removeFromTop(selectorHeight);
     mBoardSelectComboBox->setBounds(groups);
     padOrderingHint.setBounds(bounds.removeFromTop(24));
     bounds.removeFromTop(8);
-    sendPadsToAll.setBounds(bounds.removeFromBottom(28));
+    sendPadsToAll.setBounds(bounds.removeFromBottom(sendHeight));
     auto controls = bounds.removeFromBottom(48);
     controlsBox.performLayout(controls);
     bounds.removeFromTop(10); bounds.removeFromBottom(8);

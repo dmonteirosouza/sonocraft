@@ -11,12 +11,12 @@
 #define NTDDI_VERSION 0x0A00000A
 #endif
 #include "SonoCraftApplicationAudioState.h"
+#include "SonoCraftApplicationMeter.h"
 #if JUCE_WINDOWS
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <audiopolicy.h>
-#include <endpointvolume.h>
 #include <vector>
 #include <cmath>
 #include <tlhelp32.h>
@@ -49,17 +49,21 @@ private:
 class WindowsApplicationAudio final : public SonoCraftApplicationAudioBackend, private juce::Thread {
 public:
     explicit WindowsApplicationAudio(std::shared_ptr<SonoCraftApplicationAudioState> value) : Thread("SonoCraft application capture"), state(std::move(value)) {}
+    explicit WindowsApplicationAudio(std::shared_ptr<SonoCraftApplicationMeter> value) : Thread("SonoCraft application meter"), meter(std::move(value)) {}
     ~WindowsApplicationAudio() override { stop(); }
     void start(const SonoCraftApplicationAudio::Application& app, uint64_t value) override {
         stop(); processId = app.processId; token = value;
-        if (processId == GetCurrentProcessId()) { state->setStatus(juce::String::fromUTF8("O SonoCraft não pode capturar a própria saída.")); return; }
+        if (!processId || processId == GetCurrentProcessId()) { fail(E_INVALIDARG); return; }
+        if (meter) meter->state = SonoCraftApplicationMeter::State::starting;
         startThread();
     }
-    void stop() override { signalThreadShouldExit(); stopThread(3000); }
+    void stop() override { signalThreadShouldExit(); stopThread(3000); if (meter) meter->state = SonoCraftApplicationMeter::State::stopped; }
 private:
     std::shared_ptr<SonoCraftApplicationAudioState> state;
+    std::shared_ptr<SonoCraftApplicationMeter> meter;
     DWORD processId = 0; uint64_t token = 0;
     void fail(HRESULT error) {
+        if (meter) { meter->state = SonoCraftApplicationMeter::State::failed; return; }
         state->active = false;
         state->setStatus(juce::String::fromUTF8("Não foi possível capturar este aplicativo. Requer Windows 11 ou versão com build 20348 ou posterior. Código: ") + juce::String::toHexString(int(error)));
     }
@@ -106,10 +110,13 @@ private:
         if (SUCCEEDED(error)) error = client->SetEventHandle(ready);
         if (SUCCEEDED(error)) error = client->Start();
         if (FAILED(error)) { CloseHandle(ready); fail(error); return; }
-        state->rate = 44100; state->active = true;
-        state->setStatus(juce::String::fromUTF8("Capturando o aplicativo e seus processos de áudio. A reprodução original continua normal."));
+        if (meter) meter->state = SonoCraftApplicationMeter::State::active;
+        else {
+            state->rate = 44100; state->active = true;
+            state->setStatus(juce::String::fromUTF8("Capturando o aplicativo e seus processos de áudio. A reprodução original continua normal."));
+        }
         juce::AudioBuffer<float> audio(2,2048);
-        while (!threadShouldExit() && state->generation.load() == token) {
+        while (!threadShouldExit() && (!state || state->generation.load() == token)) {
             WaitForSingleObject(ready, 20);
             UINT32 frames = 0; error = input->GetNextPacketSize(&frames);
             if (FAILED(error)) break;
@@ -122,7 +129,8 @@ private:
                     for (int ch = 0; ch < 2; ++ch)
                         for (int sample = 0; sample < count; ++sample)
                             audio.setSample(ch, sample, (flags & AUDCLNT_BUFFERFLAGS_SILENT) || !data ? 0.0f : reinterpret_cast<const int16_t*>(data)[(offset+sample)*2+ch]/32768.0f);
-                    state->feed(audio, count, token);
+                    if (meter) meter->feed(audio.getReadPointer(0), audio.getReadPointer(1), count);
+                    else state->feed(audio, count, token);
                 }
                 input->ReleaseBuffer(frames);
                 error = input->GetNextPacketSize(&frames);
@@ -130,7 +138,9 @@ private:
             }
             if (FAILED(error)) break;
         }
-        client->Stop(); CloseHandle(ready); state->active = false;
+        client->Stop(); CloseHandle(ready);
+        if (meter) meter->state = SonoCraftApplicationMeter::State::stopped;
+        else state->active = false;
         if (FAILED(error) && !threadShouldExit()) fail(error);
     }
 };
@@ -153,15 +163,10 @@ juce::Array<SonoCraftApplicationAudio::Application> listSonoCraftAudioApplicatio
 
 bool requestSonoCraftCapturePermission() {return true;}
 namespace {
-struct SessionMeter {
-    int applicationIndex = 0;
-    ComPtr<IAudioSessionControl> control;
-    ComPtr<IAudioMeterInformation> meter;
-    std::vector<float> peaks;
-};
-SonoCraftApplicationAudio::Discovery enumerateAudioSessions(std::vector<SessionMeter>& meters) {
+// Sessions locate applications only. Their meters can include loopback streams
+// used by communications apps for echo cancellation (the whole output mix).
+SonoCraftApplicationAudio::Discovery enumerateAudioSessions() {
     SonoCraftApplicationAudio::Discovery result;
-    meters.clear();
     ComPtr<IMMDeviceEnumerator> enumerator;
     if(FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator),nullptr,CLSCTX_ALL,IID_PPV_ARGS(&enumerator))))return result;
     ComPtr<IMMDeviceCollection> devices;
@@ -211,26 +216,25 @@ SonoCraftApplicationAudio::Discovery enumerateAudioSessions(std::vector<SessionM
             for(int index=0;index<result.applications.size();++index)
                 if(result.applications[index].identifier==selected.identifier){applicationIndex=index;break;}
             if(applicationIndex<0){applicationIndex=result.applications.size();result.applications.add(selected);}
-            ComPtr<IAudioMeterInformation> meter;
-            if(SUCCEEDED(control.As(&meter))) {
-                UINT channels=0;meter->GetMeteringChannelCount(&channels);
-                SessionMeter reading;
-                reading.applicationIndex=applicationIndex;reading.control=control;reading.meter=meter;
-                if(channels>0 && channels<=64)reading.peaks.resize(channels);
-                meters.push_back(std::move(reading));
-            }
+
         }
     }
     return result;
 }
-// One cache per discovery thread. Session handles are released before the
-// matching CoUninitialize, including when a plugin instance is destroyed.
+// Process-loopback observes only rendered audio from the target process tree.
+// Probes are bounded, reused across discovery ticks and released on inactivity.
+// They discard PCM after measuring it and never join the source/send graph.
 class WindowsAudioDiscovery {
     struct ComScope {
         HRESULT value=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
         ~ComScope(){if(SUCCEEDED(value))CoUninitialize();}
     } com;
-    std::vector<SessionMeter> meters;
+    struct Probe {
+        juce::String identifier;
+        std::shared_ptr<SonoCraftApplicationMeter> meter = std::make_shared<SonoCraftApplicationMeter>();
+        WindowsApplicationAudio capture {meter};
+    };
+    std::map<uint32_t,std::unique_ptr<Probe>> probes;
     SonoCraftApplicationAudio::Discovery snapshot;
     double nextEnumeration=0;
 public:
@@ -238,33 +242,34 @@ public:
         if(FAILED(com.value) && com.value!=RPC_E_CHANGED_MODE)return {};
         const auto now=juce::Time::getMillisecondCounterHiRes();
         if(now>=nextEnumeration) {
-            snapshot=enumerateAudioSessions(meters);
+            snapshot=enumerateAudioSessions();
             nextEnumeration=now+1500;
-        }
-        for(auto& app:snapshot.applications){app.leftLevel=0;app.rightLevel=0;app.hasMeter=false;}
-        for(auto& reading:meters) {
-            auto& app=snapshot.applications.getReference(reading.applicationIndex);
-            AudioSessionState state=AudioSessionStateInactive;
-            if(FAILED(reading.control->GetState(&state)) || state!=AudioSessionStateActive)continue;
-            float left=0,right=0;
-            bool measured=false;
-            if(!reading.peaks.empty() && SUCCEEDED(reading.meter->GetChannelsPeakValues(UINT(reading.peaks.size()),reading.peaks.data()))) {
-                for(size_t ch=0;ch<reading.peaks.size();++ch) {
-                    const auto peak=reading.peaks[ch];
-                    if(!std::isfinite(peak))continue;
-                    if(ch%2==0)left=juce::jmax(left,peak);else right=juce::jmax(right,peak);
-                }
-                if(reading.peaks.size()==1)right=left;
-                measured=true;
-            } else {
-                float peak=0;
-                if(SUCCEEDED(reading.meter->GetPeakValue(&peak)) && std::isfinite(peak)){left=right=peak;measured=true;}
+            for(auto it=probes.begin();it!=probes.end();) {
+                bool present=false;
+                for(const auto& app:snapshot.applications)
+                    present |= app.processId==it->first && app.identifier==it->second->identifier;
+                if(!present) it=probes.erase(it); else ++it;
             }
-            // A browser can own several sessions/endpoints. Aggregate their
-            // activity instead of letting the last silent session erase it.
-            app.leftLevel=juce::jmax(app.leftLevel,juce::jlimit(0.0f,1.0f,left));
-            app.rightLevel=juce::jmax(app.rightLevel,juce::jlimit(0.0f,1.0f,right));
-            app.hasMeter|=measured;
+            for(const auto& app:snapshot.applications) {
+                if(probes.size()>=32)break;
+                if(!app.processId || probes.count(app.processId))continue;
+                auto probe=std::make_unique<Probe>();probe->identifier=app.identifier;
+                probe->capture.start(app,0);
+                probes.emplace(app.processId,std::move(probe));
+            }
+        }
+        for(auto& app:snapshot.applications) {
+            app.leftLevel=app.rightLevel=0;app.hasMeter=false;
+            app.meterStatus=juce::String::fromUTF8("Medição automática indisponível. Inicie a captura para verificar o nível.");
+            const auto found=probes.find(app.processId);
+            if(found==probes.end())continue;
+            const auto reading=found->second->meter->read();
+            if(reading.state==SonoCraftApplicationMeter::State::active) {
+                app.leftLevel=reading.left;app.rightLevel=reading.right;app.hasMeter=true;
+                app.meterStatus.clear();
+            } else if(reading.state==SonoCraftApplicationMeter::State::starting) {
+                app.meterStatus=juce::String::fromUTF8("Iniciando medição do aplicativo…");
+            }
         }
         return snapshot;
     }

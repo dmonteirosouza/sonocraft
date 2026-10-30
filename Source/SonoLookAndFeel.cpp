@@ -10,6 +10,21 @@
 
 #include <JuceHeader.h>
 
+Button* SonoLookAndFeel::createDocumentWindowButton(int type)
+{
+    if (type != DocumentWindow::closeButton) return LookAndFeel_V4::createDocumentWindowButton(type);
+    auto* button = new SonoDrawableButton("Close", DrawableButton::ImageFitted);
+    button->configureAsCloseControl();
+    return button;
+}
+void SonoLookAndFeel::positionDocumentWindowButtons(DocumentWindow& window, int x, int y, int w, int h,
+                                                   Button* minimise, Button* maximise, Button* close, bool)
+{
+    LookAndFeel_V4::positionDocumentWindowButtons(window, x, y, w, h, minimise, maximise, close, false);
+    if (close != nullptr) close->setBounds(x + w - 48, y, 48, h);
+}
+
+
 #define OLDFONTSTUFF 1
 
 #if OLDFONTSTUFF

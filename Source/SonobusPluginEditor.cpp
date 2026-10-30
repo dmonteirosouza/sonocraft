@@ -35,7 +35,7 @@
 class SonoCraftSettingsContent final : public Component {
 public:
     explicit SonoCraftSettingsContent(Component& component) : content(&component) { addAndMakeVisible(component); }
-    void resized() override { if (content) content->setBounds(getLocalBounds().reduced(12)); }
+    void resized() override { if (content) content->setBounds(getLocalBounds()); }
 private:
     Component::SafePointer<Component> content;
 };
@@ -1430,8 +1430,10 @@ SonobusAudioProcessorEditor::SonobusAudioProcessorEditor (SonobusAudioProcessor&
     // Dock panels belong to the visible workspace, not the hidden legacy layout.
     addChildComponent(mChatView.get());
     addChildComponent(mSoundboardView.get());
+#if !(JUCE_IOS || JUCE_ANDROID)
     setResizeLimits(820, 580, 10000, 10000);
     setSize(jmax(1040, getWidth()), jmax(680, getHeight()));
+#endif
     resized();
 
 }
@@ -2976,7 +2978,8 @@ void SonobusAudioProcessorEditor::showMetConfig(bool flag)
         
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, mMetConfigButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        metCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Metrônomo"));
+        metCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(metCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -3028,7 +3031,8 @@ void SonobusAudioProcessorEditor::showEffectsConfig(bool flag)
         
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, (mMixerWorkspace ? mMixerWorkspace->toolsAnchor() : mEffectsButton.get())->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        effectsCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Efeitos da saída"));
+        effectsCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(effectsCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -3073,7 +3077,8 @@ void SonobusAudioProcessorEditor::showPatchbay(bool flag)
         
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, (mMixerWorkspace ? mMixerWorkspace->toolsAnchor() : mPatchbayButton.get())->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        patchbayCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Roteamento de canais"));
+        patchbayCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(patchbayCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -3121,6 +3126,7 @@ void SonobusAudioProcessorEditor::showLatencyMatchView(bool show)
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, mMainLinkButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
+        wrap->setName(juce::String::fromUTF8("Sincronizar participantes"));
         latmatchCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false, [this](const Component * comp) {
             if (comp == mMainLinkButton.get()) return false;
             return true;
@@ -3177,7 +3183,8 @@ void SonobusAudioProcessorEditor::showVDONinjaView(bool show, bool fromVideoButt
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, fromVideoButton ? mVideoButton->getScreenBounds() : mMainLinkButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        vdoninjaViewCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Vídeo"));
+        vdoninjaViewCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(vdoninjaViewCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -3231,6 +3238,7 @@ void SonobusAudioProcessorEditor::showSuggestGroupView(bool show)
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, mMainLinkButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
+        wrap->setName(juce::String::fromUTF8("Convidar para um grupo"));
         suggestNewGroupViewCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false, [this](const Component * comp) {
             if (comp == mMainLinkButton.get()) return false;
             return true;
@@ -3252,17 +3260,14 @@ void SonobusAudioProcessorEditor::showSuggestGroupView(bool show)
 void SonobusAudioProcessorEditor::showConnectPopup(bool flag)
 {
     if (flag) {
-        mConnectView->toFront(true);
-
+        if (connectionPanelDialog) { connectionPanelDialog->toFront(true); return; }
         mConnectView->updateState();
-
-        mConnectView->setVisible(true);
-
+        connectionPanelDialog = &SonoCallOutBox::launchForComponent(*mConnectView, *this, 760, 660);
         mConnectView->grabInitialFocus();
-    }
-    else {
-        mConnectView->setVisible(false);
-    }
+    } else if (auto* dialog = dynamic_cast<CallOutBox*>(connectionPanelDialog.getComponent())) {
+        dialog->dismiss();
+    } else mConnectView->setVisible(false);
+
 }
 
 
@@ -3390,6 +3395,8 @@ void SonobusAudioProcessorEditor::componentVisibilityChanged (Component& compone
 
 void SonobusAudioProcessorEditor::componentMovedOrResized (Component& component, bool wasmoved, bool wasresized)
 {
+    if ((&component == mChatView.get() || &component == mSoundboardView.get())
+        && component.getParentComponent() != this) return;
     if (&component == mChatView.get()) {
         if (mChatView->isVisible()) {
             processor.setLastChatWidth(mChatView->getWidth());
@@ -3494,6 +3501,13 @@ bool SonobusAudioProcessorEditor::keyStateChanged (bool isKeyDown)
 }
 
 
+void SonobusAudioProcessorEditor::openAudioSettings()
+{
+    if (settingsCalloutBox) settingsCalloutBox->toFront(true);
+    else showSettings(true);
+    if (mOptionsView) mOptionsView->showAudioTab();
+}
+
 void SonobusAudioProcessorEditor::showSettings(bool flag)
 {
     DBG("Got settings click");
@@ -3505,8 +3519,8 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
         Component* dw = this; 
         
 #if JUCE_IOS || JUCE_ANDROID
-        int defWidth = 320;
-        int defHeight = 420;
+        int defWidth = getWidth() - 24;
+        int defHeight = getHeight() - 64;
 #else
         int defWidth = 660;
         int defHeight = 640;
@@ -3550,22 +3564,9 @@ void SonobusAudioProcessorEditor::showSettings(bool flag)
         updateOptionsState();
         
        
-        if (mMixerWorkspace) {
-            DialogWindow::LaunchOptions launch;
-            launch.dialogTitle = juce::String::fromUTF8("Configurações do SonoCraft");
-            launch.dialogBackgroundColour = SonoCraftTheme::canvas();
-            launch.content.setOwned(wrap.release());
-            launch.componentToCentreAround = this;
-            launch.useNativeTitleBar = true;
-            launch.resizable = true;
-            auto* dialog = launch.launchAsync();
-            dialog->setLookAndFeel(&sonoLookAndFeel);
-            dialog->setResizeLimits(480, 380, 1000, 1000);
-            settingsCalloutBox = dialog;
-        } else {
-            const auto bounds = dw->getLocalArea(mTitleLabel.get(), mTitleLabel->getLocalBounds());
-            settingsCalloutBox = &CallOutBox::launchAsynchronously(std::move(wrap), bounds, dw, false);
-        }
+        wrap->setName(juce::String::fromUTF8("Configurações"));
+        wrap->getProperties().set("dialogFillHeight", true);
+        settingsCalloutBox = &SonoCallOutBox::launchAsynchronously(std::move(wrap), {}, this, false);
 
         settingsClosedTimestamp = 0;
 
@@ -3637,7 +3638,8 @@ void SonobusAudioProcessorEditor::showMonitorDelayView(bool flag)
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, mMonDelayButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        monDelayCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Atraso da escuta"));
+        monDelayCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(monDelayCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -4335,7 +4337,8 @@ void SonobusAudioProcessorEditor::showLatencyMatchPrompt(const String & name, fl
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, mMainLinkButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        latmatchCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Opções de áudio"));
+        latmatchCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(latmatchCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -4408,6 +4411,7 @@ void SonobusAudioProcessorEditor::showSuggestedGroupPrompt(const String &name, c
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, mMainLinkButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
+        wrap->setName(juce::String::fromUTF8("Opções de áudio"));
         suggestedGroupCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false, [this](const Component * comp) {
             if (comp == mMainLinkButton.get()) return false;
             return true;
@@ -4423,72 +4427,26 @@ void SonobusAudioProcessorEditor::showSuggestedGroupPrompt(const String &name, c
 
 void SonobusAudioProcessorEditor::showChatPanel(bool show, bool allowresize)
 {
+    ignoreUnused(allowresize);
+    if (show) {
+        if (chatPanelDialog) { chatPanelDialog->toFront(true); return; }
+        chatPanelDialog = &SonoCallOutBox::launchForComponent(*mChatView, *this, 600, 700);
+    } else if (auto* dialog = dynamic_cast<CallOutBox*>(chatPanelDialog.getComponent())) {
+        dialog->dismiss();
+    } else mChatView->setVisible(false);
 
-#if !(JUCE_IOS || JUCE_ANDROID)
-    // attempt resize
-    if (allowresize && show && !isNarrow) {
-        auto * display = Desktop::getInstance().getDisplays().getPrimaryDisplay();
-        int maxwidth = display ? display->userArea.getWidth() : 1600;
-        int newwidth = jmin(maxwidth, getWidth() + mChatView->getWidth());
-        mAboutToShowChat = true;
-        if (abs(newwidth - getWidth()) > 10 ) {
-            if (abs(newwidth - getWidth()) < mChatView->getWidth()) {
-                mChatShowDidResize = false;
-            } else {
-                mChatShowDidResize = true;
-            }
-            setSize(newwidth, getHeight());
-        }
-        else {
-            mChatShowDidResize = false;
-        }
-    }
-    else if (show) {
-        mChatShowDidResize = false;
-    }
-#else
-    mChatShowDidResize = false;
-#endif
-
-    mChatView->setVisible(show);
-
-#if !(JUCE_IOS || JUCE_ANDROID)
-    if (show && allowresize) {
-        mChatView->setFocusToChat();
-    }
-#endif
 }
 
 void SonobusAudioProcessorEditor::showSoundboardPanel(bool show, bool allowresize)
 {
-#if !(JUCE_IOS || JUCE_ANDROID)
-    // attempt resize
-    if (allowresize && show && !isNarrow) {
-        auto * display = Desktop::getInstance().getDisplays().getPrimaryDisplay();
-        int maxwidth = display ? display->userArea.getWidth() : 1600;
-        int newwidth = jmin(maxwidth, getWidth() + mSoundboardView->getWidth());
-        mAboutToShowSoundboard = true;
-        if (abs(newwidth - getWidth()) > 10 ) {
-            if (abs(newwidth - getWidth()) < mSoundboardView->getWidth()) {
-                mSoundboardShowDidResize = false;
-            } else {
-               mSoundboardShowDidResize = true;
-            }
-            setSize(newwidth, getHeight());
-        }
-        else {
-           mSoundboardShowDidResize = false;
-        }
-    }
-    else if (show) {
-       mSoundboardShowDidResize = false;
-    }
-#else
-   mSoundboardShowDidResize = false;
-#endif
+    ignoreUnused(allowresize);
+    if (show) {
+        if (padsPanelDialog) { padsPanelDialog->toFront(true); return; }
+        padsPanelDialog = &SonoCallOutBox::launchForComponent(*mSoundboardView, *this, 720, 720);
+    } else if (auto* dialog = dynamic_cast<CallOutBox*>(padsPanelDialog.getComponent())) {
+        dialog->dismiss();
+    } else mSoundboardView->setVisible(false);
 
-    mSoundboardView->setVisible(show);
-    mSoundboardView->resized();
 }
 
 
@@ -4558,30 +4516,10 @@ void SonobusAudioProcessorEditor::resized()
         mMenuBar->setBounds(menuBounds);
     }
 
-    int chatwidth = processor.getLastChatWidth();
-
-    mChatOverlay = mainBounds.getWidth() - chatwidth < 340;
-
-    mIgnoreResize = true; // important!
- 
-    mChatView->setBounds(getLocalBounds().removeFromRight(chatwidth));
-
-    if (mChatView->isVisible() || mAboutToShowChat) {
-        if (!isNarrow || !mChatOverlay) {
-            // take it off
-            mChatView->setBounds(mainBounds.removeFromRight(chatwidth));
-        }
-    }
-
-    int soundboardwidth = jlimit(380, 720, processor.getLastSoundboardWidth());
-    mSoundboardView->setBounds(getLocalBounds().removeFromRight(soundboardwidth));
-
-    if (mSoundboardView->isVisible() || mAboutToShowSoundboard) {
-        if (!isNarrow) {
-            mSoundboardView->setBounds(mainBounds.removeFromRight(soundboardwidth));
-        }
-    }
-
+    mIgnoreResize = true;
+    mChatOverlay = true;
+    mChatEdgeResizer->setVisible(false);
+    mSoundboardEdgeResizer->setVisible(false);
     mIgnoreResize = false;
 
 
@@ -4671,7 +4609,7 @@ void SonobusAudioProcessorEditor::resized()
     mFileAreaBg->setRectangle (filebgbounds.toFloat());
     
     // connect component stuff
-    if (mConnectView) {
+    if (mConnectView && mConnectView->getParentComponent() == this) {
         mConnectView->setBounds(getLocalBounds());
     }
 
@@ -4691,11 +4629,8 @@ void SonobusAudioProcessorEditor::resized()
 
 
     
-    Component* dw = this; 
-    
-    if (auto * callout = dynamic_cast<CallOutBox*>(effectsCalloutBox.get())) {
-        callout->updatePosition(dw->getLocalArea(nullptr, (mMixerWorkspace ? mMixerWorkspace->toolsAnchor() : mEffectsButton.get())->getScreenBounds()), dw->getLocalBounds());
-    }
+    if (auto* callout = dynamic_cast<SonoCallOutBox*>(effectsCalloutBox.get()))
+        callout->parentSizeChanged();
 
 
     updateSliderSnap();

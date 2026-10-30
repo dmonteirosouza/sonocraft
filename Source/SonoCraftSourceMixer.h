@@ -19,13 +19,13 @@ public:
         updateDiscovered(snapshot.applications,snapshot.hasProcessList?&snapshot.runningProcessIds:nullptr,&snapshot.runningApplications);
     }
     juce::String discoveryStatus() const {const juce::ScopedLock lock(discoveryLock);return discovered.message;}
-    // Reconcile on the GUI thread: enumeration never opens captures or changes the send mode.
+    // Reconcile on the GUI thread; background meters never change capture/send controls.
     void updateDiscovered(const juce::Array<SonoCraftApplicationAudio::Application>& apps,
                           const juce::Array<uint32_t>* running=nullptr,
                           const juce::Array<SonoCraftApplicationAudio::Application>* openApps=nullptr){
         const juce::ScopedLock lock(control);
         for(auto& s:slots){
-            s.producing=false;s.application.leftLevel=0;s.application.rightLevel=0;s.application.hasMeter=false;
+            s.producing=false;s.application.leftLevel=0;s.application.rightLevel=0;s.application.hasMeter=false;s.application.meterStatus.clear();
             if(!s.occupied.load() || s.tab || !running)continue;
             if(!s.application.processId && openApps) {
                 for(const auto& app:*openApps)if(sameApplication(s.application,app)){s.application=app;break;}
@@ -62,6 +62,7 @@ public:
         bool automatic=false,producing=false,blockedByTabs=false,permissionRequired=false;
         float leftLevel=0,rightLevel=0;
         bool systemMeter=false;
+        juce::String meterStatus;
     };
     struct Added { juce::String id, url, error; };
     static bool isBrowser(const juce::String& name) {
@@ -96,8 +97,11 @@ public:
         ++s->revision; s->send = false; // A fresh permission/selection must be explicitly sent.
         if (s->tab) { const auto url=s->audio.startBrowserTab(); return {id,url,url.isEmpty()?s->audio.status():juce::String()}; }
         auto apps = SonoCraftApplicationAudio::applications();
-        const auto outputApps=SonoCraftApplicationAudio::applicationsWithAudio();
-        for(const auto& app:outputApps.applications)apps.add(app);
+        // Reuse background discovery; never create a second set of process
+        // meters (or enumerate sessions) on the GUI thread.
+        { const juce::ScopedLock discoveryGuard(discoveryLock);
+            for(const auto& app:discovered.applications)apps.add(app);
+        }
         for (const auto& app : apps) if (sameApplication(app,s->application)) {
             s->application = app; s->audio.start(app); return {id,{},{}};
         }
@@ -142,7 +146,7 @@ public:
             const float right=systemMeter?s.application.rightLevel:s.rightLevel.load();
             result.add({s.id,s.name,s.application.name,s.audio.status(),s.tab,
                 s.send.load() && individual.load(),s.muted.load(),active,s.audio.isCaptureRequested(),s.gain.load(),juce::jmax(left,right),s.automatic,s.producing,
-                !s.tab && isBrowser(s.application.name) && hasTabs(),s.audio.needsCapturePermission(),left,right,systemMeter});
+                !s.tab && isBrowser(s.application.name) && hasTabs(),s.audio.needsCapturePermission(),left,right,systemMeter,s.application.meterStatus});
         }
         return result;
     }
@@ -219,7 +223,7 @@ private:
         while(!threadShouldExit()){
             auto value=SonoCraftApplicationAudio::applicationsWithAudio();
             {const juce::ScopedLock lock(discoveryLock);discovered=std::move(value);++discoveryRevision;}
-            // Windows caches session discovery and only samples its meters at 20 Hz.
+            // Windows caches discovery and reads isolated playback peaks at 20 Hz.
 #if JUCE_WINDOWS
             wait(50);
 #else

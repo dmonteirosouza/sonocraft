@@ -51,7 +51,7 @@ Os dispositivos são escolhidos em um único lugar. A configuração da segunda 
 
 ## Mixer de fontes
 
-Os aplicativos com reprodução de áudio aparecem **automaticamente na mesa**, sem precisar cadastrá-los. A detecção consulta sessões de saída ativas no Windows e processos de áudio no macOS 14.2+. Não grava áudio nem solicita permissão de captura. Uma sessão ativa pode estar momentaneamente silenciosa, como acontece no mixer do sistema.
+Os aplicativos com reprodução de áudio aparecem **automaticamente na mesa**, sem precisar cadastrá-los. A detecção consulta sessões de saída ativas no Windows e processos de áudio no macOS 14.2+. No Windows compatível, o medidor faz uma leitura isolada do áudio reproduzido pelo aplicativo, sem gravar, reproduzir ou transmitir esse som. Isso evita confundir a referência de cancelamento de eco de aplicativos de chamada com sua reprodução. A detecção não solicita permissão de captura no Mac. Uma sessão ativa pode estar momentaneamente silenciosa.
 
 Cada canal aparece com o envio desligado. Ajuste o volume e ative **Enviar** para iniciar a captura e compartilhar com os conectados. Canais que pausam permanecem na mesa, preservando os ajustes. **Quando o programa é fechado, sua captura é encerrada e o canal sai automaticamente da mesa**, normalmente na próxima atualização (cerca de 1,5 segundo). Reabrir o programa cria um novo canal com envio desligado. A entrada completa do sistema não é reativada quando o último programa fecha. Se remover um canal automático, ele permanece oculto até a reprodução parar e começar novamente.
 
@@ -60,7 +60,7 @@ Use **Fontes** para escolher uma aba ou antecipar um aplicativo que ainda não c
 | Controle do canal | Efeito |
 | --- | --- |
 | Volume (dB) | 0 dB mantém o volume original; valores negativos reduzem e positivos aumentam. O mínimo silencia. Arraste, digite o valor ou dê duplo clique para voltar a 0 dB. Ajusta o envio, sem mudar o volume original do programa no sistema. |
-| Medidor | Mostra o nível após iniciar a captura. Antes disso, “COM ÁUDIO” indica a atividade detectada pelo sistema. |
+| Medidor | No Windows compatível, mostra a reprodução isolada do aplicativo automaticamente; com captura ativa, mostra o sinal capturado. Antes disso, “COM ÁUDIO” indica a atividade detectada pelo sistema. |
 | Enviar | Inicia a captura quando necessário e inclui somente este canal na transmissão. Começa desligado. |
 | Silenciar | Suspende o áudio enviado por este canal sem perder seu volume. |
 | Parar / Iniciar captura | Libera ou reabre a captura. Ao reiniciar, o envio começa desligado. |

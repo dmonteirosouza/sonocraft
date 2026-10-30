@@ -1,5 +1,33 @@
+#include "../Source/SonoCraftApplicationMeter.h"
+#include "../Source/SonoCraftChannelPresentation.h"
+#include <limits>
+
+static bool testApplicationMeter() {
+    SonoCraftApplicationMeter teams, playback;
+    const float left[] {0.1f, -0.4f, std::numeric_limits<float>::quiet_NaN()};
+    const float right[] {0.2f, std::numeric_limits<float>::infinity(), 2.0f};
+    teams.state = playback.state = SonoCraftApplicationMeter::State::active;
+    playback.feed(left, right, 3);
+    // Later quiet packets must not erase the peak accumulated since the last UI tick.
+    const float quiet[] {0.01f};
+    playback.feed(quiet, quiet, 1);
+    const auto playing = playback.read(), silent = teams.read(), expired = playback.read();
+    if (playing.left != 0.4f || playing.right != 1.0f || silent.left || silent.right
+        || expired.left || expired.right) return false;
+    teams.feed(left, right, 3);
+    teams.state = SonoCraftApplicationMeter::State::failed;
+    const auto failed = teams.read();
+    teams.feed(left, right, 3); // A stopped/failed capture cannot publish another peak.
+    teams.state = SonoCraftApplicationMeter::State::active;
+    const auto restarted = teams.read();
+    if (failed.left || failed.right || restarted.left || restarted.right) return false;
+    std::cout << "PASS: independent process peaks, interval maximum, silence expiry and failed-meter reset" << std::endl;
+    return true;
+}
+
 // Exercises real authenticated tab sockets and the same mixer used by application captures.
 static bool testSourceMixer() {
+    if (!testApplicationMeter()) return false;
     auto owner=std::make_unique<SonoCraftSourceMixer>(); auto& mixer=*owner;
     mixer.prepare(128);
     auto first=mixer.addTab(), second=mixer.addTab();
@@ -86,6 +114,16 @@ static bool testSourceMixer() {
         || activity.requested || activity.active || activity.sending || mixer.usesIndividualSources() || mixed.getMagnitude(0,128)!=0) {
         std::cerr << "FAIL: read-only app activity is absent or started capturing/sending\n";return false;
     }
+    detected.getReference(1).hasMeter=false;
+    detected.getReference(1).meterStatus="Playback measurement unavailable";
+    mixer.updateDiscovered(detected);
+    const auto unavailable=mixer.views()[1];
+    const auto presentation=SonoCraftPresentation::describeSource(unavailable,false,false);
+    if(unavailable.systemMeter || unavailable.level || unavailable.requested || unavailable.sending
+        || presentation.state=="Tocando" || presentation.detail!=detected[1].meterStatus) {
+        std::cerr << "FAIL: failed isolated meter inferred playback from session activity\n";return false;
+    }
+    detected.getReference(1).hasMeter=true;detected.getReference(1).meterStatus.clear();
     mixer.updateDiscovered({});
     if(mixer.views()[1].level!=0 || mixer.views()[1].systemMeter){std::cerr<<"FAIL: stale OS meter after session stopped\n";return false;}
     mixer.updateDiscovered(detected);
@@ -110,7 +148,7 @@ static bool testSourceMixer() {
     for(const auto& view:mixer.views())if(!view.automatic || view.requested || view.sending || view.systemMeter || view.level!=0)return false;
     mixer.updateDiscovered({},&running,&detected);
     if(mixer.hasChannels())return false;
-    std::cout << "PASS: read-only OS meters show stereo activity without capture/send and clear on pause/restore" << std::endl;
+    std::cout << "PASS: background meters show stereo activity without enabling send and clear on pause/restore" << std::endl;
     std::cout << "PASS: pause keeps channels; process exit closes captures/removes channels without full-input fallback" << std::endl;
     std::cout << "PASS: automatic discovery preserves mode, gains, stable channels and requires opt-in after app restart" << std::endl;
     std::cout << "PASS: concurrent sources, independent gains/send/mute, application overlap prevention, safe restore/removal" << std::endl;

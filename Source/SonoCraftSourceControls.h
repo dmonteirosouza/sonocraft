@@ -2,6 +2,7 @@
 #pragma once
 #include "SonobusPluginProcessor.h"
 #include "SonoCraftTheme.h"
+#include "SonoDrawableButton.h"
 #include "SonoCraftStrip.h"
 
 // A short add-source dialog, launched from the mixer, not a settings tab.
@@ -9,8 +10,8 @@ class SonoCraftSourceControls final : public juce::Component {
 public:
     explicit SonoCraftSourceControls(SonobusAudioProcessor& p) : processor(p) {
         for (auto* c : std::initializer_list<juce::Component*>{&close,&title,&help,&kind,&apps,&refresh,&add,&status,&mode,&modeHelp}) addAndMakeVisible(c);
-        close.setButtonText("Fechar"); close.onClick=[this]{if(onClose)onClose();};
-        title.setText(juce::String::fromUTF8("Fontes de áudio"),juce::dontSendNotification); title.setFont(juce::Font(20.0f,juce::Font::bold));
+        close.configureAsCloseControl(); close.onClick=[this]{if(onClose)onClose();};
+        title.setText(juce::String::fromUTF8("Fontes de áudio"),juce::dontSendNotification); title.setFont(juce::Font(17.0f,juce::Font::bold));
         help.setText(juce::String::fromUTF8("Cada fonte ganha um canal com volume e envio próprios. O envio começa desligado. O volume original do aplicativo não muda."),juce::dontSendNotification);
         kind.addItem("Aplicativo inteiro",1); kind.addItem("Uma aba do navegador",2); kind.setSelectedId(1,juce::dontSendNotification);
         kind.onChange=[this]{update();}; refresh.setButtonText("Atualizar aplicativos"); refresh.onClick=[this]{scan();};
@@ -36,9 +37,19 @@ public:
             refreshMode();
         };
         modeHelp.setFont(12.0f);modeHelp.setColour(juce::Label::textColourId,SonoCraftTheme::secondary());
-        scan();update();refreshMode();setSize(470,470);
+#if JUCE_IOS || JUCE_ANDROID
+        help.setText(juce::String::fromUTF8("Use a entrada de áudio, os pads e os sons recebidos dos dispositivos conectados. Ajuste volumes na mesa e escolha a entrada e saída em Ajustes."),juce::dontSendNotification);
+        status.setText(juce::String::fromUTF8("A captura individual de aplicativos e abas está disponível nesta prévia apenas no Mac e Windows. Você pode receber esses sons no celular."),juce::dontSendNotification);
+        for(auto* c : std::initializer_list<juce::Component*>{&kind,&apps,&refresh,&add,&mode,&modeHelp}) c->setVisible(false);
+#else
+        scan();update();refreshMode();
+#endif
+        setSize(470,470);
     }
     void refreshMode() {
+#if JUCE_IOS || JUCE_ANDROID
+        resized(); return;
+#endif
         const bool visible=SonoCraftAudioRouting::isVirtualCable(processor.getStandaloneInputName());
         mode.setVisible(visible);modeHelp.setVisible(visible);
         const bool individual=processor.getSourceMixer().usesIndividualSources();
@@ -49,12 +60,20 @@ public:
     }
     std::function<void()> onClose;
     void paint(juce::Graphics& g) override {
-        g.setColour(SonoCraftTheme::panel());g.fillRoundedRectangle(getLocalBounds().toFloat(),10);
-        g.setColour(SonoCraftTheme::accent());g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(1),10,2);
+        g.fillAll(SonoCraftTheme::panel());
     }
     void resized() override {
         auto r=getLocalBounds().reduced(18);
-        auto header=r.removeFromTop(32);close.setBounds(header.removeFromRight(68));title.setBounds(header); help.setBounds(r.removeFromTop(72));
+#if JUCE_IOS || JUCE_ANDROID
+        auto header=r.removeFromTop(48);
+#else
+        auto header=r.removeFromTop(44);
+#endif
+        close.setBounds(header.removeFromRight(header.getHeight()));title.setBounds(header);
+#if JUCE_IOS || JUCE_ANDROID
+        help.setBounds(r.removeFromTop(110)); status.setBounds(r); return;
+#endif
+        help.setBounds(r.removeFromTop(72));
         if(mode.isVisible()){modeHelp.setBounds(r.removeFromTop(36));mode.setBounds(r.removeFromTop(30));r.removeFromTop(10);}
         kind.setBounds(r.removeFromTop(32));r.removeFromTop(8);
         apps.setBounds(r.removeFromTop(32)); r.removeFromTop(8);
@@ -65,7 +84,8 @@ private:
     SonobusAudioProcessor& processor;
     juce::Label title,help,status,modeHelp;
     juce::ComboBox kind,apps;
-    juce::TextButton refresh,add,close,mode;
+    juce::TextButton refresh,add,mode;
+    SonoDrawableButton close { "Close", juce::DrawableButton::ImageFitted };
     juce::Array<SonoCraftApplicationAudio::Application> available;
     void scan() {
         const auto previous=apps.getText();available=SonoCraftApplicationAudio::applications();apps.clear(juce::dontSendNotification);
@@ -118,7 +138,7 @@ public:
         secondary.setToggleState(s.sending,juce::dontSendNotification);mute.setToggleState(s.muted,juce::dontSendNotification);
         meterLeft=s.leftLevel;meterRight=s.rightLevel;
         setTooltip(juce::String::fromUTF8(s.systemMeter
-            ? "Atividade do aplicativo no sistema. Este medidor não confirma o envio; confira o estado do canal."
+            ? "Áudio reproduzido por este aplicativo. A medição automática não grava nem envia o som; confira o estado do canal."
             : "Nível capturado antes do volume e do silêncio de envio. Barras em movimento não significam que o áudio está sendo enviado."));
         repaint();
     }

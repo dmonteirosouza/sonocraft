@@ -1,3 +1,4 @@
+#include "SonoCallOutBox.h"
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2021 Jesse Chappell
 
@@ -98,8 +99,8 @@ publicGroupsListModel(this)
 
 
     mConnectTitle = std::make_unique<Label>("conntime", TRANS("Connect"));
-    mConnectTitle->setJustificationType(Justification::centred);
-    mConnectTitle->setFont(Font(20, Font::bold));
+    mConnectTitle->setJustificationType(Justification::centredLeft);
+    mConnectTitle->setFont(Font(17, Font::bold));
     mConnectTitle->setColour(Label::textColourId, Colour(0xff607684));
 
     mConnectComponentBg = std::make_unique<DrawableRectangle>();
@@ -109,6 +110,7 @@ publicGroupsListModel(this)
     std::unique_ptr<Drawable> ximg(Drawable::createFromImageData(BinaryData::x_icon_svg, BinaryData::x_icon_svgSize));
     mConnectCloseButton->setTitle(TRANS("Close"));
     mConnectCloseButton->setImages(ximg.get());
+    mConnectCloseButton->configureAsCloseControl();
     mConnectCloseButton->addListener(this);
     mConnectCloseButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
 
@@ -657,9 +659,9 @@ void ConnectView::updateLayout()
     // main layout
     connectTitleBox.items.clear();
     connectTitleBox.flexDirection = FlexBox::Direction::row;
-    connectTitleBox.items.add(FlexItem(50, minitemheight, *mConnectCloseButton).withMargin(2));
     connectTitleBox.items.add(FlexItem(80, minitemheight, *mConnectTitle).withMargin(2).withFlex(1));
     connectTitleBox.items.add(FlexItem(50, minitemheight, *mConnectMenuButton).withMargin(2));
+    connectTitleBox.items.add(FlexItem(48, minitemheight, *mConnectCloseButton).withMargin(2));
 
     connectHorizBox.items.clear();
     connectHorizBox.flexDirection = FlexBox::Direction::row;
@@ -1191,7 +1193,8 @@ void ConnectView::showDirectConnection(Component* anchor)
     remoteBox.performLayout(mDirectConnectContainer->getLocalBounds().reduced(12));
     auto bounds = anchor != nullptr ? parent->getLocalArea(anchor, anchor->getLocalBounds())
                                   : Rectangle<int>(parent->getWidth() / 2 - 40, 40, 80, 28);
-    directConnectCalloutBox = &CallOutBox::launchAsynchronously(std::move(wrap), bounds, parent, false);
+    wrap->setName(juce::String::fromUTF8("Conectar por IP"));
+    directConnectCalloutBox = &SonoCallOutBox::launchAsynchronously(std::move(wrap), bounds, parent, false);
     if (auto* box = dynamic_cast<CallOutBox*>(directConnectCalloutBox.get()))
         box->setDismissalMouseClicksAreAlwaysConsumed(true);
 }

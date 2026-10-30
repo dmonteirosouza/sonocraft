@@ -1,3 +1,4 @@
+#include "SonoCallOutBox.h"
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2020 Jesse Chappell
 
@@ -4173,7 +4174,8 @@ void ChannelGroupsView::showEffects(int index, bool flag, Component * fromView)
         
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, fromView->getScreenBounds());
         DBG("effect callout bounds: " << bounds.toString());
-        effectsCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Opções de áudio"));
+        effectsCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(effectsCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -4246,7 +4248,8 @@ void ChannelGroupsView::showMonitorEffects(int index, bool flag, Component * fro
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, fromView->getScreenBounds());
         DBG("effect callout bounds: " << bounds.toString());
-        monEffectsCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Opções de áudio"));
+        monEffectsCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(monEffectsCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }
@@ -4324,7 +4327,8 @@ void ChannelGroupsView::showInputReverbView(bool flag, Component * fromView)
 
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, fromView->getScreenBounds());
         DBG("in reverb callout bounds: " << bounds.toString());
-        inReverbCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Opções de áudio"));
+        inReverbCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(inReverbCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }

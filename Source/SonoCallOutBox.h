@@ -2,9 +2,10 @@
 #pragma once
 
 #include "JuceHeader.h"
+#include "SonoDrawableButton.h"
 
 class SonoCallOutBox
-: public juce::CallOutBox
+: public juce::CallOutBox, private juce::ComponentListener
 {
 public:
 
@@ -43,6 +44,20 @@ public:
                                                  std::function<bool(const Component*)> canPassthroughFunc = {} );
 
 
+    static SonoCallOutBox& launchForComponent(Component& view, Component& parent, int width, int height);
+    ~SonoCallOutBox() override;
+    Component& getPanelContent() const { return panelContent; }
+    void resized() override;
+    void moved() override {}
+    void childBoundsChanged(Component*) override {}
+    void parentSizeChanged() override;
+    void parentHierarchyChanged() override;
+    void paint(Graphics&) override;
+    bool hitTest(int, int) override { return true; }
+    void mouseDown(const MouseEvent&) override;
+    void inputAttemptWhenModal() override;
+    void componentMovedOrResized(Component&, bool, bool) override;
+
     bool canModalEventBeSentToComponent (const Component* targetComponent) override;
 
 
@@ -56,5 +71,13 @@ public:
 protected:
 
 
+    Component& panelContent;
+    Viewport body;
+    SonoDrawableButton close { "Close", DrawableButton::ImageFitted };
+    Label heading;
+    Rectangle<int> panelBounds;
+    const int preferredWidth, preferredHeight;
+    bool layingOut = false;
+    bool ownHeader = false;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SonoCallOutBox)
 };

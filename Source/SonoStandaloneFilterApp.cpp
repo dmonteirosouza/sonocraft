@@ -915,6 +915,10 @@ Image JUCE_CALLTYPE juce_getIAAHostIcon (int size)
 #endif
 #endif
 
+#if JUCE_ANDROID
+// JUCE locates this entry point by name when the Android Application starts.
+extern "C" __attribute__((visibility("default"))) juce::JUCEApplicationBase* juce_CreateApplication();
+#endif
 START_JUCE_APPLICATION (SonobusStandaloneFilterApp);
 
 //#endif

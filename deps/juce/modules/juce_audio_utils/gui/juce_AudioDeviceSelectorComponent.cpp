@@ -73,7 +73,7 @@ static void drawTextLayout (Graphics& g, Component& owner, StringRef text, const
 
     AttributedString attributedString { text };
     attributedString.setColour (textColour);
-    attributedString.setFont ((float) textBounds.getHeight() * 0.6f);
+    attributedString.setFont (jmin (15.0f, (float) textBounds.getHeight() * 0.75f));
     attributedString.setJustification (Justification::centredLeft);
     attributedString.setWordWrap (AttributedString::WordWrap::none);
 
@@ -135,13 +135,13 @@ public:
             auto item = items[row];
             bool enabled = deviceManager.isMidiInputDeviceEnabled (item.identifier);
 
-            auto x = getTickX();
-            auto tickW = (float) height * 0.75f;
+            const int x = 21;
+            auto tickW = jmin (15.0f, (float) height * 0.75f) * 1.1f;
 
             getLookAndFeel().drawTickBox (g, *this, (float) x - tickW, ((float) height - tickW) * 0.5f, tickW, tickW,
                                           enabled, true, true, false);
 
-            drawTextLayout (g, *this, item.name, { x + 5, 0, width - x - 5, height }, enabled);
+            drawTextLayout (g, *this, item.name, { x + 5, 0, width - x - 5, height }, isEnabled());
         }
     }
 
@@ -254,6 +254,65 @@ public:
 
     void resized() override
     {
+#if JUCE_IOS || JUCE_ANDROID
+        // A label beside a selector leaves no room for the device name on phones.
+        Rectangle<int> mobileRow (0, 0, getWidth(), 4000);
+        const int touchHeight = jmax (44, parent.getItemHeight());
+        auto selector = [&] (ComboBox* box, Label* label, bool visible = true)
+        {
+            if (box == nullptr) return;
+            box->setVisible (visible);
+            if (label != nullptr) label->setVisible (visible);
+            if (!visible) return;
+            auto caption = mobileRow.removeFromTop (24);
+            box->setBounds (mobileRow.removeFromTop (touchHeight));
+            if (label != nullptr) {
+                label->setJustificationType (Justification::centredLeft);
+                label->setBounds (caption);
+            }
+            mobileRow.removeFromTop (12);
+        };
+        selector (inputDeviceDropDown.get(), inputDeviceLabel.get());
+        if (inputDeviceDropDown != nullptr && inputLevelMeter != nullptr) {
+            inputLevelMeter->setBounds (mobileRow.removeFromTop (12));
+            mobileRow.removeFromTop (12);
+        }
+        selector (outputDeviceDropDown.get(), outputDeviceLabel.get());
+        if (testButton != nullptr) {
+            testButton->setBounds (mobileRow.removeFromTop (touchHeight));
+            mobileRow.removeFromTop (12);
+        }
+        auto channels = [&] (auto* list, Label* label, Button* all)
+        {
+            if (list == nullptr) return;
+            auto caption = mobileRow.removeFromTop (28);
+            if (all != nullptr) {
+                const bool multiple = list->getNumRows() > 1;
+                all->setVisible (multiple);
+                if (multiple) all->setBounds (mobileRow.removeFromTop (touchHeight));
+            }
+            list->setRowHeight (touchHeight);
+            list->setBounds (mobileRow.removeFromTop (list->getBestHeight (touchHeight * 3)));
+            if (label != nullptr) { label->setJustificationType (Justification::centredLeft); label->setBounds (caption); }
+            mobileRow.removeFromTop (12);
+        };
+        channels (inputChanList.get(), inputChanLabel.get(), inputChanSelectAllButton.get());
+        channels (outputChanList.get(), outputChanLabel.get(), outputChanSelectAllButton.get());
+        if (showAdvancedSettingsButton != nullptr) {
+            showAdvancedSettingsButton->setBounds (mobileRow.removeFromTop (touchHeight));
+            mobileRow.removeFromTop (8);
+        }
+        const bool advanced = showAdvancedSettingsButton == nullptr || showAdvancedSettingsButton->getToggleState();
+        selector (sampleRateDropDown.get(), sampleRateLabel.get(), advanced);
+        selector (bufferSizeDropDown.get(), bufferSizeLabel.get(), advanced);
+        for (auto* button : { showUIButton.get(), resetDeviceButton.get() }) {
+            if (button == nullptr) continue;
+            button->setVisible (advanced);
+            if (advanced) { button->setBounds (mobileRow.removeFromTop (touchHeight)); mobileRow.removeFromTop (8); }
+        }
+        setSize (getWidth(), mobileRow.getY());
+        return;
+#endif
         Rectangle<int> r (proportionOfWidth (0.35f), 0, proportionOfWidth (0.6f), 3000);
 
         const int maxListBoxHeight = 75; // 100;
@@ -942,13 +1001,13 @@ public:
                         enabled = config.outputChannels[row];
                 }
 
-                auto x = getTickX();
-                auto tickW = (float) height * 0.75f;
+                const int x = 21;
+                auto tickW = jmin (15.0f, (float) height * 0.75f) * 1.1f;
 
                 getLookAndFeel().drawTickBox (g, *this, (float) x - tickW, ((float) height - tickW) * 0.5f, tickW, tickW,
                                               enabled, true, true, false);
 
-                drawTextLayout (g, *this, item, { x + 5, 0, width - x - 5, height }, enabled);
+                drawTextLayout (g, *this, item, { x + 5, 0, width - x - 5, height }, isEnabled());
             }
         }
 
@@ -986,7 +1045,7 @@ public:
 
         int getBestHeight (int maxHeight)
         {
-            return getRowHeight() * jlimit (2, jmax (2, maxHeight / getRowHeight()),
+            return getRowHeight() * jlimit (1, jmax (1, maxHeight / getRowHeight()),
                                             getNumRows())
                        + getOutlineThickness() * 2;
         }
@@ -1199,12 +1258,23 @@ void AudioDeviceSelectorComponent::setItemHeight (int newItemHeight)
 
 void AudioDeviceSelectorComponent::resized()
 {
+#if JUCE_IOS || JUCE_ANDROID
+    Rectangle<int> r (0, 0, getWidth(), 4000);
+#else
     Rectangle<int> r (proportionOfWidth (0.35f), 15, proportionOfWidth (0.6f), 3000);
+#endif
     auto space = itemHeight / 4;
 
     if (deviceTypeDropDown != nullptr)
     {
+#if JUCE_IOS || JUCE_ANDROID
+        auto caption = r.removeFromTop (24);
+#endif
         deviceTypeDropDown->setBounds (r.removeFromTop (itemHeight));
+#if JUCE_IOS || JUCE_ANDROID
+        deviceTypeDropDownLabel->setJustificationType (Justification::centredLeft);
+        deviceTypeDropDownLabel->setBounds (caption);
+#endif
         r.removeFromTop (space * 3);
     }
 

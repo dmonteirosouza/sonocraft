@@ -13,9 +13,10 @@ class SonoCraftApplicationAudio {
 public:
     struct Application {
         juce::String name; uint32_t processId = 0; juce::String identifier;
-        // Read-only OS session activity, available without starting capture on Windows.
+        // Independent playback measurement. It cannot feed playback or network sends.
         float leftLevel = 0, rightLevel = 0;
         bool hasMeter = false;
+        juce::String meterStatus;
     };
     struct Discovery {
         juce::Array<Application> applications;

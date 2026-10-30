@@ -1,3 +1,4 @@
+#include "SonoCallOutBox.h"
 // SPDX-License-Identifier: GPLv3-or-later WITH Appstore-exception
 // Copyright (C) 2020 Jesse Chappell
 
@@ -1964,6 +1965,7 @@ String PeersContainerView::generateLatencyMessage(const SonobusAudioProcessor::L
 void PeersContainerView::timerCallback(int timerId)
 {
     if (timerId == FillRatioUpdateTimerId) {
+        if (!isShowing()) return;
         for (int di=0; di < mPeerViews.size(); ++di) {
             PeerViewInfo * pvf = mPeerViews.getUnchecked(di);
             int i = mPeerUpdateOrdering[di];
@@ -2260,7 +2262,8 @@ void PeersContainerView::showRecvOptions(int dindex, bool flag, Component * from
         
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, fromView ? fromView->getScreenBounds() : pvf->recvOptionsButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        recvOptionsCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Recepção de áudio"));
+        recvOptionsCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(recvOptionsCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
             box->grabKeyboardFocus();
@@ -2318,7 +2321,8 @@ void PeersContainerView::showSendOptions(int dindex, bool flag, Component * from
         
         Rectangle<int> bounds =  dw->getLocalArea(nullptr, fromView ? fromView->getScreenBounds() : pvf->sendOptionsButton->getScreenBounds());
         DBG("callout bounds: " << bounds.toString());
-        sendOptionsCalloutBox = & CallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
+        wrap->setName(juce::String::fromUTF8("Envio de áudio"));
+        sendOptionsCalloutBox = & SonoCallOutBox::launchAsynchronously (std::move(wrap), bounds , dw, false);
         if (CallOutBox * box = dynamic_cast<CallOutBox*>(sendOptionsCalloutBox.get())) {
             box->setDismissalMouseClicksAreAlwaysConsumed(true);
         }

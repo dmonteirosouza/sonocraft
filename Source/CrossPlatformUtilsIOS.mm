@@ -3,24 +3,11 @@
 
 
 
-#include "CrossPlatformUtils.h"
-
-#include "../JuceLibraryCode/AppConfig.h"
-
 #include <juce_core/system/juce_TargetPlatform.h>
-
 #if JUCE_IOS
-
-#include <juce_opengl/juce_opengl.h>
-
-
-
-#import <UIKit/UIView.h>
-
-#include "../JuceLibraryCode/JuceHeader.h"
-
-
-
+#import <UIKit/UIKit.h>
+#include <JuceHeader.h>
+#include "CrossPlatformUtils.h"
 
 void getSafeAreaInsets(void * component, float & top, float & bottom, float & left, float & right)
 {

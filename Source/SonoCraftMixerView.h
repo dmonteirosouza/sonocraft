@@ -5,6 +5,7 @@
 #include "SonoCraftTheme.h"
 #include "SonoCraftSourceControls.h"
 #include "SonoCraftStrip.h"
+#include "SonoCallOutBox.h"
 
 // Draw menu indicators as geometry: the Windows UI font need not contain ▾.
 class SonoCraftNavigationButton : public juce::TextButton {
@@ -85,19 +86,19 @@ public:
             : mainOutput && additionalOutput ? "Escuta: duas saídas" : mainOutput ? "Escuta: saída principal"
             : additionalOutput ? "Escuta: saída adicional" : "Escuta: sem saída"),
             "Origem: participante", juce::String::fromUTF8("Áudio recebido deste participante. O volume e o silêncio deste canal controlam a escuta local. Rotas avançadas ficam em Ferramentas."));
-        meterLeft = state.left; meterRight = state.right;
+        updateMeter(state.left, state.right);
         setTooltip(juce::String::fromUTF8("Nível recebido deste participante, incluindo entrada, pads e fontes separadas."));
         mute.setToggleState(state.muted, juce::dontSendNotification);
         secondary.setToggleState(state.soloed, juce::dontSendNotification);
-        syncGain(state.gain); repaint();
+        syncGain(state.gain);
     }
     void syncLocal(bool hasRecipients, bool sendPaused) {
         name.setText(role == input ? "Sua entrada" : juce::String::fromUTF8("Saída principal"), juce::dontSendNotification);
         subtitle.setText(role == input ? "ENTRADA" : juce::String::fromUTF8("SAÍDA"), juce::dontSendNotification);
         auto& source = role == input ? processor.getInputMeterSource() : processor.getOutputMeterSource();
         source.decayIfNeeded();
-        meterLeft = source.getNumChannels() > 0 ? source.getMaxLevel(0) : 0;
-        meterRight = source.getNumChannels() > 1 ? source.getMaxLevel(1) : meterLeft;
+        const float left = source.getNumChannels() > 0 ? source.getMaxLevel(0) : 0;
+        updateMeter(left, source.getNumChannels() > 1 ? source.getMaxLevel(1) : left);
         syncGain(readParameter(role == input ? SonobusAudioProcessor::paramInGain : SonobusAudioProcessor::paramWet));
         const bool muted = readParameter(role == input ? SonobusAudioProcessor::paramMainInMute : SonobusAudioProcessor::paramMainRecvMute) > 0;
         mute.setToggleState(muted, juce::dontSendNotification);
@@ -125,9 +126,8 @@ public:
             setRoutes(juce::String::fromUTF8(outputAvailable ? "Escuta: saída principal" : "Escuta: sem dispositivo"), "Uso: escuta local",
                 juce::String::fromUTF8("Dispositivo: ") + processor.getStandaloneOutputName() + juce::String::fromUTF8(". A saída adicional tem controle independente em Ajustes."));
         }
-        repaint();
     }
-    void setSelected(bool yes) { selected = yes; repaint(); }
+    void setSelected(bool yes) { if (selected != yes) { selected = yes; repaint(); } }
     const juce::String& connectionId() const { return id; }
     std::function<void(const juce::String&)> onDetails;
 private:
@@ -195,13 +195,14 @@ public:
                 sourceDialog->onClose = [this] { sourceDialog->setVisible(false); };
             }
             sourceDialog->refreshMode();
-            sourceDialog->setVisible(true); sourceDialog->toFront(true); resized();
+            if (sourcePopup) sourcePopup->toFront(true);
+            else sourcePopup = &SonoCallOutBox::launchForComponent(*sourceDialog, *this, 470, 470);
         };
         sourceRouting.setFont(12.0f); sourceRouting.setMinimumHorizontalScale(1);
         sourceRouting.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
         toolTitle.setFont(juce::Font(15.0f, juce::Font::bold));
         toolHelp.setFont(12.0f); toolHelp.setColour(juce::Label::textColourId, SonoCraftTheme::secondary());
-        closeTool.setButtonText("Fechar painel");
+        closeTool.configureAsCloseControl();
         closeTool.setTooltip(juce::String::fromUTF8("Ocultar os controles sem parar a reprodução, a gravação ou o metrônomo"));
         closeTool.onClick = [this] { selectTool(Tool::none); };
         file.setButtonText("Abrir arquivo"); play.setButtonText("Reproduzir"); stop.setButtonText("Parar");
@@ -236,8 +237,20 @@ public:
         bufferTime.setTextBoxStyle(juce::Slider::TextBoxRight, false, 65, 24);
         bufferTime.onValueChange = [this] { applyBuffer(); };
         inspector.setFont(13.0f);
+#if !(JUCE_IOS || JUCE_ANDROID)
         processor.getSourceMixer().startDiscovery();
-        refresh(); startTimerHz(24);
+#endif
+#if JUCE_IOS || JUCE_ANDROID
+        sources.setVisible(false); sourceRouting.setVisible(false);
+        connections.setButtonText("Conectar"); tools.setButtonText("Mais");
+        viewport.setScrollBarsShown(true, false);
+#endif
+        refresh();
+#if JUCE_IOS || JUCE_ANDROID
+        startTimerHz(20);
+#else
+        startTimerHz(24);
+#endif
     }
     ~SonoCraftMixerView() override { stopTimer(); viewport.setViewedComponent(nullptr, false); }
     std::function<void()> onConnectIP, onConnectGroup, onSettings, onRecord, onFile, onRouting, onEffects, onChat, onSoundboard, onPlay;
@@ -248,6 +261,20 @@ public:
 
     void resized() override {
         auto bounds = getLocalBounds().reduced(18, 12);
+#if JUCE_IOS || JUCE_ANDROID
+        auto heading = bounds.removeFromTop(56);
+        brand.setBounds(heading.removeFromLeft(36).withHeight(36));
+        settings.setBounds(heading.removeFromRight(84).withHeight(44));
+        session.setBounds(54, 40, juce::jmax(80, getWidth()-160), 24);
+        session.setJustificationType(juce::Justification::centredLeft);
+        auto connectRow = bounds.removeFromTop(44);
+        connections.setBounds(connectRow); bounds.removeFromTop(14);
+        auto navigation = bounds.removeFromBottom(56);
+        const int navWidth = navigation.getWidth()/3;
+        for(auto* button : {&soundboard, &chat, &tools})
+            button->setBounds(navigation.removeFromLeft(navWidth).reduced(3,4));
+        bounds.removeFromBottom(12);
+#else
         auto header = bounds.removeFromTop(44);
         brand.setBounds(header.removeFromLeft(38).reduced(2)); header.removeFromLeft(140);
         session.setBounds(header);
@@ -259,6 +286,7 @@ public:
         for (int i = 0; i < 6; ++i)
             navigation[i]->setBounds(nav.getX() + (i % columns) * cellWidth, nav.getY() + (i / columns) * 42, cellWidth - 6, 34);
         bounds.removeFromTop(6);
+#endif
         int activityCount = 0;
         for (auto* activity : { &playingActivity, &recordingActivity, &metronomeActivity }) if (activity->isVisible()) ++activityCount;
         if (activityCount > 0) {
@@ -271,8 +299,10 @@ public:
                 ++index;
             }
         }
+#if !(JUCE_IOS || JUCE_ANDROID)
         sourceRouting.setBounds(bounds.removeFromTop(34));
         bounds.removeFromTop(6);
+#endif
         const bool hasTool = tool != Tool::none;
         for (auto* c : std::initializer_list<juce::Component*> { &toolTitle, &toolHelp, &closeTool }) c->setVisible(hasTool);
         for (auto* c : { &file, &play, &stop }) c->setVisible(tool == Tool::player);
@@ -281,11 +311,11 @@ public:
         toolBounds = {};
         if (hasTool) {
             const bool wrapMet = tool == Tool::metronome && bounds.getWidth() < 760;
-            auto area = bounds.removeFromTop(wrapMet ? 146 : 112);
+            auto area = bounds.removeFromTop(wrapMet ? 164 : 130);
             toolBounds = area.toFloat();
             auto content = area.reduced(12, 8);
-            auto titleRow = content.removeFromTop(26);
-            closeTool.setBounds(titleRow.removeFromRight(104)); toolTitle.setBounds(titleRow);
+            auto titleRow = content.removeFromTop(44);
+            closeTool.setBounds(titleRow.removeFromRight(titleRow.getHeight())); toolTitle.setBounds(titleRow);
             toolHelp.setBounds(content.removeFromTop(26));
             auto row = content.removeFromTop(32).withWidth(juce::jmin(900, content.getWidth()));
             if (tool == Tool::player) {
@@ -308,6 +338,26 @@ public:
             bufferTime.setBounds(details.removeFromLeft(juce::jmin(380, details.getWidth())).withHeight(28));
             bounds.removeFromBottom(10);
         }
+#if JUCE_IOS || JUCE_ANDROID
+        if(input.getParentComponent()!=&channels)channels.addAndMakeVisible(input);
+        if(master.getParentComponent()!=&channels)channels.addAndMakeVisible(master);
+        viewport.setBounds(bounds);
+        const int available = juce::jmax(100,bounds.getWidth()-viewport.getScrollBarThickness());
+        const int columns = available >= 700 ? 2 : 1;
+        const int width = (available - (columns-1)*12)/columns;
+        int index=0, bottom=0;
+        auto place = [&](juce::Component& strip, int height) {
+            const int y=columns == 1 ? bottom : (index/columns)*292;
+            strip.setBounds((index%columns)*(width+12),y,width,height);
+            bottom=juce::jmax(bottom,y+height+12); ++index;
+        };
+        place(input,244); place(master,244);
+        for(auto* strip:sourceStrips)place(*strip,280);
+        for(auto* strip:strips)place(*strip,280);
+        channels.setSize(available,juce::jmax(bounds.getHeight(),bottom+8));
+        if(sourceDialog && sourceDialog->getParentComponent() == this)sourceDialog->setBounds(getLocalBounds().reduced(16));
+        return;
+#endif
         const int busWidth = getWidth() < 700 ? 156 : SonoCraftStrip::preferredWidth;
         const int availableHeight = juce::jmax(80, bounds.getHeight() - viewport.getScrollBarThickness());
         const bool scrollAll = availableHeight < 420 || bounds.getWidth() < 2*busWidth + 208;
@@ -328,11 +378,17 @@ public:
         for (auto* strip : strips) { strip->setBounds(x, 0, busWidth, channelHeight); x += busWidth + 12; }
         if (scrollAll) { master.setBounds(x, 0, busWidth, channelHeight); x += busWidth + 12; }
         channels.setSize(juce::jmax(bounds.getWidth(), x), channelHeight);
-        if (sourceDialog) sourceDialog->setBounds(getLocalBounds().withSizeKeepingCentre(juce::jmin(470, getWidth()-24), juce::jmin(470, getHeight()-24)));
+        if (sourceDialog && sourceDialog->getParentComponent() == this) sourceDialog->setBounds(getLocalBounds().withSizeKeepingCentre(juce::jmin(470, getWidth()-24), juce::jmin(470, getHeight()-24)));
     }
     void paint(juce::Graphics& g) override {
         using namespace SonoCraftTheme;
         g.fillAll(canvas());
+#if JUCE_IOS || JUCE_ANDROID
+        g.setColour(text()); g.setFont(juce::Font(21.0f,juce::Font::bold));
+        g.drawText("SonoCraft",56,12,160,30,juce::Justification::centredLeft);
+        if(!toolBounds.isEmpty()){g.setColour(panel());g.fillRoundedRectangle(toolBounds,12);}
+        return;
+#endif
         g.setColour(text()); g.setFont(juce::Font(19.0f, juce::Font::bold));
         g.drawText("SonoCraft", 62, 13, 135, 26, juce::Justification::centredLeft);
         g.setColour(secondary()); g.setFont(11.5f);
@@ -362,7 +418,9 @@ private:
     juce::ImageComponent brand;
     juce::Label session, sourceRouting, inspector, toolTitle, toolHelp;
     SonoCraftNavigationButton connections, sources, soundboard, chat, tools, settings;
-    juce::TextButton closeTool, file, play, stop, record, playingActivity, recordingActivity, metronomeActivity;
+    SonoDrawableButton closeTool { "Close", juce::DrawableButton::ImageFitted };
+    juce::TextButton file, play, stop, record, playingActivity, recordingActivity, metronomeActivity;
+    Component::SafePointer<Component> sourcePopup;
     juce::ToggleButton metEnabled, metSend;
     juce::Slider metTempo, metLevel, bufferTime;
     juce::ComboBox bufferMode;
@@ -372,7 +430,18 @@ private:
     bool syncing = false;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> metTempoAttachment, metLevelAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> metEnabledAttachment, metSendAttachment;
-    void timerCallback() override { refresh(); }
+    void timerCallback() override {
+        if (!isShowing()) return;
+#if JUCE_IOS || JUCE_ANDROID
+        // Covered meters must not compete with typing, menus or modal sheets.
+        if ((isChatVisible && isChatVisible()) || (isPadsVisible && isPadsVisible())
+            || (isSettingsVisible && isSettingsVisible()) || (isConnectionVisible && isConnectionVisible())
+            || (isAdvancedToolVisible && isAdvancedToolVisible()) || (sourceDialog && sourceDialog->isVisible())
+            || juce::Component::getCurrentlyModalComponent() != nullptr
+            || dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr) return;
+#endif
+        refresh();
+    }
     void selectTool(Tool next) {
         tool = next;
         if (tool == Tool::player) toolTitle.setText(juce::String::fromUTF8("Arquivo de áudio"), juce::dontSendNotification);
@@ -402,6 +471,9 @@ private:
         menu.addItem(3, juce::String::fromUTF8("Metrônomo"), true, tool == Tool::metronome);
         if (processor.isRecordingToFile()) menu.addItem(6, juce::String::fromUTF8("Parar gravação agora"));
         menu.addSeparator();
+#if JUCE_IOS || JUCE_ANDROID
+        menu.addItem(7, "Fontes no celular");
+#endif
         menu.addItem(4, juce::String::fromUTF8("Efeitos da saída")); menu.addItem(5, "Roteamento de canais");
         juce::Component::SafePointer<SonoCraftMixerView> safe(this);
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&tools).withParentComponent(this), [safe](int choice) {
@@ -412,6 +484,7 @@ private:
             if (choice == 4 && safe->onEffects) safe->onEffects();
             if (choice == 5 && safe->onRouting) safe->onRouting();
             if (choice == 6 && safe->onRecord) safe->onRecord();
+            if (choice == 7) safe->sources.triggerClick();
         });
     }
     void applyBuffer() {
@@ -419,7 +492,9 @@ private:
     }
     void refresh()
     {
+#if !(JUCE_IOS || JUCE_ANDROID)
         processor.getSourceMixer().pollDiscovery();
+#endif
         const auto sourcesState = processor.getSourceMixer().views();
         const auto states = processor.getMixerChannelStates();
         bool hasRecipients = false, anyPeerSolo = false;
@@ -441,8 +516,12 @@ private:
                           : "Entrada completa: o sistema inteiro pode ser enviado. Fontes individuais desligadas.")
             : "Aplicativos com áudio aparecem automaticamente. Ative Enviar nos canais que deseja compartilhar."),juce::dontSendNotification);
         const auto discoveryStatus=processor.getSourceMixer().discoveryStatus();
-        sourceRouting.setTooltip(discoveryStatus.isEmpty()?juce::String::fromUTF8("A detecção automática não captura nem envia áudio. Abas são escolhidas em Fontes."):discoveryStatus);
+        sourceRouting.setTooltip(discoveryStatus.isEmpty()?juce::String::fromUTF8("A medição automática não grava nem envia áudio. Abas são escolhidas em Fontes."):discoveryStatus);
         if(discoveryStatus.isNotEmpty())sourceRouting.setText(discoveryStatus,juce::dontSendNotification);
+#if JUCE_IOS || JUCE_ANDROID
+        sourceRouting.setText(juce::String::fromUTF8("Entrada, pads e participantes: ajuste cada volume na mesa."),juce::dontSendNotification);
+        sourceRouting.setTooltip(juce::String::fromUTF8("Aplicativos e abas compartilhados por outro dispositivo são recebidos no canal desse participante."));
+#endif
         if (sourcesChanged) resized();
         bool changed = states.size() != strips.size();
         if (!changed) for (int i = 0; i < states.size(); ++i) changed |= states[i].id != strips[i]->connectionId();
@@ -499,6 +578,5 @@ private:
             toolHelp.setText(juce::String::fromUTF8(recording ? "Gravando áudio. Fechar este painel não interrompe a gravação." : "Salve o áudio em um arquivo. Destino e formato ficam em Ajustes → Gravação."), juce::dontSendNotification);
         }
         toolHelp.setTooltip(toolHelp.getText());
-        repaint();
     }
 };

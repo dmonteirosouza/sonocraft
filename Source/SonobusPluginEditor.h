@@ -60,6 +60,7 @@ public PeersContainerView::Listener
 public:
     SonobusAudioProcessorEditor (SonobusAudioProcessor&);
     ~SonobusAudioProcessorEditor();
+    void openAudioSettings();
 
     //==============================================================================
     void paint (Graphics&) override;
@@ -339,6 +340,7 @@ private:
     std::unique_ptr<Label> mOutGainLabel;
 
     std::unique_ptr<ConnectView> mConnectView;
+    Component::SafePointer<Component> chatPanelDialog, padsPanelDialog, connectionPanelDialog;
 
     std::unique_ptr<OptionsView> mOptionsView;
 

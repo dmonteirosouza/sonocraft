@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPLv3-or-later
 // Copyright (C) 2020 Jesse Chappell
 
-package com.sonosaurus.sonobus;
+package net.sonocraft.audio;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -20,8 +20,8 @@ import android.util.Log;
 
 public class SonoBusService extends Service {
 
-     private final static String TAG = "SonoBus";
-    private final static String FOREGROUND_CHANNEL_ID = "foreground_audio_sonobus";
+     private final static String TAG = "SonoCraft";
+    private final static String FOREGROUND_CHANNEL_ID = "foreground_audio_sonocraft";
     private NotificationManager mNotificationManager;
     
     public static final int NOTIFICATION_ID_FOREGROUND_SERVICE = 8468343;
@@ -64,7 +64,7 @@ public class SonoBusService extends Service {
         // handle build version above android oreo
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
             mNotificationManager.getNotificationChannel(FOREGROUND_CHANNEL_ID) == null) {
-            CharSequence name = "SonoBus Audio"; //getString(R.string.text_name_notification);
+            CharSequence name = "Áudio do SonoCraft"; //getString(R.string.text_name_notification);
             int importance = NotificationManager.IMPORTANCE_LOW;
             NotificationChannel channel = new NotificationChannel(FOREGROUND_CHANNEL_ID, name, importance);
             channel.enableVibration(false);
@@ -96,8 +96,8 @@ public class SonoBusService extends Service {
             notificationBuilder = new NotificationCompat.Builder(this);
         }
         
-        notificationBuilder.setContentTitle("SonoBus")
-        .setContentText("App is active")
+        notificationBuilder.setContentTitle("SonoCraft")
+        .setContentText("Áudio ativo")
         .setOnlyAlertOnce(true)
         .setAutoCancel(true)
         .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -112,7 +112,14 @@ public class SonoBusService extends Service {
             notificationBuilder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         }
         
-        startForeground(1555, notificationBuilder.build());
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            int types = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+                types |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+            startForeground(1555, notificationBuilder.build(), types);
+        } else {
+            startForeground(1555, notificationBuilder.build());
+        }
         
     }
     

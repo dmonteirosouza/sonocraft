@@ -1015,7 +1015,12 @@ public:
     {
         switch (result)
         {
-            case 1:  pluginHolder->showAudioSettingsDialog(); break;
+            case 1:
+                if (auto* editor = dynamic_cast<SonobusAudioProcessorEditor*>(pluginHolder->processor->getActiveEditor()))
+                    editor->openAudioSettings();
+                else
+                    pluginHolder->showAudioSettingsDialog();
+                break;
             case 2:  pluginHolder->askUserToSaveState(); break;
             case 3:  pluginHolder->askUserToLoadState(); break;
             case 4:  resetToDefaultState(); break;
@@ -1118,10 +1123,9 @@ private:
                 isTall = tall;
 
                 // call resized again if on iOS, due to dumb stuff related to safe area insets not being updated
-#if JUCE_IOS
-                Timer::callAfterDelay(150, [this]() { 
-                    this->resized();             
-                });
+#if JUCE_IOS || JUCE_ANDROID
+                Component::SafePointer<MainContentComponent> safe(this);
+                Timer::callAfterDelay(150, [safe]() { if (safe) safe->resized(); });
 #endif
             }
             

@@ -95,7 +95,11 @@ OptionsView::OptionsView(SonobusAudioProcessor& proc, std::function<AudioDeviceM
     mOptionsComponent = std::make_unique<SonoCraftSettingsPage>();
 
     mSettingsTab = std::make_unique<TabbedComponent>(TabbedButtonBar::Orientation::TabsAtTop);
+#if JUCE_IOS || JUCE_ANDROID
+    mSettingsTab->setTabBarDepth(48);
+#else
     mSettingsTab->setTabBarDepth(36);
+#endif
     mSettingsTab->setOutline(0);
     mSettingsTab->getTabbedButtonBar().setMinimumTabScaleFactor(0.1f);
     //mSettingsTab->addComponentListener(this);
@@ -714,7 +718,7 @@ void OptionsView::updateLayout() { prefHeight = 640; }
 void OptionsView::resized() {
     mSettingsTab->setBounds(getLocalBounds().reduced(8));
     for (auto* page : { mAudioPage.get(), mConnectionPage.get(), mOptionsComponent.get(), mRecOptionsComponent.get() }) {
-        page->setSize(jmax(280, mSettingsTab->getWidth() - 16), page->getHeight());
+        page->setSize(jmax(1, mSettingsTab->getWidth() - 16), page->getHeight());
         page->resized();
     }
 }

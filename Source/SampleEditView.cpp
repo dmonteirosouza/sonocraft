@@ -554,6 +554,37 @@ void SampleEditView::paint(Graphics& g)
 
 void SampleEditView::resized()
 {
+#if JUCE_IOS || JUCE_ANDROID
+    auto mobile = getLocalBounds().withHeight(1400).reduced(16);
+    editorTitle.setBounds(mobile.removeFromTop(30));
+    editorHint.setBounds(mobile.removeFromTop(36));
+    mNameLabel->setBounds(mobile.removeFromTop(24));
+    mNameInput->setBounds(mobile.removeFromTop(44)); mobile.removeFromTop(12);
+    mFilePathLabel->setBounds(mobile.removeFromTop(24));
+    auto fileRow=mobile.removeFromTop(44);
+    mBrowseFilePathButton->setBounds(fileRow.removeFromRight(100)); fileRow.removeFromRight(8);
+    mFilePathInput->setBounds(fileRow); mobile.removeFromTop(12);
+    mColourInputLabel->setBounds(mobile.removeFromTop(26));
+    colourButtonBox.performLayout(mobile.removeFromTop(84)); mobile.removeFromTop(12);
+    mPlaybackOptionsLabel->setBounds(mobile.removeFromTop(30));
+    ComboBox* mobileChoices[] = {mButtonBehaviourButton.get(),mLoopButton.get(),mPlaybackBehaviourButton.get(),mReplayBehaviourButton.get()};
+    for(int i=0;i<4;++i){
+        optionLabels[i].setBounds(mobile.removeFromTop(26));
+        mobileChoices[i]->setBounds(mobile.removeFromTop(44));
+        optionHints[i].setMinimumHorizontalScale(1);
+        optionHints[i].setBounds(mobile.removeFromTop(40)); mobile.removeFromTop(8);
+    }
+    mApplyPlaybackOptionsToOthersButton->setButtonText(String::fromUTF8("Aplicar aos outros pads"));
+    mApplyPlaybackOptionsToOthersButton->setBounds(mobile.removeFromTop(44)); mobile.removeFromTop(12);
+    mVolumeLabel->setBounds(mobile.removeFromTop(26));
+    mVolumeSlider->setBounds(mobile.removeFromTop(48)); mobile.removeFromTop(16);
+    for(auto* c : std::initializer_list<Component*>{mHotkeyLabel.get(),mHotkeyButton.get(),mRemoveHotkeyButton.get()})c->setVisible(false);
+    auto actions=mobile.removeFromTop(48);
+    mDeleteButton->setBounds(actions.removeFromLeft((actions.getWidth()-12)/2)); actions.removeFromLeft(12);
+    mSubmitButton->setBounds(actions);
+    minContentHeight=actions.getBottom()+16; minContentWidth=280;
+    return;
+#endif
     auto r = getLocalBounds().reduced(14);
     editorTitle.setBounds(r.removeFromTop(28));
     editorHint.setBounds(r.removeFromTop(22));

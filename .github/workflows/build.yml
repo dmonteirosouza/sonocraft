@@ -39,9 +39,9 @@ jobs:
       - name: Configure Windows
         if: runner.os == 'Windows'
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DSONOCRAFT_BUILD_TESTS=ON -DSONOCRAFT_ENABLE_ASIO=OFF
-      - name: Build application and audio regression
-        run: cmake --build build --target SonoBus_Standalone SonoCraftAudioRegression --config Release --parallel 3
-      - name: Test local UDP audio
+      - name: Build application and regression checks
+        run: cmake --build build --target SonoBus_Standalone SonoCraftAudioRegression SonoCraftDialogRegression --config Release --parallel 3
+      - name: Test audio and panel lifecycle
         run: python scripts/run-ci-tests.py
       - name: Collect failed test diagnostics
         if: failure()

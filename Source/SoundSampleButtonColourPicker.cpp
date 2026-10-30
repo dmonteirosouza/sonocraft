@@ -5,6 +5,7 @@
 
 #include <JuceHeader.h>
 #include "SoundSampleButtonColourPicker.h"
+#include "SonoCallOutBox.h"
 #include "SonoPlaybackProgressButton.h"
 #include "SonoTextButton.h"
 
@@ -28,7 +29,7 @@ void SoundSampleButtonColourPicker::show(const Rectangle<int>& bounds)
     }
     Rectangle<int> abounds =  dw ? dw->getLocalArea(nullptr, bounds) : bounds;
 
-    CallOutBox::launchAsynchronously (std::move (colourSelector), abounds, dw);
+    SonoCallOutBox::launchAsynchronously (std::move (colourSelector), abounds, dw);
 }
 
 void SoundSampleButtonColourPicker::updateSelectedColour(uint32 newColour)

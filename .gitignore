@@ -3,7 +3,12 @@ build
 build32
 buildXcode
 release/1.*
-mobile/Builds
+mobile/Builds/*
+!mobile/Builds/Android/
+mobile/Builds/Android/.gradle/
+mobile/Builds/Android/.idea/
+mobile/Builds/Android/app/.cxx/
+mobile/Builds/Android/local.properties
 
 # SonoCraft packaged releases
 /dist/

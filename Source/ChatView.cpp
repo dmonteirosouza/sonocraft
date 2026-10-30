@@ -48,21 +48,21 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
 
     int menubuttw = 36;
     int minitemheight = 36;
-    int titleheight = 32;
+    int titleheight = 44;
     int minButtonWidth = 90;
     int tabheight = 30;
 #if JUCE_IOS || JUCE_ANDROID
     // make the button heights a bit more for touchscreen purposes
     minitemheight = 44;
-    menubuttw = 40;
-    titleheight = 34;
+    menubuttw = 48;
+    titleheight = 48;
     tabheight = 36;
 #endif
     int chatsendh = minitemheight + 16;
     
     mTitleLabel = std::make_unique<Label>("title", TRANS("Chat"));
-    mTitleLabel->setJustificationType(Justification::centred);
-    mTitleLabel->setFont(Font(18, Font::bold));
+    mTitleLabel->setJustificationType(Justification::centredLeft);
+    mTitleLabel->setFont(Font(17, Font::bold));
     mTitleLabel->setColour(Label::textColourId, SonoCraftTheme::text());
 
     mChatTabs = std::make_unique<SonobusChatTabbedButtonBar>(TabbedButtonBar::Orientation::TabsAtBottom, *this);
@@ -99,6 +99,7 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     mCloseButton = std::make_unique<SonoDrawableButton>("x", DrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> ximg(Drawable::createFromImageData(BinaryData::x_icon_svg, BinaryData::x_icon_svgSize));
     mCloseButton->setImages(ximg.get());
+    mCloseButton->configureAsCloseControl();
     mCloseButton->setTitle(TRANS("Close Chat"));
     mCloseButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mCloseButton->onClick = [this]() {
@@ -156,9 +157,9 @@ ChatView::ChatView(SonobusAudioProcessor& proc, AooServerConnectionInfo & connec
     titleBox.items.clear();
     titleBox.flexDirection = FlexBox::Direction::row;
     titleBox.items.add(FlexItem(4, 4).withMargin(0).withFlex(0));
-    titleBox.items.add(FlexItem(menubuttw, 4, *mCloseButton).withMargin(0).withFlex(0));
     titleBox.items.add(FlexItem(minButtonWidth, 4, *mTitleLabel).withMargin(0).withFlex(1));
     titleBox.items.add(FlexItem(menubuttw, 4, *mMenuButton).withMargin(0).withFlex(0));
+    titleBox.items.add(FlexItem(menubuttw, 4, *mCloseButton).withMargin(0).withFlex(0));
     titleBox.items.add(FlexItem(4, 4).withMargin(0).withFlex(0));
 
     chatTextBox.items.clear();

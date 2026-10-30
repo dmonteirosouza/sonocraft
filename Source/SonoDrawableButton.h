@@ -31,10 +31,12 @@ public:
     };
 
     void setBackgroundImage(const Drawable * img);
+    void configureAsCloseControl();
     
 protected:
     
     std::unique_ptr<Drawable> bgImage;
     float fgImageRatio = 0.75f;
+    bool closeControl = false;
     RectanglePlacement rectPlacement = RectanglePlacement::stretchToFit;
 };

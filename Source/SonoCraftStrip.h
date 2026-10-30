@@ -27,6 +27,12 @@ public:
         fader.setLookAndFeel(&look);
         fader.setSliderStyle(juce::Slider::LinearVertical);
         fader.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 88, 24);
+#if JUCE_IOS || JUCE_ANDROID
+        fader.setSliderStyle(juce::Slider::LinearHorizontal);
+        fader.setTextBoxStyle(juce::Slider::TextBoxRight, false, 76, 36);
+        name.setFont(juce::Font(18.0f, juce::Font::bold));
+        status.setFont(13.0f);
+#endif
         fader.setDoubleClickReturnValue(true, 0.0);
         fader.setScrollWheelEnabled(false);
         fader.setTooltip(juce::String::fromUTF8("0 dB = volume original. Arraste ou digite o valor. Duplo clique para voltar a 0 dB."));
@@ -53,6 +59,31 @@ public:
     }
     ~SonoCraftStrip() override { fader.setLookAndFeel(nullptr); }
     void resized() override {
+#if JUCE_IOS || JUCE_ANDROID
+        auto area = getLocalBounds().reduced(16);
+        auto heading = area.removeFromTop(28);
+        name.setBounds(heading.removeFromLeft(juce::roundToInt(heading.getWidth() * .63f)));
+        subtitle.setBounds(heading); subtitle.setJustificationType(juce::Justification::centredRight);
+        status.setBounds(area.removeFromTop(24));
+        auto routes = area.removeFromTop(34);
+        listeningRoute.setBounds(routes.removeFromTop(17)); sendingRoute.setBounds(routes);
+        area.removeFromTop(6);
+        meter = area.removeFromTop(8).toFloat();
+        area.removeFromTop(6);
+        fader.setBounds(area.removeFromTop(48));
+        area.removeFromTop(6);
+        auto actions = area.removeFromTop(44);
+        const int count = secondary.isVisible() ? 2 : 1;
+        mute.setBounds(actions.removeFromLeft((actions.getWidth() - (count-1)*8)/count));
+        if (secondary.isVisible()) { actions.removeFromLeft(8); secondary.setBounds(actions); }
+        area.removeFromTop(8);
+        if (details.isVisible() || remove.isVisible()) {
+            auto footer = area.removeFromTop(40);
+            details.setBounds(footer.removeFromLeft((footer.getWidth()-8)/2)); footer.removeFromLeft(8);
+            remove.setBounds(footer);
+        }
+        return;
+#endif
         auto r = getLocalBounds().reduced(12);
         const bool compact = getHeight() < 430;
         const int row = compact ? 24 : 28;
@@ -80,6 +111,17 @@ public:
     void paint(juce::Graphics& g) override {
         using namespace SonoCraftTheme;
         const auto box = getLocalBounds().toFloat().reduced(0.5f);
+#if JUCE_IOS || JUCE_ANDROID
+        g.setColour(panel()); g.fillRoundedRectangle(box, 16);
+        g.setColour(selected ? accent() : border()); g.drawRoundedRectangle(box, 16, selected ? 2 : 1);
+        g.setColour(statusColour); g.fillEllipse(float(status.getX()+2), float(status.getBounds().getCentreY()-3), 6, 6);
+        g.setColour(border().withAlpha(.7f)); g.fillRoundedRectangle(meter, 4);
+        const float peak = juce::jmax(meterLeft, meterRight);
+        const float level = juce::jlimit(0.0f,1.0f,(juce::Decibels::gainToDecibels(peak,-60.0f)+60)/60);
+        g.setColour(peak > .99f ? danger() : accent());
+        if(level > 0)g.fillRoundedRectangle(meter.withWidth(meter.getWidth()*level),4);
+        return;
+#endif
         g.setGradientFill(juce::ColourGradient(panel(), 0, 0, juce::Colour(0xffe8edf1), 0, float(getHeight()), false));
         g.fillRoundedRectangle(box, radius);
         g.setColour(juce::Colours::white.withAlpha(0.8f));
@@ -128,6 +170,11 @@ protected:
     juce::TextButton mute, secondary, details, remove;
     float meterLeft = 0, meterRight = 0;
     bool selected = false;
+    void updateMeter(float left, float right) {
+        if (meterLeft == left && meterRight == right) return;
+        meterLeft = left; meterRight = right;
+        repaint(meter.getSmallestIntegerContainer().expanded(1));
+    }
     void setGainLimit(float maxGain) {
         const double maxDb = juce::Decibels::gainToDecibels(double(maxGain));
         // Unity sits at the same height, even for an input with extra headroom.
@@ -142,9 +189,13 @@ protected:
             fader.setValue(juce::Decibels::gainToDecibels(double(gain), -60.0), juce::dontSendNotification);
     }
     void setStatus(const juce::String& text, const juce::String& explanation = {}, SonoCraftPresentation::Tone tone = SonoCraftPresentation::Tone::neutral) {
-        statusColour = tone == SonoCraftPresentation::Tone::active ? SonoCraftTheme::accent()
+        const auto nextColour = tone == SonoCraftPresentation::Tone::active ? SonoCraftTheme::accent()
             : tone == SonoCraftPresentation::Tone::attention ? SonoCraftTheme::warning() : SonoCraftTheme::secondary();
-        status.setColour(juce::Label::textColourId, statusColour);
+        if (statusColour != nextColour) {
+            statusColour = nextColour;
+            status.setColour(juce::Label::textColourId, statusColour);
+            repaint(status.getBounds());
+        }
         status.setText(text, juce::dontSendNotification);
         status.setTooltip(explanation.isNotEmpty() ? explanation : text);
     }

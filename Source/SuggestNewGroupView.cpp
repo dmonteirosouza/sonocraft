@@ -62,6 +62,7 @@ SuggestNewGroupView::SuggestNewGroupView(SonobusAudioProcessor& proc) :  smallLN
     mCloseButton = std::make_unique<SonoDrawableButton>("x", DrawableButton::ButtonStyle::ImageFitted);
     std::unique_ptr<Drawable> ximg(Drawable::createFromImageData(BinaryData::x_icon_svg, BinaryData::x_icon_svgSize));
     mCloseButton->setImages(ximg.get());
+    mCloseButton->configureAsCloseControl();
     mCloseButton->setTitle(TRANS("Close"));
     mCloseButton->setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
     mCloseButton->onClick = [this]() {
@@ -135,7 +136,7 @@ SuggestNewGroupView::SuggestNewGroupView(SonobusAudioProcessor& proc) :  smallLN
     addAndMakeVisible(mPublicToggle.get());
     addAndMakeVisible(mPeerRect.get());
     addAndMakeVisible(mViewport.get());
-    addAndMakeVisible(mCloseButton.get());
+    addChildComponent(mCloseButton.get());
     addAndMakeVisible(mSelectAllButton.get());
     addAndMakeVisible(mSelectNoneButton.get());
     addAndMakeVisible(mTitleLabel.get());
@@ -155,7 +156,7 @@ SuggestNewGroupView::SuggestNewGroupView(SonobusAudioProcessor& proc) :  smallLN
     titleBox.items.clear();
     titleBox.flexDirection = FlexBox::Direction::row;
     titleBox.items.add(FlexItem(4, 4).withMargin(0).withFlex(0));
-    titleBox.items.add(FlexItem(menubuttw, 4, *mCloseButton).withMargin(0).withFlex(0));
+
     titleBox.items.add(FlexItem(minButtonWidth, 4, *mTitleLabel).withMargin(0).withFlex(1));
     //titleBox.items.add(FlexItem(menubuttw, 4, *mMenuButton).withMargin(0).withFlex(0));
     titleBox.items.add(FlexItem(menubuttw, 4).withMargin(0).withFlex(0));

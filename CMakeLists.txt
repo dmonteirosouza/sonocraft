@@ -19,7 +19,7 @@ endif()
 option(UniversalBinary "Build universal binary for mac" ON)
 option(SONOCRAFT_ENABLE_ASIO "Enable Windows ASIO (requires an external ASIO SDK)" ON)
 
-if (APPLE)
+if (APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set (CMAKE_OSX_DEPLOYMENT_TARGET "10.10" CACHE INTERNAL "")
     if (UniversalBinary)
         set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE INTERNAL "")
@@ -42,7 +42,16 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-set(BUILDVERSION 106)
+set(BUILDVERSION 111)
+set(SONOCRAFT_MOBILE OFF)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR ANDROID)
+    set(SONOCRAFT_MOBILE ON)
+endif()
+set(SONOCRAFT_BUNDLE_ID "org.sonocraft.audio")
+if(SONOCRAFT_MOBILE)
+    set(SONOCRAFT_BUNDLE_ID "net.sonocraft.audio")
+    include(cmake/SonoCraftMobile.cmake)
+endif()
 
 
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
@@ -89,13 +98,17 @@ juce_add_modules(deps/ff_meters)
 set (FormatsToBuild VST3 Standalone)
 
 # On Mac, a AU version will be built too
-if (APPLE)
+if (APPLE AND NOT SONOCRAFT_MOBILE)
     list (APPEND FormatsToBuild AU)
 endif()
 
 # On Linux, LV2 will be built too
-if (UNIX)
+if (UNIX AND NOT SONOCRAFT_MOBILE)
     list (APPEND FormatsToBuild LV2)
+endif()
+
+if(SONOCRAFT_MOBILE)
+    set(FormatsToBuild Standalone)
 endif()
 
 # If you are building a VST2 or AAX plugin, CMake needs to be told where to find these SDKs on your
@@ -138,6 +151,17 @@ set (MacPList "<plist version=\"1.0\">
 </plist>")
 
 
+if(SONOCRAFT_MOBILE)
+    set(MacPList "<plist version=\"1.0\"><dict>
+<key>CFBundleVersion</key><string>${BUILDVERSION}</string>
+<key>NSLocalNetworkUsageDescription</key><string>O SonoCraft conecta dispositivos na sua rede para enviar e receber áudio.</string>
+<key>UIBackgroundModes</key><array><string>audio</string></array>
+<key>UIFileSharingEnabled</key><true/>
+<key>LSSupportsOpeningDocumentsInPlace</key><true/>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>net.sonocraft.audio</string><key>CFBundleURLSchemes</key><array><string>sonocraft</string></array></dict></array>
+</dict></plist>")
+endif()
+
 # `juce_add_plugin` adds a static library target with the name passed as the first argument
 # (AudioPluginExample here). This target is a normal CMake target, but has a lot of extra properties set
 # up by default. As well as this shared code static library, this function adds targets for each of
@@ -160,8 +184,9 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
         NEEDS_MIDI_OUTPUT TRUE
         EDITOR_WANTS_KEYBOARD_FOCUS TRUE
         COMPANY_NAME "SonoCraft"
-        BUNDLE_ID "org.sonocraft.audio"
+        BUNDLE_ID "${SONOCRAFT_BUNDLE_ID}"
         MICROPHONE_PERMISSION_ENABLED TRUE
+        MICROPHONE_PERMISSION_TEXT "O SonoCraft usa o microfone para enviar sua voz aos dispositivos conectados."
         
         ICON_BIG "images/sonocraft_icon_1024.png"
         ICON_SMALL "images/sonocraft_icon_256.png"
@@ -208,7 +233,16 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
 
 
     # platform specific stuff
-    if (APPLE)
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        list(APPEND PlatSourceFiles Source/CrossPlatformUtilsIOS.mm)
+    elseif(ANDROID)
+        list(APPEND PlatSourceFiles Source/CrossPlatformUtilsAndroid.cpp Source/android/SonoBusActivity.cpp)
+        list(APPEND PLAT_COMPILE_DEFS
+            JUCE_ANDROID=1 JUCE_ANDROID_API_VERSION=24
+            JUCE_ANDROID_ACTIVITY_OVERRIDE_CLASSNAME="net_sonocraft_audio_SonoBusActivity"
+            JUCE_ANDROID_ACTIVITY_OVERRIDE_CLASSPATH="net/sonocraft/audio/SonoBusActivity"
+            JUCE_ANDROID_ACTIVITY_CLASSNAME="net_sonocraft_audio_SonoBusActivity")
+    elseif (APPLE)
         list (APPEND HEADER_INCLUDES deps/mac/include)
         list (APPEND LIB_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/deps/mac/lib)
         list (APPEND PlatSourceFiles  Source/CrossPlatformUtilsMac.mm)
@@ -396,7 +430,7 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
        )
 
     target_sources("${target_name}" PRIVATE Source/SonoCraftApplicationAudio.cpp Source/SonoCraftApplicationAudio_win.cpp)
-    if(APPLE)
+    if(APPLE AND NOT SONOCRAFT_MOBILE)
         target_sources("${target_name}" PRIVATE Source/SonoCraftApplicationAudio_mac.mm)
         set_source_files_properties(Source/SonoCraftApplicationAudio_mac.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
         target_link_libraries("${target_name}" PUBLIC "-weak_framework ScreenCaptureKit" "-framework CoreMedia")
@@ -583,7 +617,7 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
 
     set_target_properties(${target_name}_SBData PROPERTIES FOLDER "Targets")
 
-    if (UNIX AND NOT APPLE)
+    if (UNIX AND NOT APPLE AND NOT ANDROID)
        target_compile_options("${target_name}_SBData"
          PRIVATE
          -fPIC
@@ -614,6 +648,15 @@ function(sono_add_custom_plugin_target target_name product_name formats is_instr
    endif()
 
 
+    if(SONOCRAFT_MOBILE)
+        target_include_directories("${target_name}" PUBLIC "${opus_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/mobile-opus-include")
+        set_target_properties("${target_name}" "${target_name}_SBData" PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
+    if(ANDROID)
+        target_link_libraries("${target_name}" PUBLIC log android OpenSLES EGL GLESv2)
+        # Android discovers the custom JUCE application through dlsym.
+        target_link_options("${target_name}_Standalone" PRIVATE "-Wl,-u,juce_CreateApplication")
+    endif()
     target_link_directories("${target_name}" INTERFACE
         ${LIB_PATHS}
     )
@@ -645,7 +688,9 @@ sono_add_custom_plugin_target(SonoBus SonoCraft "${FormatsToBuild}" FALSE  "Scft
 #sono_add_custom_plugin_target(SonoBusMobile "AUv3 Standalone" FALSE "NBus")
 
 # add VSTi target
-sono_add_custom_plugin_target(SonoBusInst "SonoCraftInstrument" "VST3" TRUE  "SCin")
+if(NOT SONOCRAFT_MOBILE)
+    sono_add_custom_plugin_target(SonoBusInst "SonoCraftInstrument" "VST3" TRUE "SCin")
+endif()
 
 
 # Explicit opt-in target; exercises the actual audio processor over loopback UDP.
@@ -666,6 +711,12 @@ if (SONOCRAFT_BUILD_TESTS)
         target_sources(SonoCraftBrowserAudioProbe PRIVATE tests/MacAudioTestActivity.mm)
         set_source_files_properties(tests/MacAudioTestActivity.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
     endif()
+    add_executable(SonoCraftDialogRegression tests/DialogRegression.cpp)
+    target_link_libraries(SonoCraftDialogRegression PRIVATE SonoBus)
+    target_include_directories(SonoCraftDialogRegression PRIVATE "$<TARGET_PROPERTY:SonoBus,INCLUDE_DIRECTORIES>")
+    target_compile_features(SonoCraftDialogRegression PRIVATE cxx_std_17)
+    add_test(NAME SonoCraftDialogRegression COMMAND SonoCraftDialogRegression)
+    set_tests_properties(SonoCraftDialogRegression PROPERTIES TIMEOUT 20)
     add_test(NAME SonoCraftAudioRegression COMMAND SonoCraftAudioRegression)
     # Hosted macOS machines can coalesce device-fixture waits by an order of
     # magnitude. Bound total runtime without shortening any audio assertions.

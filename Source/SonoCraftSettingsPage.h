@@ -11,6 +11,9 @@ public:
         for (auto& row : rows) if (row.component) row.component->removeComponentListener(this);
     }
     void control(juce::Component& component, int height = 34) {
+#if JUCE_IOS || JUCE_ANDROID
+        if(height > 0 && dynamic_cast<juce::Label*>(&component) == nullptr) height=juce::jmax(44,height);
+#endif
         rows.push_back({ &component, height });
         addAndMakeVisible(component);
         if (height == 0) component.addComponentListener(this);
@@ -20,7 +23,12 @@ public:
     void resized() override {
         if (layingOut) return;
         const juce::ScopedValueSetter<bool> guard(layingOut, true);
-        const int width = juce::jmax(240, getWidth() - 40);
+#if JUCE_IOS || JUCE_ANDROID
+        constexpr int inset = 12;
+#else
+        constexpr int inset = 20;
+#endif
+        const int width = juce::jmax(1, getWidth() - inset * 2);
         int y = 14;
         for (auto& row : rows) {
             if (!row.component) continue;
@@ -33,7 +41,7 @@ public:
                 juce::TextLayout layout; layout.createLayout(attributed, float(width - 8));
                 height = juce::jmax(32, int(std::ceil((layout.getNumLines() + 1) * font.getHeight())) + 8);
             } else if (height == 0) height = row.component->getHeight();
-            row.component->setBounds(20, y, width, height);
+            row.component->setBounds(inset, y, width, height);
             y += row.component->getHeight() + 8;
         }
         setSize(getWidth(), y + 14);

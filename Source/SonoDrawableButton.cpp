@@ -3,6 +3,7 @@
 
 
 #include "SonoDrawableButton.h"
+#include "SonoCraftTheme.h"
 
 SonoDrawableButton::SonoDrawableButton (const String& buttonName, ButtonStyle buttonStyle)
 : DrawableButton(buttonName, buttonStyle)
@@ -20,8 +21,32 @@ void SonoDrawableButton::setBackgroundImage(const Drawable * img)
 }
 
 
+void SonoDrawableButton::configureAsCloseControl()
+{
+    closeControl = true;
+    DrawablePath cross;
+    Path path;
+    path.startNewSubPath(0, 0); path.lineTo(16, 16);
+    path.startNewSubPath(16, 0); path.lineTo(0, 16);
+    cross.setPath(path);
+    // Open diagonals are strokes only; filling them produces wedges on Android.
+    cross.setFill(Colours::transparentBlack);
+    cross.setStrokeFill(SonoCraftTheme::text());
+    cross.setStrokeType(PathStrokeType(2, PathStrokeType::curved, PathStrokeType::rounded));
+    setImages(&cross);
+    setTitle(TRANS("Close")); setTooltip(TRANS("Close"));
+    setColour(DrawableButton::backgroundColourId, Colours::transparentBlack);
+}
+
 void SonoDrawableButton::paint (Graphics& g)
 {
+    if (closeControl) {
+        if (isDown() || isMouseOver() || hasKeyboardFocus(false)) {
+            g.setColour(SonoCraftTheme::selection());
+            g.fillRoundedRectangle(getLocalBounds().toFloat().reduced(4), 8);
+        }
+        return; // The vector cross is the DrawableButton child.
+    }
     if (bgImage) {     
         bgImage->drawWithin(g, getLocalBounds().toFloat(), rectPlacement, 1.0);
     }
@@ -37,6 +62,7 @@ void SonoDrawableButton::resized()
 
 Rectangle<float> SonoDrawableButton::getImageBounds() const
 {
+    if (closeControl) return getLocalBounds().toFloat().withSizeKeepingCentre(18, 18);
     Rectangle<int> r (getLocalBounds());
     
     if (getStyle() != ImageStretched)

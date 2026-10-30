@@ -2,7 +2,7 @@
 // Copyright (C) 2020 Jesse Chappell
 
 
-package com.sonosaurus.sonobus;
+package net.sonocraft.audio;
 
 import android.app.Activity;
 import android.content.Context;
@@ -39,18 +39,12 @@ import java.lang.ref.WeakReference;
 public class SonoBusActivity   extends Activity
 {
     //==============================================================================
-    private native void appNewIntent (Intent intent);
-    private native void appOnResume();
 
-    private final static String TAG = "SonoBus";
+    private final static String TAG = "SonoCraft";
  
     SonoBusService sbService = null;
 
     //==============================================================================
-    private native void constructNativeClass();
-    private native void destroyNativeClass();
-
-    private long cppCounterpartInstance;
 
     private boolean inForeground = true;
 
@@ -59,13 +53,13 @@ public class SonoBusActivity   extends Activity
     {
         super.onCreate (savedInstanceState);
 
-        // call the native C++ class constructor
-        constructNativeClass();
+        // JuceApp initialises JUCE and owns the native application lifecycle.
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Window window = getWindow();
             window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
             window.setNavigationBarColor(Color.BLACK);
+            window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         }
     }
 
@@ -76,8 +70,6 @@ public class SonoBusActivity   extends Activity
     {
         if (BuildConfig.DEBUG) Log.d(TAG, "onDestroy");
 
-        // call the native C++ class destructor
-        destroyNativeClass();
 
         super.onDestroy();
 
@@ -94,6 +86,8 @@ public class SonoBusActivity   extends Activity
        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
                SonoBusService.MyBinder myBinder = (SonoBusService.MyBinder) iBinder;
                sbService = myBinder.getService();
+               // Promote while the activity is visible, before background restrictions apply.
+               sbService.makeForegroundActive(true);
                if (BuildConfig.DEBUG) Log.v(TAG, "Got SonoBusService Connection");
                // now you have the instance of service.
         }
@@ -136,11 +130,17 @@ public class SonoBusActivity   extends Activity
 
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (sbService != null) sbService.makeForegroundActive(true);
+    }
+
+    @Override
     protected void onNewIntent (Intent intent)
     {
         super.onNewIntent(intent);
         setIntent(intent);
 
-        appNewIntent (intent);
+
     }
 }

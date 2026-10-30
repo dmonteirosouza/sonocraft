@@ -57,8 +57,9 @@ public:
         volume.setBounds(box.removeFromTop(32)); hint.setBounds(box);
     }
     juce::String audioDiagnostic() {
-        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 4\n";
+        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 5\n";
         const auto line = [&text](const char* key, const juce::String& value) { text += juce::String(key) + ": " + value + "\n"; };
+        const auto quoted = [](const juce::String& value) { return juce::JSON::toString(juce::var(value), true); };
         const auto flag = [this,&line](const char* key, const juce::String& parameter) {
             line(key, processor.getValueTreeState().getRawParameterValue(parameter)->load()>0.5f ? "on" : "off");
         };
@@ -89,9 +90,13 @@ public:
         for (int i=0;i<sources.size();++i) {
             const auto& s=sources[i];
             text += "source_"+juce::String(i+1)+": type="+(s.tab?"tab":"app")
+                +" name="+quoted(s.name)+" application="+quoted(s.applicationName)
                 +" active="+(s.active?"yes":"no")+" send="+(s.sending?"on":"off")
+                +" capture_requested="+(s.requested?"yes":"no")
+                +" meter_origin="+(s.systemMeter?"application_playback":s.active?"captured_audio":"none")
                 +" muted="+(s.muted?"yes":"no")+" gain="+juce::String(s.gain,2)
-                +" source_level="+juce::String(juce::Decibels::gainToDecibels(s.level,-100.0f),1)+" dBFS\n";
+                +" source_level="+juce::String(juce::Decibels::gainToDecibels(s.level,-100.0f),1)+" dBFS"
+                +" status="+quoted(s.status)+" meter_status="+quoted(s.meterStatus)+"\n";
         }
         line("system_input_suppressed", processor.isSystemInputSuppressed() ? "yes" : "no");
         line("local_capture_active",processor.getSourceMixer().anyActive() ? "yes" : "no");
@@ -112,6 +117,7 @@ public:
         line("connections",juce::String(peers.size()));
         for (int i=0;i<peers.size();++i) {
             text += "connection_"+juce::String(i+1)+": muted="+(peers[i].muted ? "yes" : "no")
+                +" name="+quoted(peers[i].name)
                 +" receiving="+(processor.getRemotePeerRecvActive(i) ? "yes" : "no")
                 +" channels="+juce::String(processor.getRemotePeerRecvChannelCount(i))
                 +" send_enabled="+(processor.getRemotePeerSendAllow(i)?"yes":"no")

@@ -12,6 +12,9 @@ class SonoLookAndFeel   : public LookAndFeel_V4, public foleys::LevelMeter::Look
 public:
     SonoLookAndFeel(bool useUniversalFont=false);
 
+    Button* createDocumentWindowButton(int buttonType) override;
+    void positionDocumentWindowButtons(DocumentWindow&, int, int, int, int, Button*, Button*, Button*, bool) override;
+
     void setLanguageCode(const String & lang, bool useUniversalFont=false);
 
     //void fillWithBackgroundTexture (Graphics&);
