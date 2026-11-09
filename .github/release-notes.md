@@ -1,18 +1,14 @@
-SonoCraft 0.4.0-preview.18 — painéis integrados e visual uniforme
+SonoCraft 0.4.0-preview.19 — correção de áudio recebido em headsets
 
-- Padroniza o fundo branco dos painéis e modais, incluindo Ajustes, Conexões, Conversa, Pads e edição de pads. Janelas internas e painéis laterais compartilham borda fina, cantos arredondados e fundo branco. A moldura permanece visível sem ser encoberta pelo conteúdo; cabeçalhos e controles de fechar seguem as mesmas medidas. A seleção permanece destacada.
-- No desktop, Conversa e Pads ficam integrados à lateral da mesa, sem modal e sem bloquear os canais. Os painéis alternam na mesma área; texto e configurações são preservados ao fechar e reabrir.
-- Ferramentas abre diretamente o painel lateral e lembra a última ferramenta usada. Arquivo, Gravação e Metrônomo ficam em abas internas; efeitos e roteamento estão em Mais controles.
-- Abrir ferramentas não adiciona mais um bloco acima dos canais. Controles verticais, rótulos claros e rolagem interna permitem usar janelas menores sem cortar opções.
-- Fechar um painel apenas oculta seus controles: reprodução, pads, gravação e metrônomo continuam funcionando.
-- Corrige a mensagem de mesa vazia que poderia aparecer atrás dos canais em janelas estreitas.
-- Mantém a correção de medição isolada dos aplicativos no Windows da prévia 15 e a remoção da saída para microfone virtual.
-- No mobile, Conversa e Pads mantêm os painéis adaptados à tela. Esta publicação contém downloads para Windows e macOS, sem novo APK ou instalador iOS.
+- Corrige uma situação em que o participante aparecia conectado e recebia pacotes, mas seus medidores e a saída permaneciam em silêncio. O buffer de conversão agora considera a diferença entre as taxas de áudio dos computadores.
+- Cobre especificamente o envio a 48 kHz para um headset operando a 16 kHz, inclusive quando aplicativos e pads são transmitidos em canais separados. A correção deve ser instalada no computador que recebe o áudio.
+- Preserva o alinhamento dos canais ao circular pelo buffer e inclui testes de sete combinações de taxas, canais mono/estéreo/multicanal e transmissão real por UDP.
+- Mantém os painéis integrados, o mixer de fontes e a remoção da saída para microfone virtual.
 
-**Downloads:** Windows x64 e macOS Universal (Apple Silicon e Intel). Extraia o ZIP antes de executar. Use a mesma prévia nos computadores conectados.
+**Downloads:** Windows x64 e macOS Universal (Apple Silicon e Intel). Extraia o ZIP antes de executar. Feche todas as instâncias antigas e abra apenas uma cópia da nova versão. Um nome com sufixo “2” indica que o nome anterior estava ocupado no servidor; esta prévia não altera essa regra.
 
-**Validação:** publicação condicionada às compilações dos dois sistemas, testes de áudio/UDP, testes de navegação sem modal, preservação de texto e geometria dos painéis em três tamanhos de janela, além da verificação dos ZIPs. No Mac, o pacote é conferido nas duas arquiteturas e recebe assinatura provisória. Testes automatizados não substituem a validação com dispositivos físicos.
+**Validação:** publicação condicionada às compilações, testes de áudio/UDP, testes de painéis e verificação dos pacotes nos dois sistemas. A reprodução do defeito e a correção foram verificadas em teste automatizado; o teste no headset físico do usuário ainda está pendente.
 
-**Compatibilidade:** medição isolada e captura por aplicativo no Windows requerem build 20348 ou posterior (normalmente Windows 11). No Mac, detecção automática requer macOS 14.2+ e captura por aplicativo requer macOS 13+. Captura local de aplicativos/abas não está disponível no mobile.
+**Compatibilidade:** medição isolada e captura por aplicativo no Windows requerem build 20348 ou posterior (normalmente Windows 11). No Mac, detecção automática requer macOS 14.2+ e captura por aplicativo requer macOS 13+. Esta publicação não inclui um novo APK ou instalador iOS.
 
 Prévia experimental, sem assinatura comercial/notarização. O Mac usa assinatura provisória e pode exigir nova autorização de captura após a atualização. Leia COMO-USAR-FONTES.md dentro do pacote.

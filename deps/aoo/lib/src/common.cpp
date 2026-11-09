@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstring>
 
 /*/////////////// version ////////////////////*/
@@ -850,14 +851,14 @@ std::ostream& operator<<(std::ostream& os, const block_queue& b){
 
 void dynamic_resampler::setup(int32_t nfrom, int32_t nto, int32_t srfrom, int32_t srto, int32_t nchannels){
     nchannels_ = nchannels;
-    auto blocksize = std::max<int32_t>(nfrom, nto);
-#if 0
-    // this doesn't work as expected...
-    auto ratio = srfrom > srto ? (double)srfrom / (double)srto : (double)srto / (double)srfrom;
-    buffer_.resize(blocksize * nchannels_ * ratio * AOO_RESAMPLER_SPACE); // extra space for fluctuations
-#else
-    buffer_.resize(blocksize * nchannels_ * AOO_RESAMPLER_SPACE); // extra space for fluctuations
-#endif
+    // The ring stores input-rate frames. A 480-frame callback at 16 kHz
+    // consumes 1440 input frames at 48 kHz; sizing from the raw callback
+    // counts alone leaves only 1200 frames and permanently stalls reading.
+    const auto outputInInputFrames = static_cast<int32_t>(std::ceil(double(nto) * srfrom / srto));
+    const auto blocksize = std::max(nfrom, outputInInputFrames + 1);
+    const auto capacityFrames = static_cast<int32_t>(std::ceil(blocksize * AOO_RESAMPLER_SPACE));
+    // Round frames before multiplying, so every wrap preserves channel alignment.
+    buffer_.resize(capacityFrames * nchannels_);
     clear();
 }
 

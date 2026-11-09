@@ -91,6 +91,7 @@ static juce::String readHttpHeaders(juce::StreamingSocket& socket) {
 }
 
 #include "SourceMixerRegression.h"
+#include "MixedRateRegression.h"
 
 class EmptyPlayHead final : public juce::AudioPlayHead
 {
@@ -135,6 +136,10 @@ int main()
     monitorQueue.reset();
     std::cout << "Starting audio regression" << std::endl;
     juce::ScopedJuceInitialiser_GUI juceRuntime;
+    if (!testResamplerCapacity()) return 1;
+    if (juce::SystemStats::getEnvironmentVariable("SONOCRAFT_TEST_MIXED_RATE_ONLY", "") == "1")
+        return testMixedRateSource() && testMixedRateSource(true) ? 0 : 1;
+    if (!testMixedRateSource() || !testMixedRateSource(true)) return 1;
     if (!testSourceMixer()) return 1;
     // Audio processors contain large DSP buffers. Windows console programs
     // have a smaller default stack than macOS, so mirror the application's
