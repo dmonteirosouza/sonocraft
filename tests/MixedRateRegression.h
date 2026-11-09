@@ -85,7 +85,8 @@ static bool testMixedRateSource(bool equalRate = false)
     tx.getSourceMixer().setSend(source.id, true);
     if (!tx.connectRemotePeer("127.0.0.1", rx.getUdpLocalPort(), "mixed-rate", "", true)) return false;
     juce::MidiBuffer midi;
-    double energy = 0; int audible = 0, measured = 0;
+    double energy = 0, toneEnergy = 0, wrongRateEnergy = 0;
+    int audible = 0, measured = 0;
     auto deadline = juce::Time::getMillisecondCounterHiRes();
     for (int block = 0; block < 900; ++block) {
         float packet[960];
@@ -101,11 +102,27 @@ static bool testMixedRateSource(bool equalRate = false)
                 const float rms = output.getRMSLevel(0, 0, 480);
                 if (!std::isfinite(rms)) return false;
                 energy += rms; ++measured; if (rms > 0.02f) ++audible;
+                const auto amplitude = [&](double frequency) {
+                    double real = 0, imag = 0;
+                    for (int i=0; i<480; ++i) {
+                        const double angle = 2 * 3.141592653589793 * frequency * i / receiverRate;
+                        real += output.getSample(0, i) * std::cos(angle);
+                        imag += output.getSample(0, i) * std::sin(angle);
+                    }
+                    return 2 * std::sqrt(real*real + imag*imag) / 480;
+                };
+                toneEnergy += amplitude(660);
+                wrongRateEnergy += amplitude(220);
             }
         }
         advanceAudioClock(deadline, 480);
     }
-    const bool ok = measured > 0 && energy / measured > 0.04 && audible > measured * 0.8;
+    // This fixture detects a permanently stalled converter and verifies pitch.
+    // Hosted VMs can suspend its simulated callbacks (9 s of audio took 54 s
+    // on CI), so do not confuse their wall-clock gaps with a conversion failure.
+    // The deterministic ring test above exercises every output frame and wrap.
+    const bool ok = measured > 0 && energy / measured > 0.04
+        && toneEnergy / measured > 0.04 && toneEnergy > 3 * wrongRateEnergy;
     float sentPeak = 0;
     for (int ch=0; ch<tx.getSendMeterSource().getNumChannels(); ++ch)
         sentPeak = juce::jmax(sentPeak, tx.getSendMeterSource().getMaxLevel(ch));
@@ -114,6 +131,8 @@ static bool testMixedRateSource(bool equalRate = false)
               << energy / juce::jmax(1, measured) << " audible=" << audible << "/" << measured
               << " channels=" << rx.getRemotePeerRecvChannelCount(0)
               << " packets=" << rx.getRemotePeerPacketsReceived(0)
+              << " tone=" << toneEnergy / juce::jmax(1, measured)
+              << " wrong_rate_tone=" << wrongRateEnergy / juce::jmax(1, measured)
               << " capture=" << tx.getSourceMixer().views()[0].level << " send=" << sentPeak
               << " peer=" << (peers.isEmpty() ? -1 : peers[0].left)
               << " gain=" << (peers.isEmpty() ? -1 : peers[0].gain)
