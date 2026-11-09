@@ -42,7 +42,7 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-set(BUILDVERSION 116)
+set(BUILDVERSION 117)
 set(SONOCRAFT_MOBILE OFF)
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS" OR ANDROID)
     set(SONOCRAFT_MOBILE ON)
@@ -718,6 +718,11 @@ if (SONOCRAFT_BUILD_TESTS)
     add_test(NAME SonoCraftDialogRegression COMMAND SonoCraftDialogRegression)
     set_tests_properties(SonoCraftDialogRegression PROPERTIES TIMEOUT 20)
     add_test(NAME SonoCraftAudioRegression COMMAND SonoCraftAudioRegression)
+    add_test(NAME SonoCraftResamplingRegression COMMAND ${CMAKE_COMMAND} -E env
+        SONOCRAFT_TEST_MIXED_RATE_ONLY=1 $<TARGET_FILE:SonoCraftAudioRegression>)
+    # Keep the extra timed device fixtures independent of the existing suite's
+    # deadline. Hosted macOS callbacks can take much longer than audio time.
+    set_tests_properties(SonoCraftResamplingRegression PROPERTIES TIMEOUT 180)
     # Hosted macOS machines can coalesce device-fixture waits by an order of
     # magnitude. Bound total runtime without shortening any audio assertions.
     set_tests_properties(SonoCraftAudioRegression PROPERTIES TIMEOUT 240)

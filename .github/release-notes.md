@@ -1,4 +1,4 @@
-SonoCraft 0.4.0-preview.20 — correção de áudio recebido em headsets
+SonoCraft 0.4.0-preview.21 — correção de áudio recebido em headsets
 
 - Corrige uma situação em que o participante aparecia conectado e recebia pacotes, mas seus medidores e a saída permaneciam em silêncio. O buffer de conversão agora considera a diferença entre as taxas de áudio dos computadores.
 - Cobre especificamente o envio a 48 kHz para um headset operando a 16 kHz, inclusive quando aplicativos e pads são transmitidos em canais separados. A correção deve ser instalada no computador que recebe o áudio.

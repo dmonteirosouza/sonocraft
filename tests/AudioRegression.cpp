@@ -139,7 +139,6 @@ int main()
     if (!testResamplerCapacity()) return 1;
     if (juce::SystemStats::getEnvironmentVariable("SONOCRAFT_TEST_MIXED_RATE_ONLY", "") == "1")
         return testMixedRateSource() && testMixedRateSource(true) ? 0 : 1;
-    if (!testMixedRateSource() || !testMixedRateSource(true)) return 1;
     if (!testSourceMixer()) return 1;
     // Audio processors contain large DSP buffers. Windows console programs
     // have a smaller default stack than macOS, so mirror the application's

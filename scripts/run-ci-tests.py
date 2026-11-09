@@ -17,7 +17,9 @@ except subprocess.TimeoutExpired:
             if pathlib.Path(name).name == 'SonoCraftAudioRegression':
                 subprocess.run(['sample', child, '3', '-file', str(out / 'audio-regression-stack.txt')], timeout=15, check=False)
     try:
-        result = process.wait(timeout=180)
+        # CTest has separate bounds for dialog (20 s), audio (240 s), and
+        # resampling (180 s). Allow their sequential run and diagnostic sampling.
+        result = process.wait(timeout=390)
     except subprocess.TimeoutExpired:
         process.terminate()
         process.wait(timeout=10)
