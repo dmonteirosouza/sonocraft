@@ -1,6 +1,7 @@
 // UI-only descriptions. They never enable a capture or change audio routing.
 #pragma once
 #include "SonoCraftSourceMixer.h"
+#include "SonoCraftAudioHealth.h"
 
 namespace SonoCraftPresentation {
 enum class Tone { neutral, active, attention };
@@ -9,7 +10,7 @@ struct Source {
     Tone tone = Tone::neutral;
 };
 inline Source describeSource(const SonoCraftSourceMixer::View& s, bool hasRecipients, bool sendPaused,
-                             const juce::String& error = {}) {
+                             const juce::String& error = {}, SonoCraftAudioHealth health = SonoCraftAudioHealth::unmonitored) {
     Source result;
     result.listening = juce::String::fromUTF8(s.tab ? "Escuta: no navegador" : "Escuta: no aplicativo");
     result.sending = "Envio: desligado";
@@ -23,6 +24,10 @@ inline Source describeSource(const SonoCraftSourceMixer::View& s, bool hasRecipi
         result.state = s.muted ? "Envio silenciado" : "Volume zerado"; result.tone = Tone::attention;
         result.detail = juce::String::fromUTF8("O som original continua no aplicativo. Os conectados não recebem áudio deste canal.");
         result.sending = "Envio: silenciado";
+    } else if (s.sending && !sonoCraftAudioReady(health)) {
+        result.state = sonoCraftAudioHealthText(health); result.tone = Tone::attention;
+        result.sending = juce::String::fromUTF8("Envio: aguardando áudio");
+        result.detail = juce::String::fromUTF8("O motor de áudio não está processando. A seleção de envio foi mantida; confira o aviso acima da mesa.");
     } else if (s.active) {
         result.state = "Capturando";
         result.detail = juce::String::fromUTF8("Captura ativa. A escuta original continua no aplicativo; o SonoCraft não a reproduz novamente.");
@@ -33,6 +38,9 @@ inline Source describeSource(const SonoCraftSourceMixer::View& s, bool hasRecipi
             } else if (!hasRecipients) {
                 result.sending = juce::String::fromUTF8("Envio: sem conexão");
                 result.detail = juce::String::fromUTF8("Canal pronto para enviar. Conecte um participante com recepção habilitada.");
+            } else if (s.level <= 0.0001f) {
+                result.state = "Sem som agora"; result.sending = "Envio: aguardando som";
+                result.detail = juce::String::fromUTF8("Conectado e pronto para enviar. A captura deste canal está sem sinal de áudio.");
             } else {
                 result.state = "Enviando"; result.sending = "Envio: aos conectados"; result.tone = Tone::active;
                 result.detail = juce::String::fromUTF8("Captura e envio ativos. O volume deste canal ajusta apenas o áudio enviado.");

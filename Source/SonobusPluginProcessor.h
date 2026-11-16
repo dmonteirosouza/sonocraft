@@ -7,6 +7,7 @@
 #include "SonoCraftPadMonitor.h"
 #include "SonoCraftAudioRouting.h"
 #include "SonoCraftSourceMixer.h"
+#include "SonoCraftAudioHealth.h"
 
 #include "JuceHeader.h"
 
@@ -843,6 +844,13 @@ public:
     String getStandaloneInputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneInput; }
     String getStandaloneOutputName() const { const ScopedLock lock(standaloneDevicesLock); return standaloneOutput; }
     bool isStandaloneOutputBlocked() const { return standaloneOutputBlocked.load(); }
+    SonoCraftAudioHealth getAudioHealth() const { return audioHealth.load(); }
+    void setAudioHealth(SonoCraftAudioHealth state, unsigned attempts, const String& error) {
+        const ScopedLock lock(standaloneDevicesLock);
+        audioRecoveryAttempts = attempts; audioRecoveryError = error; audioHealth.store(state);
+    }
+    unsigned getAudioRecoveryAttempts() const { const ScopedLock lock(standaloneDevicesLock); return audioRecoveryAttempts; }
+    String getAudioRecoveryError() const { const ScopedLock lock(standaloneDevicesLock); return audioRecoveryError; }
     String startListeningOutput(const SonoCraftPadMonitor::Device& selected) {
         if (selected.name.equalsIgnoreCase(getStandaloneOutputName()))
             return String::fromUTF8("Os sons já saem nesse dispositivo pela saída principal. Neste computador que envia sons, não é preciso ligar uma segunda escuta no mesmo fone.");
@@ -996,6 +1004,9 @@ private:
     AudioSampleBuffer inputBuffer;
     mutable CriticalSection standaloneDevicesLock;
     String standaloneInput, standaloneOutput;
+    std::atomic<SonoCraftAudioHealth> audioHealth { SonoCraftAudioHealth::unmonitored };
+    unsigned audioRecoveryAttempts = 0;
+    String audioRecoveryError;
     std::atomic<bool> standaloneOutputBlocked { false }, standaloneInputIsVirtual { false };
     std::atomic<bool> mNeedsUserLayout { false };
     SonoCraftSourceMixer sourceMixer;

@@ -1,13 +1,14 @@
-SonoCraft 0.4.0-preview.21 — correção de áudio recebido em headsets
+SonoCraft 0.4.0-preview.22 — recuperação automática do áudio
 
-- Corrige uma situação em que o participante aparecia conectado e recebia pacotes, mas seus medidores e a saída permaneciam em silêncio. O buffer de conversão agora considera a diferença entre as taxas de áudio dos computadores.
-- Cobre especificamente o envio a 48 kHz para um headset operando a 16 kHz, inclusive quando aplicativos e pads são transmitidos em canais separados. A correção deve ser instalada no computador que recebe o áudio.
-- Preserva o alinhamento dos canais ao circular pelo buffer e inclui testes de sete combinações de taxas, canais mono/estéreo/multicanal e transmissão real por UDP, verificando também que a frequência do som é preservada.
-- Mantém os painéis integrados, o mixer de fontes e a remoção da saída para microfone virtual.
+- Corrige o status “Enviando” quando o motor de áudio está parado. A mesa passa a distinguir áudio interrompido, recuperação em andamento, dispositivo indisponível e captura sem sinal.
+- No aplicativo desktop, detecta quando o dispositivo para ou deixa de processar áudio e tenta reabrir o mesmo dispositivo automaticamente. Mantém a sessão, as fontes e os controles de volume e envio.
+- Aguarda antes de tentar novamente em caso de falha, respeita a seleção “Nenhum” e não escolhe outro dispositivo como substituto durante a recuperação. Silêncio normal não provoca reinícios.
+- Amplia o diagnóstico de áudio com o estado do motor, o número de tentativas de recuperação e o erro do dispositivo.
+- Preserva a correção de áudio entre taxas diferentes, os painéis integrados, o mixer de fontes e a remoção da saída para microfone virtual.
 
-**Downloads:** Windows x64 e macOS Universal (Apple Silicon e Intel). Extraia o ZIP antes de executar. Feche todas as instâncias antigas e abra apenas uma cópia da nova versão. Um nome com sufixo “2” indica que o nome anterior estava ocupado no servidor; esta prévia não altera essa regra.
+**Downloads:** Windows x64 e macOS Universal (Apple Silicon e Intel). Extraia o ZIP antes de executar. Feche todas as instâncias antigas e abra apenas uma cópia da nova versão.
 
-**Validação:** publicação condicionada às compilações, testes de áudio/UDP, testes de painéis e verificação dos pacotes nos dois sistemas. A reprodução do defeito e a correção foram verificadas em teste automatizado; o teste no headset físico do usuário ainda está pendente.
+**Validação:** publicação condicionada às compilações, testes de recuperação simulada do dispositivo, áudio/UDP, conversão de taxas, painéis e verificação dos pacotes nos dois sistemas. A recuperação foi testada com dispositivo simulado; a recorrência da falha física ainda depende de acompanhamento no uso.
 
 **Compatibilidade:** medição isolada e captura por aplicativo no Windows requerem build 20348 ou posterior (normalmente Windows 11). No Mac, detecção automática requer macOS 14.2+ e captura por aplicativo requer macOS 13+. Esta publicação não inclui um novo APK ou instalador iOS.
 

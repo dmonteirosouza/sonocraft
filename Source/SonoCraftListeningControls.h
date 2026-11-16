@@ -57,7 +57,7 @@ public:
         volume.setBounds(box.removeFromTop(32)); hint.setBounds(box);
     }
     juce::String audioDiagnostic() {
-        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 5\n";
+        juce::String text = "SonoCraft " JucePlugin_VersionString " / audio diagnostic 6\n";
         const auto line = [&text](const char* key, const juce::String& value) { text += juce::String(key) + ": " + value + "\n"; };
         const auto quoted = [](const juce::String& value) { return juce::JSON::toString(juce::var(value), true); };
         const auto flag = [this,&line](const char* key, const juce::String& parameter) {
@@ -78,6 +78,9 @@ public:
             } else line("device_playing","no device");
         }
         line("engine_input",processor.getStandaloneInputName());
+        line("audio_engine_status",sonoCraftAudioHealthText(processor.getAudioHealth()));
+        line("audio_recovery_attempts",juce::String(processor.getAudioRecoveryAttempts()));
+        line("audio_recovery_error",processor.getAudioRecoveryError());
         line("engine_output",processor.getStandaloneOutputName());
         line("virtual_output_protection",processor.isStandaloneOutputBlocked() ? "blocked" : "clear");
         flag("input_muted",SonobusAudioProcessor::paramMainInMute);

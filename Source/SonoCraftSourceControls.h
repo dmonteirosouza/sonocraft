@@ -131,7 +131,7 @@ public:
         subtitle.setText(s.tab ? "ABA DO NAVEGADOR" : "APLICATIVO", juce::dontSendNotification);
         requested=s.requested;permissionRequired=s.permissionRequired;details.setButtonText(permissionRequired?"Autorizar captura":requested?"Parar captura":"Iniciar captura");
         details.setEnabled(!s.blockedByTabs);secondary.setEnabled(!s.blockedByTabs);
-        const auto presentation = SonoCraftPresentation::describeSource(s, hasRecipients, sendPaused, actionError);
+        const auto presentation = SonoCraftPresentation::describeSource(s, hasRecipients, sendPaused, actionError, processor.getAudioHealth());
         setStatus(presentation.state, presentation.detail, presentation.tone);
         setRoutes(presentation.listening, presentation.sending, presentation.detail);
         syncGain(s.gain);

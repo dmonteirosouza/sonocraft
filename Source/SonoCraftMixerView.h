@@ -126,6 +126,13 @@ public:
             setRoutes(juce::String::fromUTF8(outputAvailable ? "Escuta: saída principal" : "Escuta: sem dispositivo"), "Uso: escuta local",
                 juce::String::fromUTF8("Dispositivo: ") + processor.getStandaloneOutputName() + juce::String::fromUTF8(". A saída adicional tem controle independente em Ajustes."));
         }
+        const auto health = processor.getAudioHealth();
+        if (!sonoCraftAudioReady(health)) {
+            setStatus(sonoCraftAudioHealthText(health), juce::String::fromUTF8("Confira o aviso de áudio acima da mesa."), SonoCraftPresentation::Tone::attention);
+            updateMeter(0, 0);
+            setRoutes(juce::String::fromUTF8("Escuta: aguardando áudio"),
+                      role == input ? juce::String::fromUTF8("Envio: aguardando áudio") : juce::String("Uso: escuta local"));
+        }
     }
     void setSelected(bool yes) { if (selected != yes) { selected = yes; repaint(); } }
     const juce::String& connectionId() const { return id; }
@@ -650,6 +657,18 @@ private:
         sourceRouting.setText(juce::String::fromUTF8("Entrada, pads e participantes: ajuste cada volume na mesa."),juce::dontSendNotification);
         sourceRouting.setTooltip(juce::String::fromUTF8("Aplicativos e abas compartilhados por outro dispositivo são recebidos no canal desse participante."));
 #endif
+        const auto health = processor.getAudioHealth();
+        if (!sonoCraftAudioReady(health)) {
+            auto message = sonoCraftAudioHealthText(health) + ". ";
+            if (health == SonoCraftAudioHealth::disabled)
+                message += juce::String::fromUTF8("Selecione uma entrada ou saída em Ajustes > Áudio para processar e enviar som.");
+            else if (health == SonoCraftAudioHealth::unavailable)
+                message += juce::String::fromUTF8("Reconecte o dispositivo ou escolha outro em Ajustes > Áudio.");
+            else
+                message += juce::String::fromUTF8("O SonoCraft tenta retomar o dispositivo automaticamente. Suas conexões e controles foram mantidos.");
+            sourceRouting.setText(message, juce::dontSendNotification);
+            sourceRouting.setTooltip(message + " " + processor.getAudioRecoveryError());
+        }
         if (sourcesChanged) resized();
         bool changed = states.size() != strips.size();
         if (!changed) for (int i = 0; i < states.size(); ++i) changed |= states[i].id != strips[i]->connectionId();

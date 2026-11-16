@@ -36,6 +36,7 @@
 
 // HACK
 #include "SonobusPluginEditor.h"
+#include "SonoCraftAudioRecovery.h"
 
 #include <limits>
 #include <algorithm>
@@ -133,8 +134,10 @@ public:
         reloadPluginState();
         startPlaying();
 
-       if (autoOpenMidiDevices)
-           startTimer (500);
+       #if JUCE_IOS || JUCE_ANDROID
+        if (autoOpenMidiDevices)
+       #endif
+            startTimer (500);
     }
 
     virtual ~StandalonePluginHolder()
@@ -268,8 +271,11 @@ public:
     //==============================================================================
     void startPlaying()
     {
-
-        
+        playbackRequested = true;
+#if !(JUCE_IOS || JUCE_ANDROID)
+        if (auto* sono = dynamic_cast<SonobusAudioProcessor*>(processor.get()))
+            sono->setAudioHealth(SonoCraftAudioHealth::starting, audioRecovery.attempts(), {});
+#endif
         player.setProcessor (processor.get());
 
       #if JucePlugin_Enable_IAA && JUCE_IOS
@@ -283,6 +289,7 @@ public:
 
     void stopPlaying()
     {
+        playbackRequested = false;
         player.setProcessor (nullptr);
     }
 
@@ -565,6 +572,8 @@ public:
     StringArray lastMidiDevices;
 
 private:
+    SonoCraftAudioRecovery audioRecovery { deviceManager };
+    bool playbackRequested = false;
     
     /*  This class can be used to ensure that audio callbacks use buffers with a
         predictable maximum size.
@@ -742,6 +751,9 @@ private:
 
         player.audioDeviceIOCallbackWithContext (inputChannelData, numInputChannels,
                                       outputChannelData, numOutputChannels, numSamples, context);
+#if !(JUCE_IOS || JUCE_ANDROID)
+        audioRecovery.audioCallbackCompleted();
+#endif
     }
 
     void audioDeviceAboutToStart (AudioIODevice* device) override
@@ -798,6 +810,12 @@ private:
 
     void timerCallback() override
     {
+#if !(JUCE_IOS || JUCE_ANDROID)
+        audioRecovery.poll(playbackRequested, Time::getMillisecondCounterHiRes());
+        if (auto* sono = dynamic_cast<SonobusAudioProcessor*>(processor.get()))
+            sono->setAudioHealth(audioRecovery.state(), audioRecovery.attempts(), audioRecovery.error());
+#endif
+        if (!autoOpenMidiDevices) return;
         auto newMidiDevices = MidiInput::getDevices();
 
         if (newMidiDevices != lastMidiDevices)

@@ -92,6 +92,7 @@ static juce::String readHttpHeaders(juce::StreamingSocket& socket) {
 
 #include "SourceMixerRegression.h"
 #include "MixedRateRegression.h"
+#include "AudioRecoveryRegression.h"
 
 class EmptyPlayHead final : public juce::AudioPlayHead
 {
@@ -136,6 +137,8 @@ int main()
     monitorQueue.reset();
     std::cout << "Starting audio regression" << std::endl;
     juce::ScopedJuceInitialiser_GUI juceRuntime;
+    if (!testAudioRecovery()) return 1;
+    if (juce::SystemStats::getEnvironmentVariable("SONOCRAFT_TEST_RECOVERY_ONLY", "") == "1") return 0;
     if (!testResamplerCapacity()) return 1;
     if (juce::SystemStats::getEnvironmentVariable("SONOCRAFT_TEST_MIXED_RATE_ONLY", "") == "1")
         return testMixedRateSource() && testMixedRateSource(true) ? 0 : 1;
